@@ -249,54 +249,65 @@ export default function VersusBattleScreen() {
         </View>
 
         <View style={styles.topRight}>
+          <View style={styles.pauseBtnPlaceholder} />
           <Text style={styles.enemyHpText}>{renderHearts(p2HP, p2MaxHearts)}</Text>
         </View>
       </View>
 
       <View style={styles.arena}>
-        <View style={{ alignItems: 'center' }}>
+        {/* Player 1 - left side */}
+        <View style={styles.playerColumn}>
           <Sprite action={p1SpriteAction as any} />
           <Text style={styles.playerName}>{p1Name}</Text>
+          {p1Shield && <Text style={styles.statusBadge}>🛡️ SHIELDED</Text>}
+          {p1Double && <Text style={styles.statusBadge}>🔥 2X DMG</Text>}
           {!!p1GearStat && (
             <View style={styles.gearIndicator}>
               <Text style={styles.gearIndicatorText}>{p1GearIcon} {p1GearStat}</Text>
             </View>
           )}
-          {p1Shield && <Text style={styles.statusBadge}>🛡️ SHIELDED</Text>}
-          {p1Double && <Text style={styles.statusBadge}>🔥 2X DMG</Text>}
+          <TouchableOpacity
+            style={[
+              styles.skillBadge,
+              p1SkillCooldown > 0 && styles.skillBadgeUsed,
+              turn === 1 && p1SkillCooldown === 0 && styles.skillBadgeActive,
+            ]}
+            activeOpacity={0.8}
+            disabled={turn !== 1 || p1SkillCooldown > 0 || p1SkillName === 'Basic Attack'}
+            onPress={turn === 1 ? activateSkill : undefined}
+          >
+            <Text style={[styles.skillBadgeText, p1SkillCooldown > 0 && styles.skillBadgeTextUsed, turn === 1 && p1SkillCooldown === 0 && styles.skillBadgeTextActive]}>
+              {p1SkillIcon} {p1SkillName}{p1SkillCooldown > 0 ? ` (CD:${p1SkillCooldown})` : ''}
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={{ alignItems: 'center' }}>
+        {/* Player 2 - right side */}
+        <View style={styles.playerColumnRight}>
           <Sprite action={p2SpriteAction as any} isEnemy />
           <Text style={styles.playerName}>{p2Name}</Text>
+          {p2Shield && <Text style={styles.statusBadge}>🛡️ SHIELDED</Text>}
+          {p2Double && <Text style={styles.statusBadge}>🔥 2X DMG</Text>}
           {!!p2GearStat && (
             <View style={styles.gearIndicator}>
               <Text style={styles.gearIndicatorText}>{p2GearIcon} {p2GearStat}</Text>
             </View>
           )}
-          {p2Shield && <Text style={styles.statusBadge}>🛡️ SHIELDED</Text>}
-          {p2Double && <Text style={styles.statusBadge}>🔥 2X DMG</Text>}
-        </View>
-
-        <TouchableOpacity
-          style={styles.skillBadgeContainer}
-          activeOpacity={0.8}
-          disabled={activeSkillCooldown > 0 || activeSkillName === 'Basic Attack'}
-          onPress={activateSkill}
-        >
-          <View style={styles.skillBadgeShadow} />
-          <View style={[styles.skillBadge, activeSkillCooldown > 0 && styles.skillBadgeUsed]}>
-            <Text style={[styles.skillBadgeText, activeSkillCooldown > 0 && styles.skillBadgeTextUsed]}>
-              {activeSkillIcon} {activeSkillName} {activeSkillCooldown > 0 ? `(CD: ${activeSkillCooldown})` : ''}
+          <TouchableOpacity
+            style={[
+              styles.skillBadge,
+              p2SkillCooldown > 0 && styles.skillBadgeUsed,
+              turn === 2 && p2SkillCooldown === 0 && styles.skillBadgeActive,
+            ]}
+            activeOpacity={0.8}
+            disabled={turn !== 2 || p2SkillCooldown > 0 || p2SkillName === 'Basic Attack'}
+            onPress={turn === 2 ? activateSkill : undefined}
+          >
+            <Text style={[styles.skillBadgeText, p2SkillCooldown > 0 && styles.skillBadgeTextUsed, turn === 2 && p2SkillCooldown === 0 && styles.skillBadgeTextActive]}>
+              {p2SkillIcon} {p2SkillName}{p2SkillCooldown > 0 ? ` (CD:${p2SkillCooldown})` : ''}
             </Text>
-          </View>
-        </TouchableOpacity>
-
-        {!!activeGearStat && (
-          <View style={styles.activeGearPill}>
-            <Text style={styles.activeGearPillText}>{activeGearIcon} {activeGearStat}</Text>
-          </View>
-        )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {currentQ && (
@@ -408,11 +419,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20,
     backgroundColor: '#fff9f0', zIndex: 10,
   },
-  topLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  topLeft: { flexDirection: 'column', alignItems: 'flex-start', gap: 6 },
   topRight: {
-    backgroundColor: '#fff',
-    borderWidth: 3, borderColor: '#1a1008',
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
+    flexDirection: 'column', alignItems: 'flex-end', gap: 6,
+  },
+  pauseBtnPlaceholder: {
+    width: 40, height: 40,
   },
   pauseBtn: {
     backgroundColor: '#fff', borderWidth: 3, borderColor: '#1a1008',
@@ -420,14 +432,16 @@ const styles = StyleSheet.create({
   },
   pauseIcon: { fontSize: 18, fontWeight: '900', color: '#1a1008', transform: [{ rotate: '90deg' }] },
   hpHearts: { fontSize: 20 },
-  enemyHpText: { fontSize: 18, fontWeight: '900', color: '#f5a623' },
+  enemyHpText: { fontSize: 20 },
   timer: { fontSize: 32, fontWeight: '900', color: '#1a1008' },
   timerDanger: { color: '#e8302a' },
   turnText: { fontSize: 12, fontWeight: '900', color: '#1a1008', marginTop: 2 },
   roundText: { fontSize: 11, fontWeight: '800', color: '#7a6a55', marginTop: 2 },
 
-  arena: { flex: 1, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', position: 'relative' },
-  playerName: { marginTop: -5, fontWeight: '900', color: '#1a1008', fontSize: 14 },
+  arena: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 16, paddingTop: 10 },
+  playerColumn: { alignItems: 'flex-start', flex: 1 },
+  playerColumnRight: { alignItems: 'flex-end', flex: 1 },
+  playerName: { marginTop: 4, fontWeight: '900', color: '#1a1008', fontSize: 14, marginBottom: 4, alignSelf: 'center' },
   statusBadge: {
     marginTop: 6,
     backgroundColor: '#fff',
@@ -450,27 +464,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  gearIndicatorText: { fontSize: 12, fontWeight: '900', color: '#1a1008' },
+  gearIndicatorText: { fontSize: 11, fontWeight: '900', color: '#1a1008' },
 
-  skillBadgeContainer: { position: 'absolute', bottom: 20, left: 20 },
-  skillBadgeShadow: { position: 'absolute', top: 4, left: 4, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 8 },
-  skillBadge: { backgroundColor: '#fef3c7', borderWidth: 3, borderColor: '#1a1008', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
-  skillBadgeUsed: { backgroundColor: '#e5d9c4' },
-  skillBadgeText: { fontSize: 14, fontWeight: '900', color: '#1a1008', textTransform: 'uppercase' },
+  skillBadge: { marginTop: 6, backgroundColor: '#e5d9c4', borderWidth: 2, borderColor: '#1a1008', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  skillBadgeActive: { backgroundColor: '#fef3c7', borderWidth: 3, borderColor: '#f5a623', paddingHorizontal: 16, paddingVertical: 10 },
+  skillBadgeUsed: { backgroundColor: '#d0c8ba' },
+  skillBadgeText: { fontSize: 11, fontWeight: '900', color: '#1a1008', textTransform: 'uppercase' },
+  skillBadgeTextActive: { fontSize: 13 },
   skillBadgeTextUsed: { color: '#7a6a55' },
-
-  activeGearPill: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    backgroundColor: '#e5d9c4',
-    borderWidth: 2,
-    borderColor: '#1a1008',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  activeGearPillText: { fontSize: 11, fontWeight: '900', color: '#1a1008' },
 
   questionPanel: {
     backgroundColor: '#fff', borderTopWidth: 4, borderColor: '#1a1008',

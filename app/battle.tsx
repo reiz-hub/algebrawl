@@ -6,12 +6,32 @@ import { useGameStore } from '../hooks/useGameStore';
 import { generateQuestion, Question } from '../scripts/mathGenerator';
 
 export default function BattleScreen() {
-  const { level, questions, skillName, skillIcon, gearName, gearIcon, gearStat } = useLocalSearchParams();
+  const { level, questions, timePerQuestion: timeParam, skillName, skillIcon, gearName, gearIcon, gearStat } = useLocalSearchParams();
   const router = useRouter();
   const { completeLevel, updateStats } = useGameStore();
   
   const totalQuestions = Number(questions) || 10;
   const currentLevel = Number(level) || 1;
+
+  const LEVEL_TITLES: Record<number, string> = {
+    1: 'Variable Basics',
+    2: 'Equations & Inequalities',
+    3: 'Polynomials',
+    4: 'Factoring',
+    5: 'Systems of Equations',
+    6: 'Exponents & Roots',
+    7: 'Random Mode',
+  };
+  const LEVEL_TIMES: Record<number, number> = {
+    1: 15,
+    2: 18,
+    3: 19,
+    4: 20,
+    5: 21,
+    6: 22,
+    7: 23,
+  };
+  const levelTitle = LEVEL_TITLES[currentLevel] ?? `Level ${currentLevel}`;
   
   // Skill & Gear data from pre-battle
   const activeSkillName = skillName ? String(skillName) : "Basic Attack";
@@ -25,7 +45,11 @@ export default function BattleScreen() {
   const xpMultiplier = activeGearStat === '2x XP Boost' ? 2 : 1;
 
   const maxHearts = 3 + bonusHearts;
-  const initialTime = 15 + bonusTime;
+  let baseTime = Number(timeParam) || LEVEL_TIMES[currentLevel] || 15;
+  if (currentLevel === 7) {
+    baseTime = 20 + Math.floor(Math.random() * 8); // 20-27s random for lv7
+  }
+  const initialTime = baseTime + bonusTime;
 
   // Core Game State (Applied Bonuses)
   const [playerHP, setPlayerHP] = useState(maxHearts);
@@ -114,10 +138,7 @@ export default function BattleScreen() {
     setHasDoubleStrike(false); 
     
     if (newEnemyHP <= 0) {
-      // Cap earned stars to max 3 even if they have 4 or 5 hearts
-      const earnedStars = Math.min(3, playerHP); 
-      
-      completeLevel(currentLevel, earnedStars);
+      completeLevel(currentLevel, totalQuestions);
       
       // Apply XP multiplier from Gear
       updateStats(50 * xpMultiplier, true); 
@@ -174,18 +195,25 @@ export default function BattleScreen() {
       
       {/* 1. TOP BAR */}
       <View style={styles.topBar}>
-        <View style={styles.topLeft}>
-          <TouchableOpacity style={styles.pauseBtn} onPress={() => setIsPaused(true)}>
-            <Text style={styles.pauseIcon}>||</Text>
-          </TouchableOpacity>
-          <Text style={styles.hpHearts}>{renderHearts()}</Text>
+        {/* LEFT: Level name */}
+        <Text style={styles.levelTitle} numberOfLines={1} adjustsFontSizeToFit>
+          Level {currentLevel}: {levelTitle.toUpperCase()}
+        </Text>
+
+        {/* RIGHT: Pause button */}
+        <TouchableOpacity style={styles.pauseBtn} onPress={() => setIsPaused(true)}>
+          <Text style={styles.pauseIcon}>||</Text>
+          <Text style={styles.pauseLabel}>PAUSE</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 1b. TIMER + Q COUNTER BAR */}
+      <View style={styles.subBar}>
+        <Text style={[styles.hpHearts, { alignSelf: 'flex-end' }]}>{renderHearts()}</Text>
+        <View style={styles.timerBlock}>
+          <Text style={[styles.timer, timer <= 5 && styles.timerDanger]}>{timer}s</Text>
         </View>
-        
-        <Text style={[styles.timer, timer <= 5 && styles.timerDanger]}>{timer}s</Text>
-        
-        <View style={styles.topRight}>
-          <Text style={styles.enemyHpText}>⭐ x {enemyHP}</Text>
-        </View>
+        <Text style={styles.questionCounter}>Q:{totalQuestions - enemyHP + 1}/{totalQuestions}</Text>
       </View>
 
       {/* 2. ARENA AREA */}
@@ -230,6 +258,9 @@ export default function BattleScreen() {
       {/* 3. QUESTION PANEL */}
       {currentQ && (
         <View style={styles.questionPanel}>
+          {currentQ.hint ? (
+            <Text style={styles.hintText}>{currentQ.hint}</Text>
+          ) : null}
           <Text style={styles.equation}>{currentQ.equation}</Text>
           
           <View style={styles.optionsContainer}>
@@ -289,7 +320,7 @@ export default function BattleScreen() {
               <Text style={styles.victoryTitle}>VICTORY!</Text>
               <View style={styles.starsContainer}>
                  <Text style={styles.victoryStars}>
-                   {'⭐'.repeat(Math.min(3, playerHP))}{'☆'.repeat(Math.max(0, 3 - Math.min(3, playerHP)))}
+                   Q:{totalQuestions}/{totalQuestions}
                  </Text>
               </View>
               <Text style={styles.victorySubtitle}>Level {currentLevel} Cleared!</Text>
@@ -338,21 +369,64 @@ export default function BattleScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff9f0' },
   
-  topBar: { 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
-    paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20,
-    backgroundColor: '#fff9f0', zIndex: 10
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 56,
+    paddingBottom: 12,
+    backgroundColor: '#1a1008',
   },
-  topLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  levelTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#ffffff',
+    textTransform: 'uppercase',
+    fontStyle: 'italic',
+    letterSpacing: 1,
+    marginRight: 10,
+    textShadowColor: '#000',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 0,
+  },
+  questionCounter: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1a1008',
+    fontStyle: 'italic',
+  },
   pauseBtn: {
-    backgroundColor: '#fff', borderWidth: 3, borderColor: '#1a1008',
-    borderRadius: 8, width: 40, height: 40, justifyContent: 'center', alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1a1008',
+    borderWidth: 2.5,
+    borderColor: '#f5a623',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
   },
-  pauseIcon: { fontSize: 18, fontWeight: '900', color: '#1a1008', transform: [{ rotate: '90deg' }] },
+  pauseIcon: { fontSize: 16, fontWeight: '900', color: '#ffffff' },
+  pauseLabel: { fontSize: 16, fontWeight: '900', color: '#ffffff', textTransform: 'uppercase', letterSpacing: 1.5 },
+
+  subBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#fff9f0',
+  },
+  timerBlock: {
+    alignItems: 'center',
+  },
   hpHearts: { fontSize: 20 },
-  topRight: { backgroundColor: '#fff', borderWidth: 3, borderColor: '#1a1008', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  enemyHpText: { fontSize: 18, fontWeight: '900', color: '#f5a623' },
-  timer: { fontSize: 32, fontWeight: '900', color: '#1a1008' },
+  topRight: {},
+  levelLabel: {},
+  enemyHpText: { fontSize: 16, fontWeight: '900', color: '#f5a623' },
+  timer: { fontSize: 28, fontWeight: '900', color: '#1a1008' },
   timerDanger: { color: '#e8302a' },
   
   arena: { flex: 1, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', position: 'relative' },
@@ -387,6 +461,7 @@ const styles = StyleSheet.create({
     padding: 25, borderTopLeftRadius: 30, borderTopRightRadius: 30, alignItems: 'center', 
   },
   equation: { fontSize: 48, fontWeight: '900', color: '#1a1008', marginVertical: 20 },
+  hintText: { fontSize: 17, fontWeight: '700', color: '#7a6a55', marginBottom: 4, textAlign: 'center', fontStyle: 'italic' },
   optionsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 15, width: '100%', paddingBottom: 30 },
   optionWrapper: { width: '45%', position: 'relative' },
   optionShadow: { position: 'absolute', top: 5, left: 5, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
@@ -407,7 +482,7 @@ const styles = StyleSheet.create({
   victoryContent: { backgroundColor: '#1a6cf5', borderWidth: 4, borderColor: '#1a1008', borderRadius: 16, padding: 30, alignItems: 'center' },
   victoryTitle: { fontSize: 48, fontWeight: '900', color: '#f5a623', textShadowColor: '#1a1008', textShadowOffset: { width: 3, height: 3 }, textShadowRadius: 0, marginBottom: 10, letterSpacing: 2 },
   starsContainer: { backgroundColor: '#fff', borderWidth: 3, borderColor: '#1a1008', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20, marginBottom: 15 },
-  victoryStars: { fontSize: 32, letterSpacing: 5 },
+  victoryStars: { fontSize: 28, fontWeight: '900', color: '#1a1008', letterSpacing: 2 },
   victorySubtitle: { fontSize: 20, fontWeight: '900', color: '#fff', marginBottom: 20, textTransform: 'uppercase', letterSpacing: 1 },
 
   defeatContent: { backgroundColor: '#e8302a', borderWidth: 4, borderColor: '#1a1008', borderRadius: 16, padding: 30, alignItems: 'center' },

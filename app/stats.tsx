@@ -5,13 +5,13 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { useGameStore } from '../hooks/useGameStore';
 
 const LEVELS = [
-  { id: 1, name: 'Variables' },
-  { id: 2, name: 'Equations' },
-  { id: 3, name: 'Polynomials' },
-  { id: 4, name: 'Factoring' },
-  { id: 5, name: 'Systems' },
-  { id: 6, name: 'Exponents' },
-  { id: 7, name: 'Random' },
+  { id: 1, name: 'Variables', questions: 10 },
+  { id: 2, name: 'Equations', questions: 20 },
+  { id: 3, name: 'Polynomials', questions: 20 },
+  { id: 4, name: 'Factoring', questions: 30 },
+  { id: 5, name: 'Systems', questions: 30 },
+  { id: 6, name: 'Exponents', questions: 50 },
+  { id: 7, name: 'Random', questions: 100 },
 ];
 
 // Updated practical gears
@@ -53,7 +53,7 @@ export default function PlayerStatsScreen() {
     { id: 3, icon: '👑', title: 'Undefeated', desc: 'Win 5 battles total', done: totalBattlesWon >= 5 },
     { id: 4, icon: '💀', title: 'Boss Slayer', desc: 'Defeat the Math Overlord', done: !!levelStars[7] },
     { id: 5, icon: '⚡', title: 'Speed Demon', desc: 'Answer in under 5 seconds', done: false },
-    { id: 6, icon: '💎', title: 'Perfectionist', desc: '3 stars on all levels', done: false },
+    { id: 6, icon: '💎', title: 'Perfectionist', desc: 'Perfect score on all levels', done: LEVELS.every(lvl => (levelStars[lvl.id] || 0) === lvl.questions) },
   ];
 
   return (
@@ -135,15 +135,29 @@ export default function PlayerStatsScreen() {
         <Text style={styles.sectionHeader}>LEVEL PROGRESS</Text>
         <View style={styles.progressCard}>
           {LEVELS.map((lvl) => {
-            const stars = levelStars[lvl.id] || 0;
+            const scoreEarned = levelStars[lvl.id] || 0;
             const isLocked = lvl.id > unlockedLevel;
+            const progressPercent = isLocked ? 0 : (scoreEarned / lvl.questions) * 100;
+            const isPerfect = scoreEarned === lvl.questions;
+            const scoreDisplay = isLocked ? '🔒' : `${scoreEarned}/${lvl.questions}`;
+
             return (
               <View key={lvl.id} style={[styles.levelProgressRow, isLocked && { opacity: 0.4 }]}>
                 <Text style={styles.levelNameText}>{lvl.name}</Text>
                 <View style={styles.levelBarOuter}>
-                   <View style={[styles.levelBarInner, { width: isLocked ? '0%' : stars === 3 ? '100%' : '60%' }]} />
+                  <View style={[
+                    styles.levelBarInner,
+                    { width: `${progressPercent}%` },
+                    isPerfect && styles.levelBarPerfect,
+                  ]} />
                 </View>
-                <Text style={styles.starsText}>{isLocked ? '🔒' : '⭐'.repeat(stars) || '☆☆☆'}</Text>
+                <Text style={[
+                  styles.scoreText,
+                  isPerfect && styles.scoreTextPerfect,
+                  isLocked && styles.scoreTextLocked,
+                ]}>
+                  {scoreDisplay}
+                </Text>
               </View>
             );
           })}
@@ -206,8 +220,11 @@ const styles = StyleSheet.create({
   levelProgressRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 6 },
   levelNameText: { width: 80, fontSize: 12, fontWeight: '900', color: '#1a1008' },
   levelBarOuter: { flex: 1, height: 10, backgroundColor: '#e5d9c4', borderRadius: 5, borderWidth: 1.5, borderColor: '#1a1008', marginHorizontal: 10, overflow: 'hidden' },
-  levelBarInner: { height: '100%', backgroundColor: '#f5a623' },
-  starsText: { width: 50, fontSize: 12, textAlign: 'right' },
+  levelBarInner: { height: '100%', backgroundColor: '#22c55e' },
+  levelBarPerfect: { backgroundColor: '#f5a623' },
+  scoreText: { width: 52, fontSize: 12, fontWeight: '900', textAlign: 'right', color: '#22c55e' },
+  scoreTextPerfect: { color: '#f5a623' },
+  scoreTextLocked: { color: '#7a6a55', fontWeight: '400' },
 
   achRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderWidth: 2, borderColor: '#1a1008', borderRadius: 12, padding: 12, marginBottom: 10 },
   achNum: { width: 25, fontSize: 16, fontWeight: '900', color: '#f5a623' },

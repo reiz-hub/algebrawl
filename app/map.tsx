@@ -4,19 +4,19 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { useGameStore } from '../hooks/useGameStore';
 
 const LEVELS = [
-  { id: 1, title: 'Variables & Expressions', questions: 10 },
-  { id: 2, title: 'Equations & Inequalities', questions: 20 },
-  { id: 3, title: 'Polynomials', questions: 20 },
-  { id: 4, title: 'Factoring', questions: 30 },
-  { id: 5, title: 'Systems of Equations', questions: 30 },
-  { id: 6, title: 'Exponents & Roots', questions: 50 },
-  { id: 7, title: 'Random Mode', questions: 100 },
+  { id: 1, title: 'Variables & Expressions', questions: 10, timePerQuestion: 15 },
+  { id: 2, title: 'Equations & Inequalities', questions: 20, timePerQuestion: 18 },
+  { id: 3, title: 'Polynomials', questions: 20, timePerQuestion: 19 },
+  { id: 4, title: 'Factoring', questions: 30, timePerQuestion: 20 },
+  { id: 5, title: 'Systems of Equations', questions: 30, timePerQuestion: 21 },
+  { id: 6, title: 'Exponents & Roots', questions: 50, timePerQuestion: 22 },
+  { id: 7, title: 'Random Mode', questions: 100, timePerQuestion: 25 },
 ];
 
 export default function MapScreen() {
   const router = useRouter();
   
-  // Get both unlocked level and the star data from the store
+  // Get both unlocked level and the score data from the store
   const { unlockedLevel, levelStars } = useGameStore();
 
   return (
@@ -34,16 +34,20 @@ export default function MapScreen() {
         {LEVELS.map((level) => {
           const isLocked = level.id > unlockedLevel;
           
-          // Get stars for this level (default to 0 if not started)
-          const starsEarned = levelStars[level.id] || 0;
+          // Get score for this level (stored as raw score out of total questions)
+          const scoreEarned = levelStars[level.id] || 0;
           
-          // Calculate progress bar width based on stars (0/3, 1/3, 2/3, 3/3)
-          const progressPercent = (starsEarned / 3) * 100;
+          // Calculate progress bar width based on score
+          const progressPercent = (scoreEarned / level.questions) * 100;
 
-          // Create the stars string (e.g., "⭐⭐☆" for 2 stars)
-          const starsDisplay = isLocked 
-            ? '🔒' 
-            : '⭐'.repeat(starsEarned) + '☆'.repeat(3 - starsEarned);
+          // Create the score string (e.g., "7/10") or lock icon
+          const scoreDisplay = isLocked
+            ? '🔒'
+            : `${scoreEarned}/${level.questions}`;
+
+          // Determine score color based on performance
+          const isPerfect = scoreEarned === level.questions;
+          const hasScore = scoreEarned > 0;
 
           return (
             <View key={level.id} style={styles.cardWrapper}>
@@ -53,7 +57,7 @@ export default function MapScreen() {
                 style={[styles.cardContent, isLocked && styles.lockedCard]}
                 disabled={isLocked}
                 activeOpacity={0.8}
-                onPress={() => router.push({ pathname: '/pre-battle', params: { level: level.id, questions: level.questions } })}
+                onPress={() => router.push({ pathname: '/pre-battle', params: { level: level.id, questions: level.questions, timePerQuestion: level.timePerQuestion } })}
               >
                 <View style={styles.cardHeader}>
                    <View style={[styles.badge, isLocked && styles.lockedBadge]}>
@@ -66,11 +70,20 @@ export default function MapScreen() {
                    
                    <View style={styles.progressRow}>
                       <View style={styles.progressBarOuter}>
-                         {/* Dynamic Width based on earned stars */}
-                         <View style={[styles.progressBarInner, { width: `${progressPercent}%` }]} />
+                         {/* Dynamic Width based on earned score */}
+                         <View style={[
+                           styles.progressBarInner,
+                           { width: `${progressPercent}%` },
+                           isPerfect && styles.progressBarPerfect,
+                         ]} />
                       </View>
-                      <Text style={[styles.starsText, starsEarned === 0 && !isLocked && styles.emptyStars]}>
-                        {starsDisplay}
+                      <Text style={[
+                        styles.scoreText,
+                        !hasScore && !isLocked && styles.emptyScore,
+                        isPerfect && styles.perfectScore,
+                        isLocked && styles.lockedScore,
+                      ]}>
+                        {scoreDisplay}
                       </Text>
                    </View>
                 </View>
@@ -164,14 +177,23 @@ const styles = StyleSheet.create({
     overflow: 'hidden'
   },
   progressBarInner: { height: '100%', backgroundColor: '#22c55e' },
-  starsText: { 
-    fontSize: 16, 
-    letterSpacing: 2,
-    color: '#f5a623', 
-    fontWeight: 'bold'
+  progressBarPerfect: { backgroundColor: '#f5a623' },
+  scoreText: { 
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#22c55e',
+    minWidth: 52,
+    textAlign: 'right',
   },
-  emptyStars: {
-    color: '#7a6a55', // Muted color for empty stars
-    opacity: 0.5
-  }
+  emptyScore: {
+    color: '#7a6a55',
+    opacity: 0.5,
+  },
+  perfectScore: {
+    color: '#f5a623',
+  },
+  lockedScore: {
+    color: '#7a6a55',
+    fontSize: 16,
+  },
 });

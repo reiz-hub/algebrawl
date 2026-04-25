@@ -22,7 +22,9 @@ const SKILLS = [
 
 export default function PreBattleScreen() {
   const router = useRouter();
-  const { level, questions } = useLocalSearchParams();
+  const { level, questions, timePerQuestion: timeParam } = useLocalSearchParams();
+  const timePerQuestion = Number(timeParam) || 15;
+  const currentLevel = Number(level) || 1;
   const unlockedLevel = useGameStore((state) => state.unlockedLevel);
 
   // State for selections
@@ -59,7 +61,12 @@ export default function PreBattleScreen() {
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>⏱️  TIME LIMIT</Text>
-            <Text style={styles.infoValue}>15s / Q</Text>
+            <Text style={styles.infoValue}>
+              {currentLevel === 7 
+                ? '22-27s / Q (dynamic)' 
+                : `${timePerQuestion}s / Q`
+              }
+            </Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>❤️  STARTING HP</Text>
@@ -162,6 +169,7 @@ export default function PreBattleScreen() {
                   params: { 
                     level, 
                     questions,
+                    timePerQuestion: timePerQuestion.toString(),
                     skillName: activeSkill?.name,
                     skillIcon: activeSkill?.icon,
                     gearName: activeGear?.name,
