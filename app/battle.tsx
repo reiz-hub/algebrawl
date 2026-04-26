@@ -1,7 +1,8 @@
 // app/battle.tsx
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Sprite from '../components/sprite';
 import { useGameStore } from '../hooks/useGameStore';
 import { generateQuestion, Question } from '../scripts/mathGenerator';
 
@@ -33,13 +34,11 @@ export default function BattleScreen() {
   };
   const levelTitle = LEVEL_TITLES[currentLevel] ?? `Level ${currentLevel}`;
   
-  // Skill & Gear data from pre-battle
   const activeSkillName = skillName ? String(skillName) : "Basic Attack";
   const activeSkillIcon = skillIcon ? String(skillIcon) : "⚔️";
   const activeGearStat = gearStat ? String(gearStat) : "";
   const activeGearIcon = gearIcon ? String(gearIcon) : "";
 
-  // Parse Gear Bonuses
   const bonusHearts = activeGearStat === '+1 Heart' ? 1 : activeGearStat === '+2 Hearts' ? 2 : 0;
   const bonusTime = activeGearStat === '+2s / Q' ? 2 : activeGearStat === '+4s / Q' ? 4 : 0;
   const xpMultiplier = activeGearStat === '2x XP Boost' ? 2 : 1;
@@ -47,34 +46,48 @@ export default function BattleScreen() {
   const maxHearts = 3 + bonusHearts;
   let baseTime = Number(timeParam) || LEVEL_TIMES[currentLevel] || 15;
   if (currentLevel === 7) {
-    baseTime = 20 + Math.floor(Math.random() * 8); // 20-27s random for lv7
+    baseTime = 20 + Math.floor(Math.random() * 8);
   }
   const initialTime = baseTime + bonusTime;
 
-  // Core Game State (Applied Bonuses)
   const [playerHP, setPlayerHP] = useState(maxHearts);
   const [enemyHP, setEnemyHP] = useState(totalQuestions);
   const [timer, setTimer] = useState(initialTime);
   const [currentQ, setCurrentQ] = useState<Question | null>(null);
   
-  // Modals & Delays
   const [isPaused, setIsPaused] = useState(false);
   const [showVictory, setShowVictory] = useState(false);
   const [showDefeat, setShowDefeat] = useState(false);
   const [isAnswering, setIsAnswering] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
-  // Skill States
   const [skillUsed, setSkillUsed] = useState(false);
   const [hasShield, setHasShield] = useState(false);
   const [hasDoubleStrike, setHasDoubleStrike] = useState(false);
 
-  // Initialize first question
+  const playerAction = useMemo(() => {
+    if (showVictory) return 'win';
+    if (showDefeat) return 'defeat';
+    if (isAnswering && selectedOption) {
+      return currentQ && selectedOption === currentQ.correctAnswer ? 'attack' : 'hit';
+    }
+    return 'idle';
+  }, [showVictory, showDefeat, isAnswering, selectedOption, currentQ]);
+
+const enemyAction = useMemo(() => {
+  if (showVictory) return 'defeat';
+  if (showDefeat) return 'win';
+  if (isAnswering && selectedOption) {
+    // Player hit correctly → villain takes damage
+    // Player wrong/timeout → villain counter-attacks
+    return currentQ && selectedOption === currentQ.correctAnswer ? 'hit' : 'attack';
+  }
+  return 'idle';
+}, [showVictory, showDefeat, isAnswering, selectedOption, currentQ]);
   useEffect(() => {
     setCurrentQ(generateQuestion(currentLevel));
   }, []);
 
-  // ⏱️ TIMER LOGIC
   useEffect(() => {
     if (isPaused || showVictory || showDefeat || isAnswering || !currentQ || playerHP <= 0) return;
 
@@ -139,10 +152,7 @@ export default function BattleScreen() {
     
     if (newEnemyHP <= 0) {
       completeLevel(currentLevel, totalQuestions);
-      
-      // Apply XP multiplier from Gear
       updateStats(50 * xpMultiplier, true); 
-
       setShowVictory(true);
     } else {
       resetForNextQuestion();
@@ -170,7 +180,7 @@ export default function BattleScreen() {
   };
 
   const resetForNextQuestion = () => {
-    setTimer(initialTime); // Use gear-boosted time!
+    setTimer(initialTime);
     setCurrentQ(generateQuestion(currentLevel));
     setSelectedOption(null);
     setIsAnswering(false);
@@ -183,7 +193,17 @@ export default function BattleScreen() {
     return [styles.optionButton, styles.optionDimmed]; 
   };
 
-  // Helper for dynamic hearts
+  const actionBadgeImage = useMemo(() => {
+    if (showVictory) return require('../assets/images/sprites/hero_win.png');
+    if (showDefeat) return require('../assets/images/sprites/hero_defeat.png');
+    if (isAnswering && selectedOption && currentQ) {
+      return selectedOption === currentQ.correctAnswer
+        ? require('../assets/images/sprites/hero_attack.png')
+        : require('../assets/images/sprites/hero_hit.png');
+    }
+    return require('../assets/images/sprites/hero_win.png');
+  }, [showVictory, showDefeat, isAnswering, selectedOption, currentQ]);
+
   const renderHearts = () => {
     const safeHP = Math.max(0, playerHP);
     const lostHearts = Math.max(0, maxHearts - safeHP);
@@ -195,12 +215,9 @@ export default function BattleScreen() {
       
       {/* 1. TOP BAR */}
       <View style={styles.topBar}>
-        {/* LEFT: Level name */}
         <Text style={styles.levelTitle} numberOfLines={1} adjustsFontSizeToFit>
           Level {currentLevel}: {levelTitle.toUpperCase()}
         </Text>
-
-        {/* RIGHT: Pause button */}
         <TouchableOpacity style={styles.pauseBtn} onPress={() => setIsPaused(true)}>
           <Text style={styles.pauseIcon}>||</Text>
           <Text style={styles.pauseLabel}>PAUSE</Text>
@@ -218,41 +235,62 @@ export default function BattleScreen() {
 
       {/* 2. ARENA AREA */}
       <View style={styles.arena}>
-        
+
         {/* Player Side */}
-        <View style={{ alignItems: 'center' }}>
-          <View style={styles.spritePlaceholder}>
-            <Text style={styles.spriteText}>PLAYER</Text>
-            {hasShield && <Text style={styles.statusText}>🛡️ SHIELDED</Text>}
-            {hasDoubleStrike && <Text style={styles.statusText}>🔥 2X DMG</Text>}
+        <View style={styles.characterSlot}>
+          <View style={styles.statusBadgeArea}>
+            {hasShield && (
+              <View style={styles.statusBadgeRow}>
+                <Image source={require('../assets/images/sprites/hero_win.png')} style={styles.statusBadgeImage} resizeMode="contain" />
+                <Text style={styles.statusBadgeLabel}>SHIELDED</Text>
+              </View>
+            )}
+            {hasDoubleStrike && (
+              <View style={styles.statusBadgeRow}>
+                <Image source={require('../assets/images/sprites/hero_attack.png')} style={styles.statusBadgeImage} resizeMode="contain" />
+                <Text style={styles.statusBadgeLabel}>2X DMG</Text>
+              </View>
+            )}
           </View>
 
-          {/* Equipped Gear Indicator */}
-          {activeGearStat && (
+          <Sprite action={playerAction} />
+
+          {activeGearStat ? (
             <View style={styles.gearIndicator}>
               <Text style={styles.gearIndicatorText}>{activeGearIcon} {activeGearStat}</Text>
             </View>
+          ) : (
+            <View style={styles.gearIndicatorPlaceholder} />
           )}
+
+          <TouchableOpacity
+            style={styles.skillBadgeContainer}
+            activeOpacity={0.8}
+            disabled={skillUsed || activeSkillName === "Basic Attack"}
+            onPress={activateSkill}
+          >
+            <View style={styles.skillBadgeShadow} />
+            <View style={[styles.skillBadge, skillUsed && styles.skillBadgeUsed]}>
+              <Image
+                source={actionBadgeImage}
+                style={[styles.skillActionImage, skillUsed && styles.skillActionImageUsed]}
+                resizeMode="contain"
+              />
+              <Text style={[styles.skillBadgeText, skillUsed && styles.skillBadgeTextUsed]}>
+                {activeSkillIcon} {activeSkillName} {skillUsed ? "(USED)" : ""}
+              </Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
-        <View style={[styles.spritePlaceholder, styles.enemySprite]}>
-          <Text style={styles.spriteText}>ENEMY</Text>
+        {/* Enemy Side */}
+        <View style={styles.characterSlot}>
+          <View style={styles.statusBadgeArea} />
+          <Sprite action={enemyAction} isEnemy />
+          <View style={styles.gearIndicatorPlaceholder} />
+          <View style={styles.skillPlaceholder} />
         </View>
 
-        {/* Clickable Active Skill Display */}
-        <TouchableOpacity 
-          style={styles.skillBadgeContainer} 
-          activeOpacity={0.8}
-          disabled={skillUsed || activeSkillName === "Basic Attack"}
-          onPress={activateSkill}
-        >
-          <View style={styles.skillBadgeShadow} />
-          <View style={[styles.skillBadge, skillUsed && styles.skillBadgeUsed]}>
-            <Text style={[styles.skillBadgeText, skillUsed && styles.skillBadgeTextUsed]}>
-              {activeSkillIcon} {activeSkillName} {skillUsed ? "(USED)" : ""}
-            </Text>
-          </View>
-        </TouchableOpacity>
       </View>
 
       {/* 3. QUESTION PANEL */}
@@ -319,14 +357,16 @@ export default function BattleScreen() {
             <View style={styles.victoryContent}>
               <Text style={styles.victoryTitle}>VICTORY!</Text>
               <View style={styles.starsContainer}>
-                 <Text style={styles.victoryStars}>
-                   Q:{totalQuestions}/{totalQuestions}
-                 </Text>
+                <Text style={styles.victoryStars}>
+                  Q:{totalQuestions}/{totalQuestions}
+                </Text>
               </View>
               <Text style={styles.victorySubtitle}>Level {currentLevel} Cleared!</Text>
-              
-              {xpMultiplier > 1 && <Text style={{color: '#fff', fontWeight: '900', marginBottom: 15}}>✨ {xpMultiplier}x XP BOOST APPLIED! ✨</Text>}
-
+              {xpMultiplier > 1 && (
+                <Text style={{ color: '#fff', fontWeight: '900', marginBottom: 15 }}>
+                  ✨ {xpMultiplier}x XP BOOST APPLIED! ✨
+                </Text>
+              )}
               <View style={styles.btnWrapper}>
                 <View style={styles.btnShadow} />
                 <TouchableOpacity style={styles.btnPrimary} onPress={() => router.replace('/map')}>
@@ -345,11 +385,6 @@ export default function BattleScreen() {
             <View style={styles.menuShadow} />
             <View style={styles.defeatContent}>
               <Text style={styles.defeatTitle}>DEFEAT!</Text>
-              <View style={styles.heartsContainer}>
-                <Text style={styles.defeatHearts}>
-                  {'🖤'.repeat(maxHearts)}
-                </Text>
-              </View>
               <Text style={styles.defeatSubtitle}>You ran out of hearts!</Text>
               <View style={styles.btnWrapper}>
                 <View style={styles.btnShadow} />
@@ -419,9 +454,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: '#fff9f0',
   },
-  timerBlock: {
-    alignItems: 'center',
-  },
+  timerBlock: { alignItems: 'center' },
   hpHearts: { fontSize: 20 },
   topRight: {},
   levelLabel: {},
@@ -429,32 +462,69 @@ const styles = StyleSheet.create({
   timer: { fontSize: 28, fontWeight: '900', color: '#1a1008' },
   timerDanger: { color: '#e8302a' },
   
-  arena: { flex: 1, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', position: 'relative' },
-  spritePlaceholder: {
-    width: 100, height: 120, backgroundColor: '#4285F4', 
-    borderWidth: 4, borderColor: '#1a1008', borderRadius: 16,
-    justifyContent: 'center', alignItems: 'center', position: 'relative'
+  arena: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    paddingBottom: 16,
   },
-  enemySprite: { backgroundColor: '#aa66cc' },
-  spriteText: { color: '#fff', fontWeight: '900', fontSize: 16 },
+  characterSlot: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  statusBadgeArea: {
+    minHeight: 36,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   statusText: { 
-    position: 'absolute', top: -30, 
     backgroundColor: '#fff', color: '#1a1008', fontWeight: '900', fontSize: 12, 
     paddingHorizontal: 8, paddingVertical: 4, 
     borderWidth: 2, borderColor: '#1a1008', borderRadius: 8, overflow: 'hidden'
   },
+  statusBadgeRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#fff', borderWidth: 2, borderColor: '#1a1008', borderRadius: 8,
+    paddingHorizontal: 8, paddingVertical: 4,
+  },
+  statusBadgeImage: { width: 18, height: 18 },
+  statusBadgeLabel: { fontSize: 12, fontWeight: '900', color: '#1a1008' },
+
   gearIndicator: {
-    marginTop: 10, backgroundColor: '#e5d9c4', borderWidth: 2, borderColor: '#1a1008', 
-    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4
+    marginTop: 8,
+    backgroundColor: '#e5d9c4', borderWidth: 2, borderColor: '#1a1008', 
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
   },
   gearIndicatorText: { fontSize: 12, fontWeight: '900', color: '#1a1008' },
-  
-  skillBadgeContainer: { position: 'absolute', bottom: 20, left: 20 },
-  skillBadgeShadow: { position: 'absolute', top: 4, left: 4, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 8 },
-  skillBadge: { backgroundColor: '#fef3c7', borderWidth: 3, borderColor: '#1a1008', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  gearIndicatorPlaceholder: {
+    marginTop: 8,
+    height: 28,
+  },
+  skillBadgeContainer: {
+    marginTop: 10,
+    position: 'relative',
+  },
+  skillBadgeShadow: {
+    position: 'absolute', top: 4, left: 4,
+    width: '100%', height: '100%',
+    backgroundColor: '#1a1008', borderRadius: 8,
+  },
+  skillBadge: {
+    backgroundColor: '#fef3c7', borderWidth: 3, borderColor: '#1a1008',
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+  },
   skillBadgeUsed: { backgroundColor: '#e5d9c4' }, 
   skillBadgeText: { fontSize: 14, fontWeight: '900', color: '#1a1008', textTransform: 'uppercase' },
   skillBadgeTextUsed: { color: '#7a6a55' }, 
+  skillActionImage: { width: 24, height: 24 },
+  skillActionImageUsed: { opacity: 0.7 },
+  skillPlaceholder: {
+    marginTop: 10,
+    height: 46,
+  },
 
   questionPanel: { 
     backgroundColor: '#fff', borderTopWidth: 4, borderColor: '#1a1008', 
@@ -487,8 +557,6 @@ const styles = StyleSheet.create({
 
   defeatContent: { backgroundColor: '#e8302a', borderWidth: 4, borderColor: '#1a1008', borderRadius: 16, padding: 30, alignItems: 'center' },
   defeatTitle: { fontSize: 48, fontWeight: '900', color: '#f5a623', textShadowColor: '#1a1008', textShadowOffset: { width: 3, height: 3 }, textShadowRadius: 0, marginBottom: 10, letterSpacing: 2 },
-  heartsContainer: { backgroundColor: '#fff', borderWidth: 3, borderColor: '#1a1008', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20, marginBottom: 15 },
-  defeatHearts: { fontSize: 32, letterSpacing: 5 },
   defeatSubtitle: { fontSize: 20, fontWeight: '900', color: '#fff', marginBottom: 30, textTransform: 'uppercase', letterSpacing: 1 },
 
   btnWrapper: { width: '100%', position: 'relative', marginBottom: 15 },

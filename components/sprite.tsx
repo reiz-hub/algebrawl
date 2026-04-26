@@ -1,6 +1,6 @@
 // components/Sprite.tsx
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, ImageStyle, StyleSheet, View } from 'react-native';
 
 type ActionState = 'stand' | 'idle' | 'attack' | 'hit' | 'win' | 'defeat';
 
@@ -9,28 +9,52 @@ interface SpriteProps {
   isEnemy?: boolean;
 }
 
+const heroSprites: Record<ActionState, any> = {
+  win:     require('../assets/images/sprites/hero_win.png'),
+  attack:  require('../assets/images/sprites/hero_attack.png'),
+  defeat:  require('../assets/images/sprites/hero_defeat.png'),
+  hit:     require('../assets/images/sprites/hero_hit.png'),
+  stand:   require('../assets/images/sprites/hero_win.png'),
+  idle:    require('../assets/images/sprites/hero_idle.png'),
+};
+
+const villainSprites: Record<ActionState, any> = {
+  attack:  require('../assets/images/sprites/villain_attack.png'),
+  defeat:  require('../assets/images/sprites/villain_defeat.png'),
+  hit:     require('../assets/images/sprites/villain_hit.png'),
+  idle:    require('../assets/images/sprites/villain_idle.png'),
+  win:     require('../assets/images/sprites/villain_win.png'),
+  stand:   require('../assets/images/sprites/villain_idle.png'),  // reuse idle as default stand
+};
+
 export default function Sprite({ action, isEnemy = false }: SpriteProps) {
-  // Replace these background colors with actual Image components sourcing your assets
-  const getBackgroundColor = () => {
-    switch (action) {
-      case 'attack': return '#ffcc00'; // Yellow for attack flash
-      case 'hit': return '#ff4444'; // Red for taking damage
-      case 'win': return '#00C851'; // Green for win
-      case 'defeat': return '#33b5e5'; // Blue for defeat
-      default: return isEnemy ? '#aa66cc' : '#4285F4'; // Default idle colors
-    }
-  };
+  const sprites = isEnemy ? villainSprites : heroSprites;
+
+  const imageStyle: ImageStyle = isEnemy
+    ? { ...styles.spriteImage, transform: [{ scaleX: -1 }] }
+    : styles.spriteImage;
 
   return (
-    <View style={[styles.spriteBox, { backgroundColor: getBackgroundColor() }]}>
-      <Text style={styles.text}>{isEnemy ? 'Enemy' : 'Player'}</Text>
-      <Text style={styles.actionText}>{action.toUpperCase()}</Text>
+    <View style={styles.spriteContainer}>
+      <Image
+        source={sprites[action]}
+        style={imageStyle}
+        resizeMode="contain"
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  spriteBox: { width: 100, height: 100, justifyContent: 'center', alignItems: 'center', borderRadius: 10, margin: 20 },
-  text: { color: 'white', fontWeight: 'bold' },
-  actionText: { color: 'white', fontSize: 10, marginTop: 5 }
+  spriteContainer: {
+    width: 120,
+    height: 140,
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: 20,
+  },
+  spriteImage: {
+    width: 120,
+    height: 140,
+  },
 });

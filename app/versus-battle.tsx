@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Sprite from '../components/sprite';
 import { generateQuestion, Question } from '../scripts/mathGenerator';
 
@@ -232,6 +232,34 @@ export default function VersusBattleScreen() {
     return 'idle';
   }, [showVictory, winner, p2Name, turn, isAnswering, selectedOption, currentQ]);
 
+  const p1ActionImage = useMemo(() => {
+    if (winner && showVictory) {
+      return winner === p1Name
+        ? require('../assets/images/sprites/hero_win.png')
+        : require('../assets/images/sprites/hero_defeat.png');
+    }
+    if (turn === 1 && isAnswering && selectedOption && currentQ) {
+      return selectedOption === currentQ.correctAnswer
+        ? require('../assets/images/sprites/hero_attack.png')
+        : require('../assets/images/sprites/hero_hit.png');
+    }
+    return require('../assets/images/sprites/hero_win.png');
+  }, [winner, showVictory, p1Name, turn, isAnswering, selectedOption, currentQ]);
+
+  const p2ActionImage = useMemo(() => {
+    if (winner && showVictory) {
+      return winner === p2Name
+        ? require('../assets/images/sprites/hero_win.png')
+        : require('../assets/images/sprites/hero_defeat.png');
+    }
+    if (turn === 2 && isAnswering && selectedOption && currentQ) {
+      return selectedOption === currentQ.correctAnswer
+        ? require('../assets/images/sprites/hero_attack.png')
+        : require('../assets/images/sprites/hero_hit.png');
+    }
+    return require('../assets/images/sprites/hero_win.png');
+  }, [winner, showVictory, p2Name, turn, isAnswering, selectedOption, currentQ]);
+
   return (
     <View style={styles.container}>
       <View style={styles.topBar}>
@@ -259,8 +287,18 @@ export default function VersusBattleScreen() {
         <View style={styles.playerColumn}>
           <Sprite action={p1SpriteAction as any} />
           <Text style={styles.playerName}>{p1Name}</Text>
-          {p1Shield && <Text style={styles.statusBadge}>🛡️ SHIELDED</Text>}
-          {p1Double && <Text style={styles.statusBadge}>🔥 2X DMG</Text>}
+          {p1Shield && (
+            <View style={styles.statusBadgeRow}>
+              <Image source={require('../assets/images/sprites/hero_win.png')} style={styles.statusBadgeImage} resizeMode="contain" />
+              <Text style={styles.statusBadgeLabel}>SHIELDED</Text>
+            </View>
+          )}
+          {p1Double && (
+            <View style={styles.statusBadgeRow}>
+              <Image source={require('../assets/images/sprites/hero_attack.png')} style={styles.statusBadgeImage} resizeMode="contain" />
+              <Text style={styles.statusBadgeLabel}>2X DMG</Text>
+            </View>
+          )}
           {!!p1GearStat && (
             <View style={styles.gearIndicator}>
               <Text style={styles.gearIndicatorText}>{p1GearIcon} {p1GearStat}</Text>
@@ -276,6 +314,7 @@ export default function VersusBattleScreen() {
             disabled={turn !== 1 || p1SkillCooldown > 0 || p1SkillName === 'Basic Attack'}
             onPress={turn === 1 ? activateSkill : undefined}
           >
+            <Image source={p1ActionImage} style={styles.skillActionImage} resizeMode="contain" />
             <Text style={[styles.skillBadgeText, p1SkillCooldown > 0 && styles.skillBadgeTextUsed, turn === 1 && p1SkillCooldown === 0 && styles.skillBadgeTextActive]}>
               {p1SkillIcon} {p1SkillName}{p1SkillCooldown > 0 ? ` (CD:${p1SkillCooldown})` : ''}
             </Text>
@@ -286,8 +325,18 @@ export default function VersusBattleScreen() {
         <View style={styles.playerColumnRight}>
           <Sprite action={p2SpriteAction as any} isEnemy />
           <Text style={styles.playerName}>{p2Name}</Text>
-          {p2Shield && <Text style={styles.statusBadge}>🛡️ SHIELDED</Text>}
-          {p2Double && <Text style={styles.statusBadge}>🔥 2X DMG</Text>}
+          {p2Shield && (
+            <View style={styles.statusBadgeRow}>
+              <Image source={require('../assets/images/sprites/hero_win.png')} style={styles.statusBadgeImage} resizeMode="contain" />
+              <Text style={styles.statusBadgeLabel}>SHIELDED</Text>
+            </View>
+          )}
+          {p2Double && (
+            <View style={styles.statusBadgeRow}>
+              <Image source={require('../assets/images/sprites/hero_attack.png')} style={styles.statusBadgeImage} resizeMode="contain" />
+              <Text style={styles.statusBadgeLabel}>2X DMG</Text>
+            </View>
+          )}
           {!!p2GearStat && (
             <View style={styles.gearIndicator}>
               <Text style={styles.gearIndicatorText}>{p2GearIcon} {p2GearStat}</Text>
@@ -303,6 +352,7 @@ export default function VersusBattleScreen() {
             disabled={turn !== 2 || p2SkillCooldown > 0 || p2SkillName === 'Basic Attack'}
             onPress={turn === 2 ? activateSkill : undefined}
           >
+            <Image source={p2ActionImage} style={styles.skillActionImage} resizeMode="contain" />
             <Text style={[styles.skillBadgeText, p2SkillCooldown > 0 && styles.skillBadgeTextUsed, turn === 2 && p2SkillCooldown === 0 && styles.skillBadgeTextActive]}>
               {p2SkillIcon} {p2SkillName}{p2SkillCooldown > 0 ? ` (CD:${p2SkillCooldown})` : ''}
             </Text>
@@ -466,12 +516,21 @@ const styles = StyleSheet.create({
   },
   gearIndicatorText: { fontSize: 11, fontWeight: '900', color: '#1a1008' },
 
-  skillBadge: { marginTop: 6, backgroundColor: '#e5d9c4', borderWidth: 2, borderColor: '#1a1008', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  skillBadge: { marginTop: 6, backgroundColor: '#e5d9c4', borderWidth: 2, borderColor: '#1a1008', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', gap: 6 },
   skillBadgeActive: { backgroundColor: '#fef3c7', borderWidth: 3, borderColor: '#f5a623', paddingHorizontal: 16, paddingVertical: 10 },
   skillBadgeUsed: { backgroundColor: '#d0c8ba' },
   skillBadgeText: { fontSize: 11, fontWeight: '900', color: '#1a1008', textTransform: 'uppercase' },
   skillBadgeTextActive: { fontSize: 13 },
   skillBadgeTextUsed: { color: '#7a6a55' },
+  skillActionImage: { width: 18, height: 18 },
+  statusBadgeRow: {
+    marginTop: 6,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#fff', borderWidth: 2, borderColor: '#1a1008', borderRadius: 8,
+    paddingHorizontal: 8, paddingVertical: 4,
+  },
+  statusBadgeImage: { width: 16, height: 16 },
+  statusBadgeLabel: { fontSize: 12, fontWeight: '900', color: '#1a1008' },
 
   questionPanel: {
     backgroundColor: '#fff', borderTopWidth: 4, borderColor: '#1a1008',

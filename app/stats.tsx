@@ -1,7 +1,7 @@
 // app/stats.tsx
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useGameStore } from '../hooks/useGameStore';
 
 const LEVELS = [
@@ -73,7 +73,13 @@ export default function PlayerStatsScreen() {
           <View style={styles.cardShadow} />
           <View style={styles.cardInner}>
             <View style={styles.avatarRow}>
-              <View style={styles.avatarBox}><Text style={styles.avatarText}>SPRITE</Text></View>
+              <View style={styles.avatarBox}>
+                <Image
+                  source={require('../assets/images/sprites/hero_win.png')}
+                  style={styles.avatarImage}
+                  resizeMode="contain"
+                />
+              </View>
               <View style={styles.profileInfo}>
                 <Text style={styles.playerName}>ALGEBRAWLER</Text>
                 <View style={styles.rankBadge}><Text style={styles.rankText}>{playerRank}</Text></View>
@@ -195,7 +201,7 @@ const styles = StyleSheet.create({
   cardInner: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#1a1008', borderRadius: 12, padding: 15 },
   avatarRow: { flexDirection: 'row', gap: 15, marginBottom: 15 },
   avatarBox: { width: 80, height: 80, backgroundColor: '#1a6cf5', borderWidth: 2, borderColor: '#1a1008', borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  avatarImage: { width: 64, height: 64 },
   profileInfo: { flex: 1, justifyContent: 'center' },
   playerName: { fontSize: 20, fontWeight: '900' },
   rankBadge: { backgroundColor: '#1a6cf5', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, alignSelf: 'flex-start' },
