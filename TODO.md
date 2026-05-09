@@ -1,13 +1,14 @@
-# Algebra Brawls - Battle Interface Image Replacement Task
+# Algebra Brawls - Level Instruction Popup Task
 
-## Current Task: Replace box-based battle/action UI with image-based UI
+## Current Task: Add per-level instruction popup in `app/map.tsx`
 
-**✅ COMPLETED**
+**🔄 IN PROGRESS**
 
 **TODO Steps:**
-- [x] 1. Confirm scope and identify target files (`app/battle.tsx`, `app/versus-battle.tsx`, `app/stats.tsx`)
-- [x] 2. Replace avatar placeholder box in `app/stats.tsx` with image
-- [x] 3. Replace text/box action indicators in `app/battle.tsx` with corresponding action images (skill badge, SHIELDED, 2X DMG)
-- [x] 4. Replace text/box action indicators in `app/versus-battle.tsx` with corresponding action images (both players: skill badge, SHIELDED, 2X DMG)
-- [x] 5. Layout/styling preserved after image swap
-- [x] 6. Final file state verified (new styles present, imports added)
+- [x] 1. Read `app/map.tsx` fully and confirm existing style/component patterns
+- [x] 2. Add instruction text data for each level in `LEVELS`
+- [x] 3. Add local modal state for selected level instruction
+- [x] 4. Add top-right `?` instruction button on each level card
+- [x] 5. Implement popup/modal UI with close controls (`X` and `Got it`)
+- [x] 6. Ensure `?` button press does not trigger level navigation and styling matches existing UI
+- [x] 7. Run a quick project check (type/lint if available) and finalize

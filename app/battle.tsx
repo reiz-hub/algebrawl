@@ -1,16 +1,56 @@
 // app/battle.tsx
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Sprite from '../components/sprite';
 import { useGameStore } from '../hooks/useGameStore';
 import { generateQuestion, Question } from '../scripts/mathGenerator';
+
+const GEARS = [
+  { id: 'g1', name: 'No. 2 Pencil', stat: '+2s / Q', icon: '✏️', unlockLevel: 1 },
+  { id: 'g2', name: 'Study Notes', stat: '+1 Heart', icon: '📓', unlockLevel: 1 },
+  { id: 'g3', name: 'Math Ruler', stat: '+4s / Q', icon: '📏', unlockLevel: 3 },
+  { id: 'g4', name: 'Pocket Calc', stat: '+2 Hearts', icon: '📱', unlockLevel: 5 },
+  { id: 'g5', name: 'Golden Protractor', stat: '2x XP Boost', icon: '📐', unlockLevel: 7 },
+];
+
+const ALL_SKILLS = [
+  { id: 's1', name: 'Basic Attack', desc: 'Standard Damage', icon: '⚔️', unlockLevel: 1 },
+  { id: 's2', name: 'Focus', desc: '+5s Timer (1x)', icon: '⏱️', unlockLevel: 2 },
+  { id: 's3', name: 'Shield', desc: 'Block 1 Hit (1x)', icon: '🛡️', unlockLevel: 4 },
+  { id: 's4', name: 'Double Strike', desc: '2x Damage (1x)', icon: '🔥', unlockLevel: 6 },
+];
+
+const OUTFITS = [
+  { id: 'o1', name: 'Default Uniform', icon: '👕', unlockLevel: 1 },
+  { id: 'o2', name: 'School Bag', icon: '🎒', unlockLevel: 2 },
+  { id: 'o3', name: 'Lucky Cap', icon: '🧢', unlockLevel: 3 },
+  { id: 'o4', name: 'Focus Scarf', icon: '🧣', unlockLevel: 4 },
+  { id: 'o5', name: 'Battle Gi', icon: '🥋', unlockLevel: 5 },
+  { id: 'o6', name: 'Champion Crown', icon: '👑', unlockLevel: 6 },
+];
+
+type UnlockItem = { icon: string; name: string; type: 'GEAR' | 'SKILL' | 'OUTFIT'; detail: string };
+
+const computeNewUnlocks = (nextLevel: number): UnlockItem[] => {
+  const unlocks: UnlockItem[] = [];
+  for (const g of GEARS) {
+    if (g.unlockLevel === nextLevel) unlocks.push({ icon: g.icon, name: g.name, type: 'GEAR', detail: g.stat });
+  }
+  for (const s of ALL_SKILLS) {
+    if (s.unlockLevel === nextLevel) unlocks.push({ icon: s.icon, name: s.name, type: 'SKILL', detail: s.desc });
+  }
+  for (const o of OUTFITS) {
+    if (o.unlockLevel === nextLevel) unlocks.push({ icon: o.icon, name: o.name, type: 'OUTFIT', detail: 'Cosmetic' });
+  }
+  return unlocks;
+};
 
 export default function BattleScreen() {
   const { level, questions, timePerQuestion: timeParam, skillName, skillIcon, gearName, gearIcon, gearStat } = useLocalSearchParams();
   const router = useRouter();
   const { completeLevel, updateStats } = useGameStore();
-  
+
   const totalQuestions = Number(questions) || 10;
   const currentLevel = Number(level) || 1;
 
@@ -24,16 +64,16 @@ export default function BattleScreen() {
     7: 'Random Mode',
   };
   const LEVEL_TIMES: Record<number, number> = {
-    1: 15,
-    2: 18,
-    3: 19,
-    4: 20,
-    5: 21,
-    6: 22,
+    1: 30,
+    2: 30,
+    3: 60,
+    4: 60,
+    5: 60,
+    6: 60,
     7: 23,
   };
   const levelTitle = LEVEL_TITLES[currentLevel] ?? `Level ${currentLevel}`;
-  
+
   const activeSkillName = skillName ? String(skillName) : "Basic Attack";
   const activeSkillIcon = skillIcon ? String(skillIcon) : "⚔️";
   const activeGearStat = gearStat ? String(gearStat) : "";
@@ -44,20 +84,25 @@ export default function BattleScreen() {
   const xpMultiplier = activeGearStat === '2x XP Boost' ? 2 : 1;
 
   const maxHearts = 3 + bonusHearts;
-  let baseTime = Number(timeParam) || LEVEL_TIMES[currentLevel] || 15;
-  if (currentLevel === 7) {
-    baseTime = 20 + Math.floor(Math.random() * 8);
-  }
-  const initialTime = baseTime + bonusTime;
+
+  const getTimeForLevel = (srcLevel: number) => {
+    return (LEVEL_TIMES[srcLevel] || 30) + bonusTime;
+  };
+
+  const initialTime = currentLevel === 7
+    ? 30 + bonusTime  // placeholder; will be overridden once the first question loads
+    : (Number(timeParam) || LEVEL_TIMES[currentLevel] || 30) + bonusTime;
 
   const [playerHP, setPlayerHP] = useState(maxHearts);
   const [enemyHP, setEnemyHP] = useState(totalQuestions);
   const [timer, setTimer] = useState(initialTime);
   const [currentQ, setCurrentQ] = useState<Question | null>(null);
-  
+
   const [isPaused, setIsPaused] = useState(false);
   const [showVictory, setShowVictory] = useState(false);
   const [showDefeat, setShowDefeat] = useState(false);
+  const [showUnlocks, setShowUnlocks] = useState(false);
+  const [newUnlocks, setNewUnlocks] = useState<UnlockItem[]>([]);
   const [isAnswering, setIsAnswering] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
@@ -74,18 +119,22 @@ export default function BattleScreen() {
     return 'idle';
   }, [showVictory, showDefeat, isAnswering, selectedOption, currentQ]);
 
-const enemyAction = useMemo(() => {
-  if (showVictory) return 'defeat';
-  if (showDefeat) return 'win';
-  if (isAnswering && selectedOption) {
-    // Player hit correctly → villain takes damage
-    // Player wrong/timeout → villain counter-attacks
-    return currentQ && selectedOption === currentQ.correctAnswer ? 'hit' : 'attack';
-  }
-  return 'idle';
-}, [showVictory, showDefeat, isAnswering, selectedOption, currentQ]);
+  const enemyAction = useMemo(() => {
+    if (showVictory) return 'defeat';
+    if (showDefeat) return 'win';
+    if (isAnswering && selectedOption) {
+      // Player hit correctly → villain takes damage
+      // Player wrong/timeout → villain counter-attacks
+      return currentQ && selectedOption === currentQ.correctAnswer ? 'hit' : 'attack';
+    }
+    return 'idle';
+  }, [showVictory, showDefeat, isAnswering, selectedOption, currentQ]);
   useEffect(() => {
-    setCurrentQ(generateQuestion(currentLevel));
+    const q = generateQuestion(currentLevel);
+    setCurrentQ(q);
+    if (currentLevel === 7) {
+      setTimer(getTimeForLevel(q.sourceLevel));
+    }
   }, []);
 
   useEffect(() => {
@@ -113,14 +162,14 @@ const enemyAction = useMemo(() => {
     } else if (activeSkillName === "Double Strike") {
       setHasDoubleStrike(true);
     }
-    
+
     setSkillUsed(true);
   };
 
   const handleTimeOut = () => {
     setIsAnswering(true);
     setSelectedOption('TIMEOUT');
-    
+
     setTimeout(() => {
       applyWrongAnswer();
     }, 1500);
@@ -128,7 +177,7 @@ const enemyAction = useMemo(() => {
 
   const handleOptionPress = (opt: string) => {
     if (isAnswering || !currentQ) return;
-    
+
     setIsAnswering(true);
     setSelectedOption(opt);
 
@@ -146,13 +195,15 @@ const enemyAction = useMemo(() => {
   const applyCorrectAnswer = () => {
     const damage = hasDoubleStrike ? 2 : 1;
     const newEnemyHP = Math.max(0, enemyHP - damage);
-    
+
     setEnemyHP(newEnemyHP);
-    setHasDoubleStrike(false); 
-    
+    setHasDoubleStrike(false);
+
     if (newEnemyHP <= 0) {
       completeLevel(currentLevel, totalQuestions);
-      updateStats(50 * xpMultiplier, true); 
+      updateStats(50 * xpMultiplier, true);
+      const unlocks = computeNewUnlocks(currentLevel + 1);
+      setNewUnlocks(unlocks);
       setShowVictory(true);
     } else {
       resetForNextQuestion();
@@ -161,7 +212,7 @@ const enemyAction = useMemo(() => {
 
   const applyWrongAnswer = () => {
     if (hasShield) {
-      setHasShield(false); 
+      setHasShield(false);
       resetForNextQuestion();
     } else {
       const newPlayerHP = playerHP - 1;
@@ -180,8 +231,12 @@ const enemyAction = useMemo(() => {
   };
 
   const resetForNextQuestion = () => {
-    setTimer(initialTime);
-    setCurrentQ(generateQuestion(currentLevel));
+    const nextQ = generateQuestion(currentLevel);
+    const nextTime = currentLevel === 7
+      ? getTimeForLevel(nextQ.sourceLevel)
+      : initialTime;
+    setTimer(nextTime);
+    setCurrentQ(nextQ);
     setSelectedOption(null);
     setIsAnswering(false);
   };
@@ -189,8 +244,8 @@ const enemyAction = useMemo(() => {
   const getOptionStyle = (opt: string) => {
     if (!isAnswering || !currentQ) return styles.optionButton;
     if (opt === currentQ.correctAnswer) return [styles.optionButton, styles.optionCorrect];
-    if (opt === selectedOption && opt !== currentQ.correctAnswer) return [styles.optionButton, styles.optionWrong]; 
-    return [styles.optionButton, styles.optionDimmed]; 
+    if (opt === selectedOption && opt !== currentQ.correctAnswer) return [styles.optionButton, styles.optionWrong];
+    return [styles.optionButton, styles.optionDimmed];
   };
 
   const actionBadgeImage = useMemo(() => {
@@ -212,7 +267,7 @@ const enemyAction = useMemo(() => {
 
   return (
     <View style={styles.container}>
-      
+
       {/* 1. TOP BAR */}
       <View style={styles.topBar}>
         <Text style={styles.levelTitle} numberOfLines={1} adjustsFontSizeToFit>
@@ -269,13 +324,7 @@ const enemyAction = useMemo(() => {
             disabled={skillUsed || activeSkillName === "Basic Attack"}
             onPress={activateSkill}
           >
-            <View style={styles.skillBadgeShadow} />
             <View style={[styles.skillBadge, skillUsed && styles.skillBadgeUsed]}>
-              <Image
-                source={actionBadgeImage}
-                style={[styles.skillActionImage, skillUsed && styles.skillActionImageUsed]}
-                resizeMode="contain"
-              />
               <Text style={[styles.skillBadgeText, skillUsed && styles.skillBadgeTextUsed]}>
                 {activeSkillIcon} {activeSkillName} {skillUsed ? "(USED)" : ""}
               </Text>
@@ -300,19 +349,19 @@ const enemyAction = useMemo(() => {
             <Text style={styles.hintText}>{currentQ.hint}</Text>
           ) : null}
           <Text style={styles.equation}>{currentQ.equation}</Text>
-          
+
           <View style={styles.optionsContainer}>
             {currentQ.options.map((opt, idx) => (
               <View key={idx} style={styles.optionWrapper}>
                 <View style={styles.optionShadow} />
-                <TouchableOpacity 
+                <TouchableOpacity
                   activeOpacity={0.7}
                   style={getOptionStyle(opt)}
                   disabled={isAnswering}
                   onPress={() => handleOptionPress(opt)}
                 >
                   <Text style={[
-                    styles.optionText, 
+                    styles.optionText,
                     isAnswering && opt === currentQ.correctAnswer && styles.optionTextCorrect,
                     isAnswering && opt === selectedOption && opt !== currentQ.correctAnswer && styles.optionTextWrong
                   ]}>
@@ -369,7 +418,14 @@ const enemyAction = useMemo(() => {
               )}
               <View style={styles.btnWrapper}>
                 <View style={styles.btnShadow} />
-                <TouchableOpacity style={styles.btnPrimary} onPress={() => router.replace('/map')}>
+                <TouchableOpacity style={styles.btnPrimary} onPress={() => {
+                  setShowVictory(false);
+                  if (newUnlocks.length > 0) {
+                    setShowUnlocks(true);
+                  } else {
+                    router.replace('/map');
+                  }
+                }}>
                   <Text style={styles.btnPrimaryText}>NEXT LEVEL</Text>
                 </TouchableOpacity>
               </View>
@@ -397,13 +453,55 @@ const enemyAction = useMemo(() => {
         </View>
       </Modal>
 
+      {/* 7. NEW UNLOCKS MODAL */}
+      <Modal visible={showUnlocks} transparent={true} animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.menuWrapper}>
+            <View style={styles.menuShadow} />
+            <View style={styles.unlockContent}>
+              <Text style={styles.unlockTitle}>🎉 NEW UNLOCKS!</Text>
+              <ScrollView style={styles.unlockList} showsVerticalScrollIndicator={false}>
+                {newUnlocks.map((item, idx) => {
+                  const borderColor = item.type === 'GEAR' ? '#1a6cf5' : item.type === 'SKILL' ? '#f5a623' : '#a855f7';
+                  const badgeBg = item.type === 'GEAR' ? '#1a6cf5' : item.type === 'SKILL' ? '#f5a623' : '#a855f7';
+                  const badgeText = item.type === 'SKILL' ? '#1a1008' : '#fff';
+                  return (
+                    <View key={idx} style={[styles.unlockRow, { borderLeftColor: borderColor }]}> 
+                      <Text style={styles.unlockIcon}>{item.icon}</Text>
+                      <View style={styles.unlockInfo}>
+                        <View style={styles.unlockNameRow}>
+                          <Text style={styles.unlockName}>{item.name}</Text>
+                          <View style={[styles.unlockBadge, { backgroundColor: badgeBg }]}>
+                            <Text style={[styles.unlockBadgeText, { color: badgeText }]}>{item.type}</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.unlockDetail}>{item.detail}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+              <View style={styles.btnWrapper}>
+                <View style={styles.btnShadow} />
+                <TouchableOpacity style={styles.btnPrimary} onPress={() => {
+                  setShowUnlocks(false);
+                  router.replace('/map');
+                }}>
+                  <Text style={styles.btnPrimaryText}>AWESOME!</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff9f0' },
-  
+
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -461,7 +559,7 @@ const styles = StyleSheet.create({
   enemyHpText: { fontSize: 16, fontWeight: '900', color: '#f5a623' },
   timer: { fontSize: 28, fontWeight: '900', color: '#1a1008' },
   timerDanger: { color: '#e8302a' },
-  
+
   arena: {
     flex: 1,
     flexDirection: 'row',
@@ -470,7 +568,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   characterSlot: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'flex-end',
   },
   statusBadgeArea: {
@@ -479,9 +577,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
-  statusText: { 
-    backgroundColor: '#fff', color: '#1a1008', fontWeight: '900', fontSize: 12, 
-    paddingHorizontal: 8, paddingVertical: 4, 
+  statusText: {
+    backgroundColor: '#fff', color: '#1a1008', fontWeight: '900', fontSize: 12,
+    paddingHorizontal: 8, paddingVertical: 4,
     borderWidth: 2, borderColor: '#1a1008', borderRadius: 8, overflow: 'hidden'
   },
   statusBadgeRow: {
@@ -494,7 +592,7 @@ const styles = StyleSheet.create({
 
   gearIndicator: {
     marginTop: 8,
-    backgroundColor: '#e5d9c4', borderWidth: 2, borderColor: '#1a1008', 
+    backgroundColor: '#e5d9c4', borderWidth: 2, borderColor: '#1a1008',
     borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
   },
   gearIndicatorText: { fontSize: 12, fontWeight: '900', color: '#1a1008' },
@@ -516,9 +614,9 @@ const styles = StyleSheet.create({
     borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
     flexDirection: 'row', alignItems: 'center', gap: 8,
   },
-  skillBadgeUsed: { backgroundColor: '#e5d9c4' }, 
+  skillBadgeUsed: { backgroundColor: '#e5d9c4' },
   skillBadgeText: { fontSize: 14, fontWeight: '900', color: '#1a1008', textTransform: 'uppercase' },
-  skillBadgeTextUsed: { color: '#7a6a55' }, 
+  skillBadgeTextUsed: { color: '#7a6a55' },
   skillActionImage: { width: 24, height: 24 },
   skillActionImageUsed: { opacity: 0.7 },
   skillPlaceholder: {
@@ -526,9 +624,9 @@ const styles = StyleSheet.create({
     height: 46,
   },
 
-  questionPanel: { 
-    backgroundColor: '#fff', borderTopWidth: 4, borderColor: '#1a1008', 
-    padding: 25, borderTopLeftRadius: 30, borderTopRightRadius: 30, alignItems: 'center', 
+  questionPanel: {
+    backgroundColor: '#fff', borderTopWidth: 4, borderColor: '#1a1008',
+    padding: 25, borderTopLeftRadius: 30, borderTopRightRadius: 30, alignItems: 'center',
   },
   equation: { fontSize: 48, fontWeight: '900', color: '#1a1008', marginVertical: 20 },
   hintText: { fontSize: 17, fontWeight: '700', color: '#7a6a55', marginBottom: 4, textAlign: 'center', fontStyle: 'italic' },
@@ -536,13 +634,13 @@ const styles = StyleSheet.create({
   optionWrapper: { width: '45%', position: 'relative' },
   optionShadow: { position: 'absolute', top: 5, left: 5, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
   optionButton: { backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#1a1008', borderRadius: 12, paddingVertical: 18, alignItems: 'center' },
-  optionCorrect: { backgroundColor: '#22c55e', borderColor: '#14532d' }, 
-  optionWrong: { backgroundColor: '#e8302a', borderColor: '#7f1d1d' }, 
-  optionDimmed: { opacity: 0.5 }, 
+  optionCorrect: { backgroundColor: '#22c55e', borderColor: '#14532d' },
+  optionWrong: { backgroundColor: '#e8302a', borderColor: '#7f1d1d' },
+  optionDimmed: { opacity: 0.5 },
   optionText: { fontSize: 28, fontWeight: '900', color: '#1a1008' },
   optionTextCorrect: { color: '#fff' },
   optionTextWrong: { color: '#fff' },
-  
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(26, 16, 8, 0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   menuWrapper: { width: '100%', maxWidth: 350, position: 'relative' },
   menuShadow: { position: 'absolute', top: 8, left: 8, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 16 },
@@ -558,6 +656,18 @@ const styles = StyleSheet.create({
   defeatContent: { backgroundColor: '#e8302a', borderWidth: 4, borderColor: '#1a1008', borderRadius: 16, padding: 30, alignItems: 'center' },
   defeatTitle: { fontSize: 48, fontWeight: '900', color: '#f5a623', textShadowColor: '#1a1008', textShadowOffset: { width: 3, height: 3 }, textShadowRadius: 0, marginBottom: 10, letterSpacing: 2 },
   defeatSubtitle: { fontSize: 20, fontWeight: '900', color: '#fff', marginBottom: 30, textTransform: 'uppercase', letterSpacing: 1 },
+
+  unlockContent: { backgroundColor: '#fff', borderWidth: 4, borderColor: '#1a1008', borderRadius: 16, padding: 24, alignItems: 'center' },
+  unlockTitle: { fontSize: 32, fontWeight: '900', color: '#1a1008', marginBottom: 16, letterSpacing: 1 },
+  unlockList: { width: '100%', maxHeight: 260, marginBottom: 20 },
+  unlockRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff9f0', borderWidth: 2, borderColor: '#1a1008', borderLeftWidth: 6, borderRadius: 10, padding: 12, marginBottom: 10, gap: 12 },
+  unlockIcon: { fontSize: 32 },
+  unlockInfo: { flex: 1 },
+  unlockNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  unlockName: { fontSize: 15, fontWeight: '900', color: '#1a1008' },
+  unlockBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  unlockBadgeText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+  unlockDetail: { fontSize: 12, fontWeight: '700', color: '#7a6a55' },
 
   btnWrapper: { width: '100%', position: 'relative', marginBottom: 15 },
   btnShadow: { position: 'absolute', top: 4, left: 4, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },

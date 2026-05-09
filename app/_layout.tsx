@@ -6,7 +6,6 @@ export default function RootLayout() {
   const loadLocalData = useGameStore((state) => state.loadLocalData);
 
   useEffect(() => {
-    // We only need to load the temporary local data now. No database initialization!
     loadLocalData();
   }, []);
 
@@ -16,6 +15,11 @@ export default function RootLayout() {
       <Stack.Screen name="map" />
       <Stack.Screen name="pre-battle" />
       <Stack.Screen name="battle" />
+      <Stack.Screen name="stats" />
+      <Stack.Screen name="profile" />
+      <Stack.Screen name="login" />
+      <Stack.Screen name="versus" />
+      <Stack.Screen name="versus-battle" />
     </Stack>
   );
 }

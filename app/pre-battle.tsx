@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useGameStore } from '../hooks/useGameStore';
 
-// Mock data for Gears & Skills with unlock requirements
 const GEARS = [
   { id: 'g1', name: 'No. 2 Pencil', stat: '+2s / Q', icon: '✏️', unlockLevel: 1 },
   { id: 'g2', name: 'Study Notes', stat: '+1 Heart', icon: '📓', unlockLevel: 1 },
@@ -20,18 +19,26 @@ const SKILLS = [
   { id: 's4', name: 'Double Strike', desc: '2x Damage (1x)', icon: '🔥', unlockLevel: 6 },
 ];
 
+const OUTFITS = [
+  { id: 'o1', name: 'Default Uniform', icon: '👕', unlockLevel: 1 },
+  { id: 'o2', name: 'School Bag', icon: '🎒', unlockLevel: 2 },
+  { id: 'o3', name: 'Lucky Cap', icon: '🧢', unlockLevel: 3 },
+  { id: 'o4', name: 'Focus Scarf', icon: '🧣', unlockLevel: 4 },
+  { id: 'o5', name: 'Battle Gi', icon: '🥋', unlockLevel: 5 },
+  { id: 'o6', name: 'Champion Crown', icon: '👑', unlockLevel: 6 },
+];
+
 export default function PreBattleScreen() {
   const router = useRouter();
   const { level, questions, timePerQuestion: timeParam } = useLocalSearchParams();
-  const timePerQuestion = Number(timeParam) || 15;
+  const timePerQuestion = Number(timeParam) || 30;
   const currentLevel = Number(level) || 1;
   const unlockedLevel = useGameStore((state) => state.unlockedLevel);
 
-  // State for selections
   const [selectedGear, setSelectedGear] = useState('g1');
   const [selectedSkill, setSelectedSkill] = useState('s1');
+  const [selectedOutfit, setSelectedOutfit] = useState('o1');
 
-  // Neo-Brutalist shadow wrapper component
   const BrutalistCard = ({ children, style }: { children: React.ReactNode, style?: any }) => (
     <View style={styles.cardWrapper}>
       <View style={styles.cardShadow} />
@@ -43,7 +50,6 @@ export default function PreBattleScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Floating Background Symbols */}
       <Text style={[styles.bgSymbol, { top: '5%', left: '10%', transform: [{ rotate: '-10deg' }] }]}>-</Text>
       <Text style={[styles.bgSymbol, { top: '25%', right: '15%', transform: [{ rotate: '20deg' }] }]}>x²</Text>
       <Text style={[styles.bgSymbol, { bottom: '25%', left: '20%', transform: [{ rotate: '-15deg' }] }]}>+</Text>
@@ -62,10 +68,9 @@ export default function PreBattleScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>⏱️  TIME LIMIT</Text>
             <Text style={styles.infoValue}>
-              {currentLevel === 7 
-                ? '22-27s / Q (dynamic)' 
-                : `${timePerQuestion}s / Q`
-              }
+              {currentLevel === 7
+                ? '22-27s / Q (dynamic)'
+                : `${timePerQuestion}s / Q`}
             </Text>
           </View>
           <View style={styles.infoRow}>
@@ -74,18 +79,17 @@ export default function PreBattleScreen() {
           </View>
         </BrutalistCard>
 
-        {/* 2. CHOOSE GEAR (HORIZONTAL SCROLL) */}
+        {/* 2. CHOOSE GEAR */}
         <Text style={styles.sectionHeader}>EQUIP GEAR (CHOOSE 1)</Text>
         <View style={styles.gearScrollWrapper}>
-          <ScrollView 
-            horizontal={true} 
-            showsHorizontalScrollIndicator={false} 
+          <ScrollView
+            horizontal={true}
+            showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.gearScrollContainer}
           >
             {GEARS.map((gear) => {
               const isLocked = unlockedLevel < gear.unlockLevel;
               const isSelected = selectedGear === gear.id;
-
               return (
                 <TouchableOpacity
                   key={gear.id}
@@ -96,7 +100,7 @@ export default function PreBattleScreen() {
                 >
                   <View style={styles.itemShadow} />
                   <View style={[
-                    styles.itemSlot, 
+                    styles.itemSlot,
                     isSelected && styles.itemSlotSelected,
                     isLocked && styles.itemSlotLocked
                   ]}>
@@ -112,69 +116,105 @@ export default function PreBattleScreen() {
           </ScrollView>
         </View>
 
-        {/* 3. CHOOSE SKILL */}
-        <Text style={styles.sectionHeader}>ACTIVE SKILL (CHOOSE 1)</Text>
-        <BrutalistCard style={styles.skillBox}>
-            {SKILLS.map((skill, index) => {
-              const isLocked = unlockedLevel < skill.unlockLevel;
-              const isSelected = selectedSkill === skill.id;
-
+        {/* 3. CHOOSE OUTFIT */}
+        <Text style={[styles.sectionHeader, { marginTop: 3 }]}>EQUIP OUTFIT (CHOOSE 1)</Text>
+        <View style={styles.gearScrollWrapper}>
+          <ScrollView
+            horizontal={true}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.gearScrollContainer}
+          >
+            {OUTFITS.map((outfit) => {
+              const isLocked = unlockedLevel < outfit.unlockLevel;
+              const isSelected = selectedOutfit === outfit.id;
               return (
-                <TouchableOpacity 
-                  key={skill.id} 
+                <TouchableOpacity
+                  key={outfit.id}
                   activeOpacity={0.8}
                   disabled={isLocked}
-                  onPress={() => setSelectedSkill(skill.id)}
-                  style={[
-                    styles.skillRow, 
-                    index < SKILLS.length - 1 && styles.skillBorder,
-                    isSelected && styles.skillRowSelected,
-                    isLocked && styles.skillRowLocked
-                  ]}
+                  onPress={() => setSelectedOutfit(outfit.id)}
+                  style={styles.itemWrapper}
                 >
-                    <View style={[styles.skillIconContainer, isLocked && styles.lockedIconContainer]}>
-                        <Text style={styles.skillIcon}>{isLocked ? '🔒' : skill.icon}</Text>
-                    </View>
-                    <View style={styles.skillTextContainer}>
-                        <Text style={[styles.skillName, isLocked && styles.lockedText]}>
-                          {isLocked ? `Unlocks at Level ${skill.unlockLevel}` : skill.name}
-                        </Text>
-                        {!isLocked && <Text style={styles.skillDesc}>{skill.desc}</Text>}
-                    </View>
-                    
-                    {/* Selection Indicator */}
-                    <View style={styles.radioCircle}>
-                      {isSelected && <View style={styles.radioInner} />}
-                    </View>
+                  <View style={styles.itemShadow} />
+                  <View style={[
+                    styles.itemSlot,
+                    isSelected && styles.itemSlotSelected,
+                    isLocked && styles.itemSlotLocked
+                  ]}>
+                    <Text style={styles.itemIcon}>{isLocked ? '🔒' : outfit.icon}</Text>
+                  </View>
+                  <Text style={[styles.itemName, isLocked && styles.lockedText]}>
+                    {isLocked ? `Lv. ${outfit.unlockLevel}` : outfit.name}
+                  </Text>
+
                 </TouchableOpacity>
               );
             })}
+          </ScrollView>
+        </View>
+
+        {/* 4. CHOOSE SKILL */}
+        <Text style={styles.sectionHeader}>ACTIVE SKILL (CHOOSE 1)</Text>
+        <BrutalistCard style={styles.skillBox}>
+          {SKILLS.map((skill, index) => {
+            const isLocked = unlockedLevel < skill.unlockLevel;
+            const isSelected = selectedSkill === skill.id;
+            return (
+              <TouchableOpacity
+                key={skill.id}
+                activeOpacity={0.8}
+                disabled={isLocked}
+                onPress={() => setSelectedSkill(skill.id)}
+                style={[
+                  styles.skillRow,
+                  index < SKILLS.length - 1 && styles.skillBorder,
+                  isSelected && styles.skillRowSelected,
+                  isLocked && styles.skillRowLocked
+                ]}
+              >
+                <View style={[styles.skillIconContainer, isLocked && styles.lockedIconContainer]}>
+                  <Text style={styles.skillIcon}>{isLocked ? '🔒' : skill.icon}</Text>
+                </View>
+                <View style={styles.skillTextContainer}>
+                  <Text style={[styles.skillName, isLocked && styles.lockedText]}>
+                    {isLocked ? `Unlocks at Level ${skill.unlockLevel}` : skill.name}
+                  </Text>
+                  {!isLocked && <Text style={styles.skillDesc}>{skill.desc}</Text>}
+                </View>
+                <View style={styles.radioCircle}>
+                  {isSelected && <View style={styles.radioInner} />}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </BrutalistCard>
 
-        {/* 4. BUTTONS */}
+        {/* 5. BUTTONS */}
         <View style={styles.buttonContainer}>
           <View style={styles.btnWrapper}>
             <View style={styles.btnShadow} />
-            <TouchableOpacity 
-              activeOpacity={0.8} 
-              style={styles.btnPrimary} 
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.btnPrimary}
               onPress={() => {
-                // 👇 Find the full objects based on the selected IDs
                 const activeSkill = SKILLS.find(s => s.id === selectedSkill);
                 const activeGear = GEARS.find(g => g.id === selectedGear);
+                const activeOutfit = OUTFITS.find(o => o.id === selectedOutfit);
 
                 router.push({
                   pathname: '/battle',
-                  // 👇 Pass all the relevant data as params!
-                  params: { 
-                    level, 
+                  params: {
+                    level,
                     questions,
                     timePerQuestion: timePerQuestion.toString(),
                     skillName: activeSkill?.name,
                     skillIcon: activeSkill?.icon,
                     gearName: activeGear?.name,
                     gearIcon: activeGear?.icon,
-                    gearStat: activeGear?.stat
+                    gearStat: activeGear?.stat,
+                    outfitName: activeOutfit?.name,
+                    outfitIcon: activeOutfit?.icon,
+
                   }
                 });
               }}
@@ -185,10 +225,10 @@ export default function PreBattleScreen() {
 
           <View style={styles.btnWrapper}>
             <View style={styles.btnShadow} />
-            <TouchableOpacity 
-              activeOpacity={0.8} 
-              style={styles.btnSecondary} 
-              onPress={() => router.back()}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.btnSecondary}
+              onPress={() => router.replace('/map')}
             >
               <Text style={styles.btnSecondaryText}>Cancel</Text>
             </TouchableOpacity>
@@ -200,38 +240,38 @@ export default function PreBattleScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#fff9f0', 
+  container: {
+    flex: 1,
+    backgroundColor: '#fff9f0',
   },
-  bgSymbol: { 
-    position: 'absolute', 
-    fontSize: 60, 
-    fontWeight: '900', 
-    color: '#e5d9c4', 
-    opacity: 0.3, 
+  bgSymbol: {
+    position: 'absolute',
+    fontSize: 60,
+    fontWeight: '900',
+    color: '#e5d9c4',
+    opacity: 0.3,
     zIndex: 1
   },
-  content: { 
-    alignItems: 'center', 
+  content: {
+    alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 60, 
-    paddingBottom: 40, 
-    zIndex: 10 
+    paddingTop: 60,
+    paddingBottom: 40,
+    zIndex: 10
   },
-  title: { 
-    fontSize: 50, 
-    fontWeight: '900', 
-    color: '#1a1008', 
+  title: {
+    fontSize: 50,
+    fontWeight: '900',
+    color: '#1a1008',
     marginBottom: 5,
     textTransform: 'uppercase',
     letterSpacing: 2
   },
-  subtitle: { 
-    fontSize: 18, 
-    fontWeight: '900', 
-    color: '#f5a623', 
-    marginBottom: 30, 
+  subtitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#f5a623',
+    marginBottom: 30,
     textTransform: 'uppercase',
     letterSpacing: 1
   },
@@ -259,14 +299,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1008',
     borderRadius: 16
   },
-  cardContent: { 
-    backgroundColor: '#fff', 
-    borderWidth: 3, 
-    borderColor: '#1a1008', 
-    borderRadius: 16, 
+  cardContent: {
+    backgroundColor: '#fff',
+    borderWidth: 3,
+    borderColor: '#1a1008',
+    borderRadius: 16,
   },
-  infoBox: { 
-    padding: 20, 
+  infoBox: {
+    padding: 20,
   },
   infoRow: {
     flexDirection: 'row',
@@ -274,26 +314,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 8
   },
-  infoLabel: { 
-    color: '#7a6a55', 
-    fontSize: 16, 
+  infoLabel: {
+    color: '#7a6a55',
+    fontSize: 16,
     fontWeight: '900',
     letterSpacing: 1
   },
-  infoValue: { 
-    color: '#1a1008', 
+  infoValue: {
+    color: '#1a1008',
     fontSize: 16,
-    fontWeight: '900' 
+    fontWeight: '900'
   },
-  
-  // GEAR SCROLL STYLING
   gearScrollWrapper: {
     width: '100%',
     marginBottom: 20,
   },
   gearScrollContainer: {
-    paddingBottom: 15, // Space for the neo-brutalist shadows
-    paddingHorizontal: 5, 
+    paddingBottom: 15,
+    paddingHorizontal: 5,
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
@@ -301,7 +339,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
     width: 80,
-    marginRight: 20, // Forces space between items ensuring horizontal flow
+    marginRight: 20,
   },
   itemShadow: {
     position: 'absolute',
@@ -342,13 +380,11 @@ const styles = StyleSheet.create({
   itemStat: {
     fontSize: 12,
     fontWeight: '900',
-    color: '#22c55e', 
+    color: '#22c55e',
   },
   lockedText: {
     color: '#7a6a55',
   },
-
-  // SKILL BOX STYLING
   skillBox: {
     padding: 0,
     overflow: 'hidden',
@@ -415,53 +451,51 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: '#1a6cf5',
   },
-
-  // BUTTON STYLING
-  buttonContainer: { 
-    width: '100%', 
+  buttonContainer: {
+    width: '100%',
     marginTop: 30,
-    gap: 20 
+    gap: 20
   },
-  btnWrapper: { 
-    position: 'relative', 
-    width: '100%' 
+  btnWrapper: {
+    position: 'relative',
+    width: '100%'
   },
-  btnShadow: { 
-    position: 'absolute', 
-    top: 5, 
-    left: 5, 
-    width: '100%', 
-    height: '100%', 
-    backgroundColor: '#1a1008', 
-    borderRadius: 16 
+  btnShadow: {
+    position: 'absolute',
+    top: 5,
+    left: 5,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#1a1008',
+    borderRadius: 16
   },
-  btnPrimary: { 
-    backgroundColor: '#e8302a', 
+  btnPrimary: {
+    backgroundColor: '#e8302a',
     borderWidth: 3,
     borderColor: '#1a1008',
-    paddingVertical: 16, 
-    borderRadius: 16, 
-    alignItems: 'center', 
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
   },
-  btnPrimaryText: { 
-    color: '#fff', 
-    fontSize: 20, 
-    fontWeight: '900', 
+  btnPrimaryText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 1
   },
-  btnSecondary: { 
+  btnSecondary: {
     backgroundColor: '#f5a623',
     borderWidth: 3,
     borderColor: '#1a1008',
-    paddingVertical: 16, 
-    borderRadius: 16, 
-    alignItems: 'center' 
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center'
   },
-  btnSecondaryText: { 
-    color: '#1a1008', 
-    fontSize: 18, 
-    fontWeight: '900', 
+  btnSecondaryText: {
+    color: '#1a1008',
+    fontSize: 18,
+    fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 1
   }

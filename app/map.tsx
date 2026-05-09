@@ -1,105 +1,190 @@
 // app/map.tsx
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useGameStore } from '../hooks/useGameStore';
 
 const LEVELS = [
-  { id: 1, title: 'Variables & Expressions', questions: 10, timePerQuestion: 15 },
-  { id: 2, title: 'Equations & Inequalities', questions: 20, timePerQuestion: 18 },
-  { id: 3, title: 'Polynomials', questions: 20, timePerQuestion: 19 },
-  { id: 4, title: 'Factoring', questions: 30, timePerQuestion: 20 },
-  { id: 5, title: 'Systems of Equations', questions: 30, timePerQuestion: 21 },
-  { id: 6, title: 'Exponents & Roots', questions: 50, timePerQuestion: 22 },
-  { id: 7, title: 'Random Mode', questions: 100, timePerQuestion: 25 },
+  {
+    id: 1,
+    title: 'Variables & Expressions',
+    questions: 10,
+    timePerQuestion: 30,
+    instruction: 'Learn how to simplify expressions and evaluate variables using basic algebra rules.',
+  },
+  {
+    id: 2,
+    title: 'Equations & Inequalities',
+    questions: 20,
+    timePerQuestion: 30,
+    instruction: 'Solve one-step and multi-step equations, then compare values with inequality symbols.',
+  },
+  {
+    id: 3,
+    title: 'Polynomials',
+    questions: 20,
+    timePerQuestion: 60,
+    instruction: 'Practice adding, subtracting, and multiplying polynomial terms with confidence.',
+  },
+  {
+    id: 4,
+    title: 'Factoring',
+    questions: 30,
+    timePerQuestion: 60,
+    instruction: 'Break expressions into factors using common factors and special factoring patterns.',
+  },
+  {
+    id: 5,
+    title: 'Systems of Equations',
+    questions: 30,
+    timePerQuestion: 60,
+    instruction: 'Find where equations meet by solving systems with substitution and elimination.',
+  },
+  {
+    id: 6,
+    title: 'Exponents & Roots',
+    questions: 50,
+    timePerQuestion: 60,
+    instruction: 'Master exponent laws, square roots, and how powers relate to radical expressions.',
+  },
+  {
+    id: 7,
+    title: 'Random Mode',
+    questions: 100,
+    timePerQuestion: 25,
+    instruction: 'A mixed challenge of every topic. Survive the gauntlet and test full algebra mastery.',
+  },
 ];
 
 export default function MapScreen() {
   const router = useRouter();
-  
-  // Get both unlocked level and the score data from the store
+  const [selectedInstruction, setSelectedInstruction] = useState<{ title: string; text: string } | null>(null);
+  const [isInstructionVisible, setIsInstructionVisible] = useState(false);
+
   const { unlockedLevel, levelStars } = useGameStore();
+
+  const openInstruction = (title: string, instruction: string) => {
+    setSelectedInstruction({ title, text: instruction });
+    setIsInstructionVisible(true);
+  };
+
+  const closeInstruction = () => {
+    setIsInstructionVisible(false);
+    setSelectedInstruction(null);
+  };
 
   return (
     <View style={styles.mainContainer}>
-      {/* 1. TOP HEADER WITH BACK BUTTON */}
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/')}>
           <Text style={styles.backBtnText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.header}>SELECT LEVEL</Text>
-        <View style={{ width: 45 }} /> {/* Spacer to keep title centered */}
+        <View style={{ width: 45 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {LEVELS.map((level) => {
           const isLocked = level.id > unlockedLevel;
-          
-          // Get score for this level (stored as raw score out of total questions)
+
           const scoreEarned = levelStars[level.id] || 0;
-          
-          // Calculate progress bar width based on score
           const progressPercent = (scoreEarned / level.questions) * 100;
 
-          // Create the score string (e.g., "7/10") or lock icon
           const scoreDisplay = isLocked
             ? '🔒'
             : `${scoreEarned}/${level.questions}`;
 
-          // Determine score color based on performance
           const isPerfect = scoreEarned === level.questions;
           const hasScore = scoreEarned > 0;
 
           return (
             <View key={level.id} style={styles.cardWrapper}>
               <View style={styles.cardShadow} />
-              
-              <TouchableOpacity
-                style={[styles.cardContent, isLocked && styles.lockedCard]}
-                disabled={isLocked}
-                activeOpacity={0.8}
-                onPress={() => router.push({ pathname: '/pre-battle', params: { level: level.id, questions: level.questions, timePerQuestion: level.timePerQuestion } })}
-              >
+
+              <View style={[styles.cardContent, isLocked && styles.lockedCard]}>
                 <View style={styles.cardHeader}>
-                   <View style={[styles.badge, isLocked && styles.lockedBadge]}>
-                     <Text style={styles.badgeText}>{level.id}</Text>
-                   </View>
+                  <View style={[styles.badge, isLocked && styles.lockedBadge]}>
+                    <Text style={styles.badgeText}>{level.id}</Text>
+                  </View>
                 </View>
 
-                <View style={styles.cardBody}>
-                   <Text style={[styles.titleText, isLocked && styles.lockedText]}>{level.title}</Text>
-                   
-                   <View style={styles.progressRow}>
-                      <View style={styles.progressBarOuter}>
-                         {/* Dynamic Width based on earned score */}
-                         <View style={[
-                           styles.progressBarInner,
-                           { width: `${progressPercent}%` },
-                           isPerfect && styles.progressBarPerfect,
-                         ]} />
-                      </View>
-                      <Text style={[
-                        styles.scoreText,
-                        !hasScore && !isLocked && styles.emptyScore,
-                        isPerfect && styles.perfectScore,
-                        isLocked && styles.lockedScore,
-                      ]}>
-                        {scoreDisplay}
-                      </Text>
-                   </View>
-                </View>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.cardBody}
+                  disabled={isLocked}
+                  activeOpacity={0.8}
+                  onPress={() => router.push({
+                    pathname: '/pre-battle',
+                    params: {
+                      level: level.id,
+                      questions: level.questions,
+                      timePerQuestion: level.timePerQuestion
+                    }
+                  })}
+                >
+                  <Text style={[styles.titleText, isLocked && styles.lockedText]}>{level.title}</Text>
+
+                  <View style={styles.progressRow}>
+                    <View style={styles.progressBarOuter}>
+                      <View style={[
+                        styles.progressBarInner,
+                        { width: `${progressPercent}%` },
+                        isPerfect && styles.progressBarPerfect,
+                      ]} />
+                    </View>
+                    <Text style={[
+                      styles.scoreText,
+                      !hasScore && !isLocked && styles.emptyScore,
+                      isPerfect && styles.perfectScore,
+                      isLocked && styles.lockedScore,
+                    ]}>
+                      {scoreDisplay}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.helpButton}
+                  activeOpacity={0.6}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    openInstruction(level.title, level.instruction);
+                  }}
+                >
+                  <Text style={styles.helpButtonText}>?</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           );
         })}
       </ScrollView>
+
+      <Modal
+        visible={isInstructionVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeInstruction}
+      >
+        <Pressable style={styles.modalOverlay} onPress={closeInstruction}>
+          <Pressable style={styles.modalCard} onPress={() => { }}>
+            <Text style={styles.modalTitle}>
+              {selectedInstruction ? selectedInstruction.title : 'LEVEL INFO'}
+            </Text>
+            <Text style={styles.modalBodyText}>
+              {selectedInstruction ? selectedInstruction.text : ''}
+            </Text>
+            <TouchableOpacity style={styles.modalButton} onPress={closeInstruction}>
+              <Text style={styles.modalButtonText}>Got it</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: '#fff9f0' },
-  
-  // Header with Back Button
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -119,16 +204,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backBtnText: { fontSize: 24, fontWeight: '900', color: '#1a1008' },
-  header: { 
-    fontSize: 28, 
-    color: '#1a1008', 
-    fontWeight: '900', 
-    textTransform: 'uppercase', 
+  header: {
+    fontSize: 28,
+    color: '#1a1008',
+    fontWeight: '900',
+    textTransform: 'uppercase',
     letterSpacing: 1
   },
-
   scrollContainer: { padding: 24, paddingBottom: 50 },
-
   cardWrapper: { marginBottom: 24, width: '100%', position: 'relative' },
   cardShadow: {
     position: 'absolute',
@@ -139,14 +222,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1008',
     borderRadius: 16
   },
-  cardContent: { 
-    backgroundColor: '#fff', 
-    borderWidth: 3, 
-    borderColor: '#1a1008', 
-    padding: 16, 
-    borderRadius: 16, 
-    flexDirection: 'row', 
+  cardContent: {
+    backgroundColor: '#fff',
+    borderWidth: 3,
+    borderColor: '#1a1008',
+    padding: 16,
+    borderRadius: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    position: 'relative',
   },
   lockedCard: { backgroundColor: '#f0eade', opacity: 0.8 },
   cardHeader: { marginRight: 16, alignItems: 'center', justifyContent: 'center' },
@@ -178,7 +262,7 @@ const styles = StyleSheet.create({
   },
   progressBarInner: { height: '100%', backgroundColor: '#22c55e' },
   progressBarPerfect: { backgroundColor: '#f5a623' },
-  scoreText: { 
+  scoreText: {
     fontSize: 15,
     fontWeight: '900',
     color: '#22c55e',
@@ -195,5 +279,74 @@ const styles = StyleSheet.create({
   lockedScore: {
     color: '#7a6a55',
     fontSize: 16,
+  },
+  helpButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#1a6cf5',
+    borderWidth: 2,
+    borderColor: '#1a1008',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  helpButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '900',
+    lineHeight: 17,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(26, 16, 8, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#fff9f0',
+    borderWidth: 3,
+    borderColor: '#1a1008',
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1a1008',
+    textTransform: 'uppercase',
+    marginBottom: 10,
+    letterSpacing: 0.5,
+  },
+  modalBodyText: {
+    fontSize: 15,
+    color: '#1a1008',
+    fontWeight: '700',
+    lineHeight: 22,
+    marginBottom: 14,
+  },
+  modalButton: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#1a6cf5',
+    borderWidth: 2,
+    borderColor: '#1a1008',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });

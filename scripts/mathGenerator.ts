@@ -5,6 +5,7 @@ export type Question = {
   options: string[];
   correctAnswer: string;
   hint: string;
+  sourceLevel: number;
 };
 
 // Helper to shuffle an array (uses spread [...] to avoid mutating the original array)
@@ -298,5 +299,6 @@ export const generateQuestion = (level: number): Question => {
     options: generateOptions(answer, numChoices, isNumeric),
     correctAnswer: answer,
     hint,
+    sourceLevel: currentLevel,
   };
 };
