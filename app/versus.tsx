@@ -118,7 +118,7 @@ export default function VersusScreen() {
         <Text style={styles.primaryBtnText}>Start Versus!</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.back()}>
+      <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.replace('/')}>
         <Text style={styles.secondaryBtnText}>Cancel</Text>
       </TouchableOpacity>
     </ScrollView>

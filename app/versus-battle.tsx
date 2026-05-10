@@ -39,6 +39,7 @@ export default function VersusBattleScreen() {
 
   const [turn, setTurn] = useState<1 | 2>(1);
   const [round, setRound] = useState(1);
+  const currentLevel = Math.min(Math.ceil(round / 2), 6);
   const [timer, setTimer] = useState(p1InitialTime);
   const [currentQ, setCurrentQ] = useState<Question | null>(null);
 
@@ -69,7 +70,7 @@ export default function VersusBattleScreen() {
   const activeHasDouble = turn === 1 ? p1Double : p2Double;
 
   useEffect(() => {
-    setCurrentQ(generateQuestion(1));
+    setCurrentQ(generateQuestion(currentLevel));
   }, []);
 
   useEffect(() => {
@@ -129,12 +130,12 @@ export default function VersusBattleScreen() {
     // Auto-dismiss after 2s and switch turn
     setTimeout(() => {
       setShowTurnNotification(false);
-      
+
       setTurn(next);
       setTimer(next === 1 ? p1InitialTime : p2InitialTime);
       setSelectedOption(null);
       setIsAnswering(false);
-      setCurrentQ(generateQuestion(1));
+      setCurrentQ(generateQuestion(currentLevel));
 
       if (next === 1) {
         setP1SkillCooldown((prev) => (prev > 0 ? prev - 1 : 0));
@@ -273,7 +274,7 @@ export default function VersusBattleScreen() {
         <View style={{ alignItems: 'center' }}>
           <Text style={[styles.timer, timer <= 5 && styles.timerDanger]}>{timer}s</Text>
           <Text style={styles.turnText}>{activeName.toUpperCase()} TURN</Text>
-          <Text style={styles.roundText}>Round {Math.min(round, totalQuestions)}/{totalQuestions}</Text>
+          <Text style={styles.roundText}>Round {Math.min(round, totalQuestions)}/{totalQuestions} · Lv.{currentLevel}</Text>
         </View>
 
         <View style={styles.topRight}>
@@ -314,7 +315,7 @@ export default function VersusBattleScreen() {
             disabled={turn !== 1 || p1SkillCooldown > 0 || p1SkillName === 'Basic Attack'}
             onPress={turn === 1 ? activateSkill : undefined}
           >
-            <Image source={p1ActionImage} style={styles.skillActionImage} resizeMode="contain" />
+
             <Text style={[styles.skillBadgeText, p1SkillCooldown > 0 && styles.skillBadgeTextUsed, turn === 1 && p1SkillCooldown === 0 && styles.skillBadgeTextActive]}>
               {p1SkillIcon} {p1SkillName}{p1SkillCooldown > 0 ? ` (CD:${p1SkillCooldown})` : ''}
             </Text>
@@ -352,7 +353,7 @@ export default function VersusBattleScreen() {
             disabled={turn !== 2 || p2SkillCooldown > 0 || p2SkillName === 'Basic Attack'}
             onPress={turn === 2 ? activateSkill : undefined}
           >
-            <Image source={p2ActionImage} style={styles.skillActionImage} resizeMode="contain" />
+
             <Text style={[styles.skillBadgeText, p2SkillCooldown > 0 && styles.skillBadgeTextUsed, turn === 2 && p2SkillCooldown === 0 && styles.skillBadgeTextActive]}>
               {p2SkillIcon} {p2SkillName}{p2SkillCooldown > 0 ? ` (CD:${p2SkillCooldown})` : ''}
             </Text>
@@ -570,36 +571,36 @@ const styles = StyleSheet.create({
 
   // Turn Notification Styles (moved to end)
   turnNotificationWrapper: { width: '100%', maxWidth: 350, position: 'relative' },
-  turnNotificationShadow: { 
-    position: 'absolute', 
-    top: 8, left: 8, 
-    width: '100%', height: '100%', 
-    backgroundColor: '#1a1008', 
-    borderRadius: 20 
+  turnNotificationShadow: {
+    position: 'absolute',
+    top: 8, left: 8,
+    width: '100%', height: '100%',
+    backgroundColor: '#1a1008',
+    borderRadius: 20
   },
-  turnNotificationContent: { 
-    backgroundColor: '#f5a623', 
-    borderWidth: 4, 
-    borderColor: '#1a1008', 
-    borderRadius: 20, 
-    padding: 40, 
-    alignItems: 'center' 
+  turnNotificationContent: {
+    backgroundColor: '#f5a623',
+    borderWidth: 4,
+    borderColor: '#1a1008',
+    borderRadius: 20,
+    padding: 40,
+    alignItems: 'center'
   },
-  turnNotificationTitle: { 
-    fontSize: 36, 
-    fontWeight: '900', 
-    color: '#1a1008', 
-    textShadowColor: '#f5a623', 
-    textShadowOffset: { width: 2, height: 2 }, 
-    textShadowRadius: 0, 
-    marginBottom: 10, 
-    letterSpacing: 3 
+  turnNotificationTitle: {
+    fontSize: 36,
+    fontWeight: '900',
+    color: '#1a1008',
+    textShadowColor: '#f5a623',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 0,
+    marginBottom: 10,
+    letterSpacing: 3
   },
-  turnNotificationSubtitle: { 
-    fontSize: 24, 
-    fontWeight: '900', 
-    color: '#1a1008', 
-    textTransform: 'uppercase', 
-    letterSpacing: 2 
+  turnNotificationSubtitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#1a1008',
+    textTransform: 'uppercase',
+    letterSpacing: 2
   },
 });
