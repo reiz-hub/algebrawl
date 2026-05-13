@@ -36,9 +36,7 @@
           }
         }
       ],
-      "expo-image",
-      "@react-native-firebase/app",
-      "@react-native-firebase/auth"
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,
