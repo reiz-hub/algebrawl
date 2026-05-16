@@ -175,6 +175,15 @@ export default function PlayerStatsScreen() {
 
   const resetForm = () => { setFormUser(''); setFormPass(''); setFormIngameName(''); setNameSuggestions([]); };
 
+  const checkNetwork = async (): Promise<boolean> => {
+    try {
+      await fetch('https://clients3.google.com/generate_204', { method: 'HEAD', mode: 'no-cors' });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const handleRegisterNext = async () => {
     const trimUser = formUser.trim();
     const trimPass = formPass.trim();
@@ -188,6 +197,12 @@ export default function PlayerStatsScreen() {
     }
     
     setLoading(true);
+    const online = await checkNetwork();
+    if (!online) {
+      setLoading(false);
+      setErrorConfig({ visible: true, title: 'No Internet', message: 'Please check your internet connection and try again.' });
+      return;
+    }
     const existingUser = await lookupByUsername(trimUser);
     setLoading(false);
 
@@ -255,7 +270,9 @@ export default function PlayerStatsScreen() {
       resetForm();
       showPopup('', 'Account Created!', `Welcome, ${trimUser}!`);
     } catch (error: any) {
-      if (error.code === 'auth/email-already-in-use') {
+      if (error.code === 'auth/network-request-failed') {
+        setErrorConfig({ visible: true, title: 'No Internet', message: 'Please check your internet connection and try again.' });
+      } else if (error.code === 'auth/email-already-in-use') {
         setErrorConfig({ visible: true, title: 'Username Taken', message: 'That username is already registered. Try a different one.' });
       } else {
         setErrorConfig({ visible: true, title: 'Error', message: error.message || 'Registration failed.' });
@@ -276,6 +293,12 @@ export default function PlayerStatsScreen() {
     }
 
     setLoading(true);
+    const online = await checkNetwork();
+    if (!online) {
+      setLoading(false);
+      setErrorConfig({ visible: true, title: 'No Internet', message: 'Please check your internet connection and try again.' });
+      return;
+    }
     try {
       const cred = await signInWithEmailAndPassword(auth, toEmail(trimUser), trimPass);
       const uid = cred.user.uid;
@@ -308,7 +331,9 @@ export default function PlayerStatsScreen() {
       resetForm();
       showPopup('', 'Welcome Back!', `Welcome back, ${trimUser}! Your progress has been restored.`);
     } catch (error: any) {
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+      if (error.code === 'auth/network-request-failed') {
+        setErrorConfig({ visible: true, title: 'No Internet', message: 'Please check your internet connection and try again.' });
+      } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         setErrorConfig({ visible: true, title: 'Login Failed', message: 'Invalid username or password.' });
       } else {
         setErrorConfig({ visible: true, title: 'Error', message: error.message || 'Login failed.' });
