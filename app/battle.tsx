@@ -1,7 +1,8 @@
 // app/battle.tsx
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import ReviewModal from '../components/ReviewModal';
 import Sprite from '../components/sprite';
 import { useGameStore } from '../hooks/useGameStore';
 import { generateQuestion, Question } from '../scripts/mathGenerator';
@@ -104,6 +105,8 @@ export default function BattleScreen() {
   const [showUnlocks, setShowUnlocks] = useState(false);
   const [newUnlocks, setNewUnlocks] = useState<UnlockItem[]>([]);
   const [isAnswering, setIsAnswering] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+  const reviewShown = useRef(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
   const [skillUsed, setSkillUsed] = useState(false);
@@ -422,6 +425,9 @@ export default function BattleScreen() {
                   setShowVictory(false);
                   if (newUnlocks.length > 0) {
                     setShowUnlocks(true);
+                  } else if (!reviewShown.current) {
+                    reviewShown.current = true;
+                    setShowReview(true);
                   } else {
                     router.replace('/map');
                   }
@@ -444,7 +450,15 @@ export default function BattleScreen() {
               <Text style={styles.defeatSubtitle}>You ran out of hearts!</Text>
               <View style={styles.btnWrapper}>
                 <View style={styles.btnShadow} />
-                <TouchableOpacity style={styles.btnSecondary} onPress={() => router.replace('/map')}>
+                <TouchableOpacity style={styles.btnSecondary} onPress={() => {
+                  setShowDefeat(false);
+                  if (!reviewShown.current) {
+                    reviewShown.current = true;
+                    setShowReview(true);
+                  } else {
+                    router.replace('/map');
+                  }
+                }}>
                   <Text style={styles.btnSecondaryText}>RETREAT</Text>
                 </TouchableOpacity>
               </View>
@@ -485,7 +499,12 @@ export default function BattleScreen() {
                 <View style={styles.btnShadow} />
                 <TouchableOpacity style={styles.btnPrimary} onPress={() => {
                   setShowUnlocks(false);
-                  router.replace('/map');
+                  if (!reviewShown.current) {
+                    reviewShown.current = true;
+                    setShowReview(true);
+                  } else {
+                    router.replace('/map');
+                  }
                 }}>
                   <Text style={styles.btnPrimaryText}>AWESOME!</Text>
                 </TouchableOpacity>
@@ -494,6 +513,15 @@ export default function BattleScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* 8. POST-GAME REVIEW MODAL */}
+      <ReviewModal
+        visible={showReview}
+        onDismiss={() => {
+          setShowReview(false);
+          router.replace('/map');
+        }}
+      />
 
     </View>
   );

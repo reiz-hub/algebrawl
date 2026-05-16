@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --color-game-cream: #fff9f0;
+  --color-game-cream-alt: #fffbf2;
+  --color-game-cream-dark: #f5eed8;
+  --color-game-brown: #0f0a04;
+  --color-game-brown-light: #1a1208;
+  --color-game-brown-lighter: #2d2415;
+  --color-game-text: #1a1008;
+  --color-game-muted: #7a6a55;
+  --color-game-border: #e5d9c4;
+
+  --color-game-red: #e8302a;
+  --color-game-green: #22c55e;
+  --color-game-blue: #1a6cf5;
+  --color-game-yellow: #f5a623;
+}
+
+/* Custom base styles can go here if needed */
+body {
+  @apply bg-game-cream text-game-text;
+}

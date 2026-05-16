@@ -245,9 +245,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ username });
 
     // Persist locally and to Firestore
-    AsyncStorage.setItem(STORAGE_KEY_USERNAME, username).catch(() => {});
+    AsyncStorage.setItem(STORAGE_KEY_USERNAME, username).catch(() => { });
     if (state.userId) {
-      syncToFirestore(state.userId, { username }).catch(() => {});
+      syncToFirestore(state.userId, { username }).catch(() => { });
     }
   },
 
@@ -269,9 +269,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     set(newState);
 
     // Overwrite local storage with the logged-in user's data
-    AsyncStorage.setItem(STORAGE_KEY_USER_ID, userId).catch(() => {});
+    AsyncStorage.setItem(STORAGE_KEY_USER_ID, userId).catch(() => { });
     if (data.username) {
-      AsyncStorage.setItem(STORAGE_KEY_USERNAME, data.username).catch(() => {});
+      AsyncStorage.setItem(STORAGE_KEY_USERNAME, data.username).catch(() => { });
     }
     persistLocally(newState);
 
@@ -286,7 +286,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       wins: data.wins ?? 0,
       currentStreak: data.currentStreak ?? 0,
       maxStreak: data.maxStreak ?? 0,
-    }).catch(() => {});
+    }).catch(() => { });
   },
 
   logout: async () => {

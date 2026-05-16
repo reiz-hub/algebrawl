@@ -221,6 +221,15 @@ export default function PlayerStatsScreen() {
 
       // Fetch progress from Firestore
       const cloudData = await fetchFromFirestore(uid);
+
+      // Check if account has been deactivated by admin
+      if (cloudData && (cloudData as any).isActive === false) {
+        await auth.signOut();
+        Alert.alert('Account Deactivated', 'Your account has been deactivated by an administrator.');
+        setLoading(false);
+        return;
+      }
+
       loginWithData(uid, {
         username: trimUser,
         unlockedLevel: cloudData?.unlockedLevel ?? 1,

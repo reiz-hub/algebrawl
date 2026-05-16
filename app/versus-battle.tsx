@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import ReviewModal from '../components/ReviewModal';
 import Sprite from '../components/sprite';
 import { generateQuestion, Question } from '../scripts/mathGenerator';
 
@@ -58,6 +59,8 @@ export default function VersusBattleScreen() {
   const [p2Shield, setP2Shield] = useState(false);
   const [p1Double, setP1Double] = useState(false);
   const [p2Double, setP2Double] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+  const reviewShown = useRef(false);
 
   const activeName = turn === 1 ? p1Name : p2Name;
   const activeSkillName = turn === 1 ? p1SkillName : p2SkillName;
@@ -436,7 +439,15 @@ export default function VersusBattleScreen() {
 
               <View style={styles.btnWrapper}>
                 <View style={styles.btnShadow} />
-                <TouchableOpacity style={styles.btnPrimary} onPress={() => router.replace('/versus')}>
+                <TouchableOpacity style={styles.btnPrimary} onPress={() => {
+                  setShowVictory(false);
+                  if (!reviewShown.current) {
+                    reviewShown.current = true;
+                    setShowReview(true);
+                  } else {
+                    router.replace('/versus');
+                  }
+                }}>
                   <Text style={styles.btnPrimaryText}>PLAY AGAIN</Text>
                 </TouchableOpacity>
               </View>
@@ -458,6 +469,15 @@ export default function VersusBattleScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Post-game review modal */}
+      <ReviewModal
+        visible={showReview}
+        onDismiss={() => {
+          setShowReview(false);
+          router.replace('/versus');
+        }}
+      />
     </View>
   );
 }
