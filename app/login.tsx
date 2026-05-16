@@ -1,7 +1,9 @@
 // app/login.tsx
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle } from 'react-native';
+import ErrorModal from '../components/ErrorModal';
+import NeoButton from '../components/NeoButton';
 import { useGameStore } from '../hooks/useGameStore';
 import { lookupByUsername } from '../services/firestoreSync';
 
@@ -10,11 +12,16 @@ export default function LoginScreen() {
   const { loginWithData } = useGameStore();
   const [usernameInput, setUsernameInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorConfig, setErrorConfig] = useState<{ visible: boolean; title: string; message: string; subMessage?: string } | null>(null);
 
   const handleLogin = async () => {
     const trimmed = usernameInput.trim();
     if (!trimmed) {
-      Alert.alert('Invalid', 'Please enter a username.');
+      setErrorConfig({
+        visible: true,
+        title: 'Invalid',
+        message: 'Please enter a username.'
+      });
       return;
     }
 
@@ -24,10 +31,24 @@ export default function LoginScreen() {
       const result = await lookupByUsername(trimmed);
 
       if (!result) {
-        Alert.alert(
-          'Not Found',
-          'No account found with that username. Check spelling or create a new account from the Profile screen.',
-        );
+        setErrorConfig({
+          visible: true,
+          title: 'Not Found',
+          message: 'No account found with that username.',
+          subMessage: 'Check spelling or create a new account from the Profile screen.'
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if the account has been deactivated by an admin
+      if (result.data.isActive === false) {
+        setErrorConfig({
+          visible: true,
+          title: 'Account Deactivated',
+          message: 'Your account has been deactivated by an administrator.',
+          subMessage: 'Please contact support if you believe this is a mistake.'
+        });
         setIsLoading(false);
         return;
       }
@@ -42,7 +63,12 @@ export default function LoginScreen() {
       );
     } catch (error) {
       console.warn('[Login] Error:', error);
-      Alert.alert('Error', 'Something went wrong. Please check your internet connection and try again.');
+      setErrorConfig({
+        visible: true,
+        title: 'Error',
+        message: 'Something went wrong.',
+        subMessage: 'Please check your internet connection and try again.'
+      });
     } finally {
       setIsLoading(false);
     }
@@ -77,40 +103,44 @@ export default function LoginScreen() {
               editable={!isLoading}
             />
 
-            <View style={styles.btnWrapper}>
-              <View style={styles.btnShadow} />
-              <TouchableOpacity
-                style={[styles.loginBtn, isLoading && styles.loginBtnDisabled]}
-                activeOpacity={0.8}
-                onPress={handleLogin}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.loginBtnText}>LOG IN</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+            <NeoButton
+              wrapperStyle={styles.btnWrapper}
+              shadowStyle={styles.btnShadow}
+              style={[styles.loginBtn, isLoading && styles.loginBtnDisabled] as ViewStyle[]}
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.loginBtnText}>LOG IN</Text>
+              )}
+            </NeoButton>
           </View>
         </View>
 
         {/* Back / Guest */}
-        <View style={styles.btnWrapper}>
-          <View style={styles.btnShadow} />
-          <TouchableOpacity
-            style={styles.backBtn}
-            activeOpacity={0.8}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.backBtnText}>BACK</Text>
-          </TouchableOpacity>
-        </View>
+        <NeoButton
+          wrapperStyle={styles.btnWrapper}
+          shadowStyle={styles.btnShadow}
+          style={styles.backBtn as ViewStyle}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.backBtnText}>BACK</Text>
+        </NeoButton>
 
         <Text style={styles.footerHint}>
           Don't have an account? Just play as a guest and claim a username from the Profile screen later.
         </Text>
       </View>
+
+      <ErrorModal
+        visible={errorConfig?.visible || false}
+        title={errorConfig?.title || ''}
+        message={errorConfig?.message || ''}
+        subMessage={errorConfig?.subMessage}
+        onDismiss={() => setErrorConfig(null)}
+      />
     </View>
   );
 }
@@ -123,7 +153,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#e5d9c4',
     opacity: 0.3,
-    zIndex: 1,
+    zIndex: 0,
   },
   content: {
     flex: 1,

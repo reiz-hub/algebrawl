@@ -29,9 +29,14 @@ export default function Sidebar({ activePage, collapsed, onToggle, onNavigate })
   return (
     <aside className={`fixed inset-y-0 left-0 bg-game-brown border-r border-game-brown-lighter flex flex-col z-50 transition-all duration-300 ${collapsed ? 'w-[68px]' : 'w-[240px]'}`} id="sidebar">
       {/* Brand */}
-      <div className="flex items-center px-5 h-16 border-b border-game-brown-lighter flex-shrink-0 overflow-hidden">
-        <div className="w-8 h-8 rounded-lg bg-game-brown-light text-game-cream flex items-center justify-center font-black flex-shrink-0 shadow-sm border border-game-brown-light">A</div>
-        <span className={`ml-3 font-black text-white tracking-wider whitespace-nowrap transition-opacity duration-300 ${collapsed ? 'opacity-0 hidden' : 'opacity-100'}`}>ALGEBRAWL</span>
+      <div className={`flex items-center px-4 h-20 border-b border-game-brown-lighter flex-shrink-0 overflow-hidden ${collapsed ? 'justify-center' : 'justify-start'}`}>
+        {collapsed ? (
+          <div className="w-10 h-10 rounded-lg bg-game-brown-light text-game-cream flex items-center justify-center text-lg font-black flex-shrink-0 shadow-sm border border-game-brown-light">A</div>
+        ) : (
+          <div className="w-full h-full py-4 flex items-center justify-center">
+            <img src="/logo.png" alt="Algebrawl" className="h-full w-auto object-contain drop-shadow-md" />
+          </div>
+        )}
       </div>
 
       {/* Navigation */}

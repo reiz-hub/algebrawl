@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import NeoButton from '../components/NeoButton';
 
 const GEARS = [
   { id: 'g1', name: 'No. 2 Pencil', stat: '+2s / Q', icon: '✏️' },
@@ -114,13 +115,23 @@ export default function VersusScreen() {
         {renderSelector('Skill', SKILLS, p2Skill, setP2Skill)}
       </View>
 
-      <TouchableOpacity style={styles.primaryBtn} onPress={startVersus}>
+      <NeoButton 
+        wrapperStyle={{ marginTop: 8 }} 
+        shadowStyle={{ position: 'absolute', top: 5, left: 5, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 }} 
+        style={styles.primaryBtn as any} 
+        onPress={startVersus}
+      >
         <Text style={styles.primaryBtnText}>Start Versus!</Text>
-      </TouchableOpacity>
+      </NeoButton>
 
-      <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.replace('/')}>
+      <NeoButton 
+        wrapperStyle={{ marginTop: 10 }} 
+        shadowStyle={{ position: 'absolute', top: 5, left: 5, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 }} 
+        style={styles.secondaryBtn as any} 
+        onPress={() => router.replace('/')}
+      >
         <Text style={styles.secondaryBtnText}>Cancel</Text>
-      </TouchableOpacity>
+      </NeoButton>
     </ScrollView>
   );
 }
@@ -205,7 +216,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 8,
   },
   primaryBtnText: {
     fontSize: 20,
@@ -220,7 +230,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 10,
   },
   secondaryBtnText: {
     fontSize: 18,

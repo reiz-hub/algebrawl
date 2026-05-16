@@ -1,3 +1,4 @@
+import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -268,9 +269,7 @@ export default function VersusBattleScreen() {
     <View style={styles.container}>
       <View style={styles.topBar}>
         <View style={styles.topLeft}>
-          <TouchableOpacity style={styles.pauseBtn} onPress={() => setIsPaused(true)}>
-            <Text style={styles.pauseIcon}>||</Text>
-          </TouchableOpacity>
+          <View style={styles.pauseBtnPlaceholder} />
           <Text style={styles.hpHearts}>{renderHearts(p1HP, p1MaxHearts)}</Text>
         </View>
 
@@ -281,7 +280,9 @@ export default function VersusBattleScreen() {
         </View>
 
         <View style={styles.topRight}>
-          <View style={styles.pauseBtnPlaceholder} />
+          <TouchableOpacity style={styles.pauseBtn} onPress={() => setIsPaused(true)}>
+            <Feather name="pause" size={18} color="#1a1008" />
+          </TouchableOpacity>
           <Text style={styles.enemyHpText}>{renderHearts(p2HP, p2MaxHearts)}</Text>
         </View>
       </View>

@@ -1,8 +1,9 @@
 // app/pre-battle.tsx
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { useGameStore } from '../hooks/useGameStore';
+import NeoButton from '../components/NeoButton';
 
 const GEARS = [
   { id: 'g1', name: 'No. 2 Pencil', stat: '+2s / Q', icon: '✏️', unlockLevel: 1 },
@@ -191,48 +192,44 @@ export default function PreBattleScreen() {
 
         {/* 5. BUTTONS */}
         <View style={styles.buttonContainer}>
-          <View style={styles.btnWrapper}>
-            <View style={styles.btnShadow} />
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.btnPrimary}
-              onPress={() => {
-                const activeSkill = SKILLS.find(s => s.id === selectedSkill);
-                const activeGear = GEARS.find(g => g.id === selectedGear);
-                const activeOutfit = OUTFITS.find(o => o.id === selectedOutfit);
+          <NeoButton
+            wrapperStyle={styles.btnWrapper}
+            shadowStyle={styles.btnShadow}
+            style={styles.btnPrimary as ViewStyle}
+            onPress={() => {
+              const activeSkill = SKILLS.find(s => s.id === selectedSkill);
+              const activeGear = GEARS.find(g => g.id === selectedGear);
+              const activeOutfit = OUTFITS.find(o => o.id === selectedOutfit);
 
-                router.push({
-                  pathname: '/battle',
-                  params: {
-                    level,
-                    questions,
-                    timePerQuestion: timePerQuestion.toString(),
-                    skillName: activeSkill?.name,
-                    skillIcon: activeSkill?.icon,
-                    gearName: activeGear?.name,
-                    gearIcon: activeGear?.icon,
-                    gearStat: activeGear?.stat,
-                    outfitName: activeOutfit?.name,
-                    outfitIcon: activeOutfit?.icon,
+              router.push({
+                pathname: '/battle',
+                params: {
+                  level,
+                  questions,
+                  timePerQuestion: timePerQuestion.toString(),
+                  skillName: activeSkill?.name,
+                  skillIcon: activeSkill?.icon,
+                  gearName: activeGear?.name,
+                  gearIcon: activeGear?.icon,
+                  gearStat: activeGear?.stat,
+                  outfitName: activeOutfit?.name,
+                  outfitIcon: activeOutfit?.icon,
 
-                  }
-                });
-              }}
-            >
-              <Text style={styles.btnPrimaryText}>Start Battle!</Text>
-            </TouchableOpacity>
-          </View>
+                }
+              });
+            }}
+          >
+            <Text style={styles.btnPrimaryText}>Start Battle!</Text>
+          </NeoButton>
 
-          <View style={styles.btnWrapper}>
-            <View style={styles.btnShadow} />
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.btnSecondary}
-              onPress={() => router.replace('/map')}
-            >
-              <Text style={styles.btnSecondaryText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
+          <NeoButton
+            wrapperStyle={styles.btnWrapper}
+            shadowStyle={styles.btnShadow}
+            style={styles.btnSecondary as ViewStyle}
+            onPress={() => router.replace('/map')}
+          >
+            <Text style={styles.btnSecondaryText}>Cancel</Text>
+          </NeoButton>
         </View>
       </ScrollView>
     </View>
@@ -250,7 +247,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#e5d9c4',
     opacity: 0.3,
-    zIndex: 1
+    zIndex: 0
   },
   content: {
     alignItems: 'center',

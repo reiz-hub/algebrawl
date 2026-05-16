@@ -20,6 +20,7 @@ const StarDisplay = ({ rating }) => (
 export default function Reviews() {
   const [reviews, setReviews] = useState([]);
   const [deleting, setDeleting] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   useEffect(() => {
     const q = query(collection(db, 'reviews'), orderBy('createdAt', 'desc'));
@@ -30,13 +31,12 @@ export default function Reviews() {
     return () => unsubscribe();
   }, []);
 
-  const handleDelete = async (reviewId) => {
+  const executeDelete = async (reviewId) => {
     setDeleting(reviewId);
     try {
       await deleteDoc(doc(db, 'reviews', reviewId));
     } catch (err) {
       console.error('Failed to delete review:', err);
-    } finally {
       setDeleting(null);
     }
   };
@@ -129,7 +129,12 @@ export default function Reviews() {
                   <td className="px-6 py-4 text-right">
                     <button
                       className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-black rounded-md border bg-game-cream-alt text-game-red border-game-red/30 hover:bg-game-red/10 transition-colors focus:outline-none focus:ring-2 focus:ring-game-red focus:ring-offset-1 uppercase min-w-[70px]"
-                      onClick={() => handleDelete(review.id)}
+                      onClick={() => setConfirmDialog({
+                        title: 'Delete Review',
+                        message: 'Are you sure you want to permanently delete this review? This action cannot be undone.',
+                        confirmLabel: 'Delete Review',
+                        action: () => executeDelete(review.id)
+                      })}
                       disabled={deleting === review.id}
                       id={`delete-review-${review.id}`}
                     >
@@ -152,6 +157,42 @@ export default function Reviews() {
           )}
         </div>
       </div>
+
+      {/* Generic Confirmation Modal */}
+      {confirmDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm transition-opacity">
+          <div className="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full transform transition-all">
+            <div className="flex flex-col items-center text-center">
+              <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-red-100 mb-4">
+                <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold leading-6 text-gray-900 mb-2">{confirmDialog.title}</h3>
+              <p className="text-sm text-gray-500 mb-6">
+                {confirmDialog.message}
+              </p>
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 mt-2">
+              <button
+                className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+                onClick={() => setConfirmDialog(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:w-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+                onClick={() => {
+                  confirmDialog.action();
+                  setConfirmDialog(null);
+                }}
+              >
+                {confirmDialog.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

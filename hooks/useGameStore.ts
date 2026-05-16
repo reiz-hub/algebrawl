@@ -3,7 +3,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { create } from 'zustand';
 import {
-  createUserDoc,
   fetchFromFirestore,
   syncToFirestore,
   UserData,
@@ -11,12 +10,14 @@ import {
 
 const STORAGE_KEY_USER_ID = '@algebrawl_userId';
 const STORAGE_KEY_USERNAME = '@algebrawl_username';
+const STORAGE_KEY_INGAMENAME = '@algebrawl_ingamename';
 const STORAGE_KEY_GAME_STATE = '@algebrawl_gameState';
 
 interface GameState {
   // Auth
   userId: string | null;
   username: string | null;
+  ingameName: string | null;
   isLoaded: boolean;
   isLoggedIn: boolean;
 
@@ -31,9 +32,10 @@ interface GameState {
 
   // Actions
   loadLocalData: () => Promise<void>;
-  completeLevel: (levelId: number, stars: number) => void;
+  recordLevelProgress: (levelId: number, score: number, didWin: boolean) => void;
   updateStats: (xpToAdd: number, isWin: boolean) => void;
   setUsername: (username: string) => void;
+  setIngameName: (ingameName: string) => void;
   loginWithData: (userId: string, data: UserData) => void;
   logout: () => Promise<void>;
   getUserId: () => string | null;
@@ -63,7 +65,7 @@ const persistLocally = async (state: Partial<GameState>) => {
  * Sync current game state to Firestore.
  */
 const syncToCloud = async (userId: string | null, state: Partial<GameState>) => {
-  if (!userId) return;
+  if (!userId || !state.isLoggedIn) return;
   await syncToFirestore(userId, {
     isGuest: !state.isLoggedIn,
     unlockedLevel: state.unlockedLevel ?? 1,
@@ -80,6 +82,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   // Auth state
   userId: null,
   username: null,
+  ingameName: null,
   isLoaded: false,
   isLoggedIn: false,
 
@@ -103,12 +106,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (!userId) {
         userId = Crypto.randomUUID();
         await AsyncStorage.setItem(STORAGE_KEY_USER_ID, userId);
-        // Create Firestore user doc for new guest
-        await createUserDoc(userId);
       }
 
-      // 2. Load username if set
+      // 2. Load username and ingameName if set
       const username = await AsyncStorage.getItem(STORAGE_KEY_USERNAME);
+      const ingameName = await AsyncStorage.getItem(STORAGE_KEY_INGAMENAME);
 
       // 3. Load local game state
       const savedJson = await AsyncStorage.getItem(STORAGE_KEY_GAME_STATE);
@@ -164,11 +166,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
 
       const finalUsername = username || cloudData?.username || null;
+      const finalIngameName = ingameName || cloudData?.ingameName || null;
 
       set({
         userId,
         username: finalUsername,
+        ingameName: finalIngameName,
         isLoaded: true,
+        isLoggedIn: !!finalUsername,
         unlockedLevel: localState?.unlockedLevel ?? 1,
         totalXP: localState?.totalXP ?? 0,
         totalBattlesWon: localState?.totalBattlesWon ?? 0,
@@ -180,11 +185,13 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       // Persist the merged state back
       await persistLocally(localState ?? {});
-      await syncToCloud(userId, localState ?? {});
 
-      // Save username locally if we got it from cloud
+      // Save username/ingameName locally if we got it from cloud
       if (cloudData?.username && !username) {
         await AsyncStorage.setItem(STORAGE_KEY_USERNAME, cloudData.username);
+      }
+      if (cloudData?.ingameName && !ingameName) {
+        await AsyncStorage.setItem(STORAGE_KEY_INGAMENAME, cloudData.ingameName);
       }
     } catch (error) {
       console.warn('[useGameStore] loadLocalData failed:', error);
@@ -192,14 +199,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
-  completeLevel: (levelId, stars) =>
+  recordLevelProgress: (levelId, score, didWin) =>
     set((state) => {
       const newState = {
         ...state,
-        unlockedLevel: Math.max(state.unlockedLevel, levelId + 1),
+        unlockedLevel: didWin ? Math.max(state.unlockedLevel, levelId + 1) : state.unlockedLevel,
         levelStars: {
           ...state.levelStars,
-          [levelId]: Math.max(state.levelStars[levelId] || 0, stars),
+          [levelId]: Math.max(state.levelStars[levelId] || 0, score),
         },
       };
 
@@ -251,10 +258,21 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
+  setIngameName: (ingameName: string) => {
+    const state = get();
+    set({ ingameName });
+
+    AsyncStorage.setItem(STORAGE_KEY_INGAMENAME, ingameName).catch(() => { });
+    if (state.userId) {
+      syncToFirestore(state.userId, { ingameName }).catch(() => { });
+    }
+  },
+
   loginWithData: (userId: string, data: UserData) => {
     const newState = {
       userId,
       username: data.username || null,
+      ingameName: data.ingameName || null,
       isLoaded: true,
       isLoggedIn: true,
       unlockedLevel: data.unlockedLevel ?? 1,
@@ -273,12 +291,16 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (data.username) {
       AsyncStorage.setItem(STORAGE_KEY_USERNAME, data.username).catch(() => { });
     }
+    if (data.ingameName) {
+      AsyncStorage.setItem(STORAGE_KEY_INGAMENAME, data.ingameName).catch(() => { });
+    }
     persistLocally(newState);
 
     // Also push to Firestore with isGuest: false since user is now authenticated
     syncToFirestore(userId, {
       isGuest: false,
       username: data.username,
+      ingameName: data.ingameName,
       unlockedLevel: data.unlockedLevel ?? 1,
       levelStars: data.levelStars ?? {},
       xp: data.xp ?? 0,
@@ -296,12 +318,14 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       // Clear stored auth data
       await AsyncStorage.removeItem(STORAGE_KEY_USERNAME);
+      await AsyncStorage.removeItem(STORAGE_KEY_INGAMENAME);
       await AsyncStorage.setItem(STORAGE_KEY_USER_ID, newGuestId);
 
       // Reset to fresh guest state
       const freshState = {
         userId: newGuestId,
         username: null,
+        ingameName: null,
         isLoggedIn: false,
         isLoaded: true,
         unlockedLevel: 1,
@@ -316,8 +340,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       set(freshState);
       await persistLocally(freshState);
 
-      // Create a new Firestore doc for this guest
-      await createUserDoc(newGuestId);
+      // Guest sessions are local-only — no Firestore doc created
     } catch (error) {
       console.warn('[useGameStore] logout failed:', error);
     }

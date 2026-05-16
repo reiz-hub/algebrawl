@@ -1,4 +1,5 @@
 // app/battle.tsx
+import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -50,7 +51,7 @@ const computeNewUnlocks = (nextLevel: number): UnlockItem[] => {
 export default function BattleScreen() {
   const { level, questions, timePerQuestion: timeParam, skillName, skillIcon, gearName, gearIcon, gearStat } = useLocalSearchParams();
   const router = useRouter();
-  const { completeLevel, updateStats } = useGameStore();
+  const { recordLevelProgress, updateStats } = useGameStore();
 
   const totalQuestions = Number(questions) || 10;
   const currentLevel = Number(level) || 1;
@@ -96,6 +97,7 @@ export default function BattleScreen() {
 
   const [playerHP, setPlayerHP] = useState(maxHearts);
   const [enemyHP, setEnemyHP] = useState(totalQuestions);
+  const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
   const [timer, setTimer] = useState(initialTime);
   const [currentQ, setCurrentQ] = useState<Question | null>(null);
 
@@ -198,12 +200,14 @@ export default function BattleScreen() {
   const applyCorrectAnswer = () => {
     const damage = hasDoubleStrike ? 2 : 1;
     const newEnemyHP = Math.max(0, enemyHP - damage);
+    const newCorrectCount = correctAnswersCount + 1;
 
     setEnemyHP(newEnemyHP);
+    setCorrectAnswersCount(newCorrectCount);
     setHasDoubleStrike(false);
 
     if (newEnemyHP <= 0) {
-      completeLevel(currentLevel, totalQuestions);
+      recordLevelProgress(currentLevel, newCorrectCount, true);
       updateStats(50 * xpMultiplier, true);
       const unlocks = computeNewUnlocks(currentLevel + 1);
       setNewUnlocks(unlocks);
@@ -222,6 +226,7 @@ export default function BattleScreen() {
       setPlayerHP(newPlayerHP);
 
       if (newPlayerHP <= 0) {
+        recordLevelProgress(currentLevel, correctAnswersCount, false);
         updateStats(0, false);
         setIsAnswering(false);
         setSelectedOption(null);
@@ -277,7 +282,7 @@ export default function BattleScreen() {
           Level {currentLevel}: {levelTitle.toUpperCase()}
         </Text>
         <TouchableOpacity style={styles.pauseBtn} onPress={() => setIsPaused(true)}>
-          <Text style={styles.pauseIcon}>||</Text>
+          <Feather name="pause" size={18} color="#ffffff" />
           <Text style={styles.pauseLabel}>PAUSE</Text>
         </TouchableOpacity>
       </View>
@@ -410,7 +415,7 @@ export default function BattleScreen() {
               <Text style={styles.victoryTitle}>VICTORY!</Text>
               <View style={styles.starsContainer}>
                 <Text style={styles.victoryStars}>
-                  Q:{totalQuestions}/{totalQuestions}
+                  Q:{correctAnswersCount}/{totalQuestions}
                 </Text>
               </View>
               <Text style={styles.victorySubtitle}>Level {currentLevel} Cleared!</Text>
@@ -447,6 +452,11 @@ export default function BattleScreen() {
             <View style={styles.menuShadow} />
             <View style={styles.defeatContent}>
               <Text style={styles.defeatTitle}>DEFEAT!</Text>
+              <View style={styles.starsContainer}>
+                <Text style={styles.victoryStars}>
+                  Q:{correctAnswersCount}/{totalQuestions}
+                </Text>
+              </View>
               <Text style={styles.defeatSubtitle}>You ran out of hearts!</Text>
               <View style={styles.btnWrapper}>
                 <View style={styles.btnShadow} />
@@ -541,7 +551,7 @@ const styles = StyleSheet.create({
   },
   levelTitle: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '900',
     color: '#ffffff',
     textTransform: 'uppercase',

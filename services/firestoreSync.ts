@@ -4,7 +4,9 @@ import { db } from './firebase';
 
 export interface UserData {
   username?: string;
+  ingameName?: string;
   isGuest?: boolean;
+  isActive?: boolean;
   unlockedLevel: number;
   levelStars: Record<number, number>;
   xp: number;
@@ -14,6 +16,25 @@ export interface UserData {
   maxStreak: number;
   createdAt?: any;
 }
+
+/**
+ * Check whether a user account is active.
+ * Returns false if the account has been deactivated by an admin.
+ * Returns true if the doc doesn't exist or isActive is not explicitly false.
+ */
+export const checkAccountStatus = async (userId: string): Promise<boolean> => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const snap = await getDoc(userRef);
+    if (snap.exists()) {
+      return snap.data().isActive !== false;
+    }
+    return true; // No doc = no restriction
+  } catch (error) {
+    console.warn('[Firestore] Account status check failed:', error);
+    return true; // Fail open so offline users aren't locked out
+  }
+};
 
 /**
  * Write user data to Firestore.
@@ -103,6 +124,29 @@ export const lookupByUsername = async (username: string): Promise<{ userId: stri
     };
   } catch (error) {
     console.warn('[Firestore] Username lookup failed:', error);
+    return null;
+  }
+};
+
+/**
+ * Look up a userId by ingameName.
+ * Scans the users collection for a matching ingameName field.
+ */
+export const lookupByIngameName = async (ingameName: string): Promise<{ userId: string; data: UserData } | null> => {
+  try {
+    const { collection, query, where, getDocs } = await import('firebase/firestore');
+    const q = query(collection(db, 'users'), where('ingameName', '==', ingameName));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) return null;
+
+    const firstDoc = snapshot.docs[0];
+    return {
+      userId: firstDoc.id,
+      data: firstDoc.data() as UserData,
+    };
+  } catch (error) {
+    console.warn('[Firestore] Ingame name lookup failed:', error);
     return null;
   }
 };

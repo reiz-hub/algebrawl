@@ -1,33 +1,54 @@
-// app/profile.tsx
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView } from 'react-native';
 import { useGameStore } from '../hooks/useGameStore';
+import { lookupByUsername, lookupByIngameName } from '../services/firestoreSync';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { userId, username, setUsername } = useGameStore();
-  const [inputValue, setInputValue] = useState(username || '');
-  const [saved, setSaved] = useState(false);
+  const { userId, username, setUsername, ingameName, setIngameName } = useGameStore();
+  
+  const [usernameInput, setUsernameInput] = useState(username || '');
+  const [ingameNameInput, setIngameNameInput] = useState(ingameName || '');
+  
+  const [usernameSaved, setUsernameSaved] = useState(false);
+  const [ingameSaved, setIngameSaved] = useState(false);
 
-  const handleSave = () => {
-    const trimmed = inputValue.trim();
-    if (!trimmed) {
-      Alert.alert('Invalid', 'Username cannot be empty.');
+  const handleSaveUsername = async () => {
+    if (username) return; // Locked
+    const trimmed = usernameInput.trim();
+    if (!trimmed || trimmed.length < 3 || trimmed.length > 20) {
+      Alert.alert('Invalid', 'Username must be 3-20 characters.');
       return;
     }
-    if (trimmed.length < 3) {
-      Alert.alert('Too Short', 'Username must be at least 3 characters.');
-      return;
-    }
-    if (trimmed.length > 20) {
-      Alert.alert('Too Long', 'Username must be 20 characters or fewer.');
+    
+    const existing = await lookupByUsername(trimmed);
+    if (existing && existing.userId !== userId) {
+      Alert.alert('Taken', 'This username is already taken by another user.');
       return;
     }
 
     setUsername(trimmed);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setUsernameSaved(true);
+    setTimeout(() => setUsernameSaved(false), 2000);
+  };
+
+  const handleSaveIngameName = async () => {
+    const trimmed = ingameNameInput.trim();
+    if (!trimmed || trimmed.length < 3 || trimmed.length > 20) {
+      Alert.alert('Invalid', 'In-game name must be 3-20 characters.');
+      return;
+    }
+    
+    const existing = await lookupByIngameName(trimmed);
+    if (existing && existing.userId !== userId) {
+      Alert.alert('Taken', 'This in-game name is already taken by another user.');
+      return;
+    }
+
+    setIngameName(trimmed);
+    setIngameSaved(true);
+    setTimeout(() => setIngameSaved(false), 2000);
   };
 
   return (
@@ -41,7 +62,7 @@ export default function ProfileScreen() {
         <View style={{ width: 45 }} />
       </View>
 
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Guest ID Card */}
         <View style={styles.card}>
           <View style={styles.cardShadow} />
@@ -61,20 +82,60 @@ export default function ProfileScreen() {
           <View style={styles.cardShadow} />
           <View style={styles.cardInner}>
             <Text style={styles.label}>
-              {username ? 'YOUR USERNAME' : 'CLAIM A USERNAME'}
+              {username ? 'LOGIN USERNAME' : 'CLAIM A USERNAME'}
             </Text>
             <Text style={styles.hint}>
               {username
-                ? 'You can update your username at any time.'
-                : 'Set a username to log in from other devices and recover your progress.'}
+                ? 'This is your permanent username used for logging in.'
+                : 'Set a username to log in from other devices.'}
+            </Text>
+
+            <View style={styles.inputRow}>
+              <TextInput
+                style={[styles.input, username ? styles.inputDisabled : null]}
+                value={usernameInput}
+                onChangeText={setUsernameInput}
+                placeholder="Enter username..."
+                placeholderTextColor="#b5a58d"
+                maxLength={20}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!username}
+              />
+            </View>
+
+            {!username && (
+              <View style={styles.btnWrapper}>
+                <View style={styles.btnShadow} />
+                <TouchableOpacity
+                  style={[styles.saveBtn, usernameSaved && styles.saveBtnDone]}
+                  activeOpacity={0.8}
+                  onPress={handleSaveUsername}
+                >
+                  <Text style={styles.saveBtnText}>
+                    {usernameSaved ? '✓ CLAIMED!' : 'CLAIM USERNAME'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* In-game Name Section */}
+        <View style={styles.card}>
+          <View style={styles.cardShadow} />
+          <View style={styles.cardInner}>
+            <Text style={styles.label}>IN-GAME NAME</Text>
+            <Text style={styles.hint}>
+              This is the name other players will see. You can change it anytime.
             </Text>
 
             <View style={styles.inputRow}>
               <TextInput
                 style={styles.input}
-                value={inputValue}
-                onChangeText={setInputValue}
-                placeholder="Enter username..."
+                value={ingameNameInput}
+                onChangeText={setIngameNameInput}
+                placeholder="Enter in-game name..."
                 placeholderTextColor="#b5a58d"
                 maxLength={20}
                 autoCapitalize="none"
@@ -85,12 +146,12 @@ export default function ProfileScreen() {
             <View style={styles.btnWrapper}>
               <View style={styles.btnShadow} />
               <TouchableOpacity
-                style={[styles.saveBtn, saved && styles.saveBtnDone]}
+                style={[styles.saveBtn, ingameSaved && styles.saveBtnDone]}
                 activeOpacity={0.8}
-                onPress={handleSave}
+                onPress={handleSaveIngameName}
               >
                 <Text style={styles.saveBtnText}>
-                  {saved ? '✓ SAVED!' : username ? 'UPDATE USERNAME' : 'CLAIM USERNAME'}
+                  {ingameSaved ? '✓ SAVED!' : 'UPDATE IN-GAME NAME'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -108,7 +169,7 @@ export default function ProfileScreen() {
             <Text style={styles.loginLinkBold}>Log in here</Text>
           </Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -198,6 +259,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     color: '#1a1008',
+  },
+  inputDisabled: {
+    backgroundColor: '#e5d9c4',
+    color: '#7a6a55',
   },
   btnWrapper: { position: 'relative', marginTop: 16 },
   btnShadow: {

@@ -25,11 +25,21 @@ export default function ReviewModal({ visible, onDismiss }: ReviewModalProps) {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showLoginRequired, setShowLoginRequired] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  const { userId, username } = useGameStore();
+  const { userId, username, isLoggedIn } = useGameStore();
 
   const handleSubmit = async () => {
-    if (rating === 0 || !userId) return;
+    if (rating === 0) return;
+    
+    if (!isLoggedIn) {
+      setShowLoginRequired(true);
+      return;
+    }
+    
+    if (!userId) return;
+
     setSubmitting(true);
 
     await submitReview({
@@ -40,12 +50,24 @@ export default function ReviewModal({ visible, onDismiss }: ReviewModalProps) {
     });
 
     setSubmitting(false);
-    setRating(0);
-    setComment('');
-    onDismiss();
+    setShowSuccess(true);
   };
 
   const handleSkip = () => {
+    setRating(0);
+    setComment('');
+    setShowLoginRequired(false);
+    setShowSuccess(false);
+    onDismiss();
+  };
+
+  const handleLoginRequiredOk = () => {
+    setShowLoginRequired(false);
+    onDismiss();
+  };
+
+  const handleSuccessOk = () => {
+    setShowSuccess(false);
     setRating(0);
     setComment('');
     onDismiss();
@@ -57,63 +79,97 @@ export default function ReviewModal({ visible, onDismiss }: ReviewModalProps) {
         <View style={styles.wrapper}>
           <View style={styles.shadow} />
           <View style={styles.card}>
-            {/* Title */}
-            <Text style={styles.title}>HOW WAS THAT?</Text>
-            <Text style={styles.subtitle}>Rate your experience!</Text>
-
-            {/* Star row */}
-            <View style={styles.starRow}>
-              {Array.from({ length: STAR_COUNT }, (_, i) => {
-                const starIndex = i + 1;
-                const filled = starIndex <= rating;
-                return (
+            {showSuccess ? (
+              <>
+                <Text style={styles.title}>THANK YOU!</Text>
+                <Text style={[styles.subtitle, { textAlign: 'center' }]}>Your review has been successfully submitted.</Text>
+                <View style={styles.btnWrapper}>
+                  <View style={styles.btnShadow} />
                   <TouchableOpacity
-                    key={starIndex}
-                    activeOpacity={0.7}
-                    onPress={() => setRating(starIndex)}
-                    style={styles.starTouchable}
+                    style={styles.btnPrimary}
+                    onPress={handleSuccessOk}
+                    activeOpacity={0.8}
                   >
-                    <Text style={[styles.star, filled && styles.starFilled]}>
-                      {filled ? '★' : '☆'}
+                    <Text style={styles.btnPrimaryText}>AWESOME</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : showLoginRequired ? (
+              <>
+                <Text style={styles.title}>LOG IN REQUIRED</Text>
+                <Text style={[styles.subtitle, { textAlign: 'center' }]}>You must be logged in to submit a review.</Text>
+                <View style={styles.btnWrapper}>
+                  <View style={styles.btnShadow} />
+                  <TouchableOpacity
+                    style={styles.btnPrimary}
+                    onPress={handleLoginRequiredOk}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.btnPrimaryText}>OK</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <>
+                {/* Title */}
+                <Text style={styles.title}>HOW WAS THAT?</Text>
+                <Text style={styles.subtitle}>Rate your experience!</Text>
+
+                {/* Star row */}
+                <View style={styles.starRow}>
+                  {Array.from({ length: STAR_COUNT }, (_, i) => {
+                    const starIndex = i + 1;
+                    const filled = starIndex <= rating;
+                    return (
+                      <TouchableOpacity
+                        key={starIndex}
+                        activeOpacity={0.7}
+                        onPress={() => setRating(starIndex)}
+                        style={styles.starTouchable}
+                      >
+                        <Text style={[styles.star, filled && styles.starFilled]}>
+                          {filled ? '★' : '☆'}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Optional comment */}
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Any thoughts? (optional)"
+                    placeholderTextColor="#b5a68e"
+                    value={comment}
+                    onChangeText={setComment}
+                    maxLength={200}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+
+                {/* Submit */}
+                <View style={styles.btnWrapper}>
+                  <View style={styles.btnShadow} />
+                  <TouchableOpacity
+                    style={[styles.btnPrimary, rating === 0 && styles.btnDisabled]}
+                    onPress={handleSubmit}
+                    disabled={rating === 0 || submitting}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.btnPrimaryText}>
+                      {submitting ? 'SENDING...' : 'SUBMIT'}
                     </Text>
                   </TouchableOpacity>
-                );
-              })}
-            </View>
+                </View>
 
-            {/* Optional comment */}
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                placeholder="Any thoughts? (optional)"
-                placeholderTextColor="#b5a68e"
-                value={comment}
-                onChangeText={setComment}
-                maxLength={200}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-
-            {/* Submit */}
-            <View style={styles.btnWrapper}>
-              <View style={styles.btnShadow} />
-              <TouchableOpacity
-                style={[styles.btnPrimary, rating === 0 && styles.btnDisabled]}
-                onPress={handleSubmit}
-                disabled={rating === 0 || submitting}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.btnPrimaryText}>
-                  {submitting ? 'SENDING...' : 'SUBMIT'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Skip */}
-            <TouchableOpacity onPress={handleSkip} activeOpacity={0.7}>
-              <Text style={styles.skipText}>SKIP</Text>
-            </TouchableOpacity>
+                {/* Skip */}
+                <TouchableOpacity onPress={handleSkip} activeOpacity={0.7}>
+                  <Text style={styles.skipText}>SKIP</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </View>
@@ -160,6 +216,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 2, height: 2 },
     textShadowRadius: 0,
     marginBottom: 4,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,

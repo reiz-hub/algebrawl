@@ -1,9 +1,29 @@
-// app/index.tsx
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Image, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import NeoButton from '../components/NeoButton';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const bounceAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounceAnim, {
+          toValue: -15, // Move up by 15px
+          duration: 1500, // Smooth slow bounce
+          useNativeDriver: true,
+        }),
+        Animated.timing(bounceAnim, {
+          toValue: 0,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [bounceAnim]);
 
   return (
     <View style={styles.container}>
@@ -18,42 +38,38 @@ export default function HomeScreen() {
 
       {/* Main Content */}
       <View style={styles.content}>
-        <Text style={styles.title}>ALGEBRAWL</Text>
-        <Text style={styles.subtitle}>Math Battle Arena</Text>
+        <Animated.Image 
+          source={require('../assets/images/logos/Logo1.png')} 
+          style={[styles.logoImage, { transform: [{ translateY: bounceAnim }] }]} 
+          resizeMode="contain" 
+        />
 
         <View style={styles.buttonContainer}>
 
           {/* Primary Button: Start Adventure */}
-          <View style={styles.btnWrapper}>
-            <View style={styles.btnShadow} />
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.btnPrimary}
-              onPress={() => router.push('/map')}
-            >
-              <Text style={styles.btnPrimaryText}>Start Adventure</Text>
-            </TouchableOpacity>
-          </View>
+          <NeoButton style={styles.btnPrimary as ViewStyle} onPress={() => router.push('/map')}>
+            <Feather name="play" size={28} color="#fff" />
+            <Text style={styles.btnPrimaryText}>Start Adventure</Text>
+          </NeoButton>
 
           {/* Versus Button */}
-          <View style={styles.btnWrapper}>
-            <View style={styles.btnShadow} />
-            <TouchableOpacity style={styles.btnVersus} onPress={() => router.push('/versus')}>
-              <Text style={styles.btnVersusText}>Versus</Text>
-            </TouchableOpacity>
-          </View>
+          <NeoButton style={styles.btnVersus as ViewStyle} onPress={() => router.push('/versus')}>
+            <Feather name="crosshair" size={28} color="#fff" />
+            <Text style={styles.btnVersusText}>Versus</Text>
+          </NeoButton>
 
           {/* Secondary Button: Player Stats */}
-          <View style={styles.btnWrapper}>
-            <View style={styles.btnShadow} />
-            <TouchableOpacity style={styles.btnSecondary} onPress={() => router.push('/stats')}>
-              <Text style={styles.btnSecondaryText}>Player Stats</Text>
-            </TouchableOpacity>
-          </View>
+          <NeoButton style={styles.btnSecondary as ViewStyle} onPress={() => router.push('/stats')}>
+            <Feather name="user" size={28} color="#1a1008" />
+            <Text style={styles.btnSecondaryText}>Player Stats</Text>
+          </NeoButton>
 
 
         </View>
       </View>
+
+      {/* App Version */}
+      <Text style={styles.versionText}>version 0.0.01</Text>
     </View>
   );
 }
@@ -69,7 +85,8 @@ const styles = StyleSheet.create({
     fontSize: 50,
     fontWeight: '900',
     color: '#e5d9c4',
-    opacity: 0.6
+    opacity: 0.6,
+    zIndex: 0
   },
   content: {
     flex: 1,
@@ -77,18 +94,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 10
   },
-  title: {
-    fontSize: 60,
-    fontWeight: '900',
-    color: '#1a1008',
-    marginBottom: 5,
-    letterSpacing: 2
-  },
-  subtitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#7a6a55',
-    marginBottom: 60
+  logoImage: {
+    width: 450,
+    height: 260,
+    marginBottom: 40,
   },
   buttonContainer: {
     width: '85%',
@@ -114,7 +123,10 @@ const styles = StyleSheet.create({
     borderColor: '#1a1008',
     paddingVertical: 18,
     borderRadius: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12
   },
   btnPrimaryText: {
     color: '#fff',
@@ -129,7 +141,10 @@ const styles = StyleSheet.create({
     borderColor: '#1a1008',
     paddingVertical: 18,
     borderRadius: 16,
-    alignItems: 'center'
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12
   },
   btnVersusText: {
     color: '#fff',
@@ -144,7 +159,10 @@ const styles = StyleSheet.create({
     borderColor: '#1a1008',
     paddingVertical: 18,
     borderRadius: 16,
-    alignItems: 'center'
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12
   },
   btnSecondaryText: {
     color: '#1a1008',
@@ -152,5 +170,16 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 1
+  },
+  versionText: {
+    position: 'absolute',
+    bottom: 25,
+    width: '100%',
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#7a6a55',
+    letterSpacing: 1,
+    textTransform: 'uppercase'
   },
 });

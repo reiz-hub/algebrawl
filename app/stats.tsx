@@ -1,14 +1,17 @@
 // app/stats.tsx
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Animated, Image, Modal, ScrollView,
-  StyleSheet, Text, TextInput, TouchableOpacity, View,
+  ActivityIndicator, Animated, Image, Modal, ScrollView,
+  StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle
 } from 'react-native';
+import ErrorModal from '../components/ErrorModal';
+import NeoButton from '../components/NeoButton';
 import { useGameStore } from '../hooks/useGameStore';
 import { auth } from '../services/firebase';
-import { fetchFromFirestore, syncToFirestore } from '../services/firestoreSync';
+import { fetchFromFirestore, syncToFirestore, lookupByUsername, lookupByIngameName } from '../services/firestoreSync';
 
 /* ── Neo-Brutalist Success Popup ── */
 interface SuccessPopupProps {
@@ -46,7 +49,7 @@ const SuccessPopup: React.FC<SuccessPopupProps> = ({ visible, icon, title, messa
         <Animated.View style={[ps.cardWrap, { transform: [{ scale: scaleAnim }] }]}>
           <View style={ps.shadow} />
           <View style={ps.card}>
-            <Text style={ps.icon}>{icon}</Text>
+            {!!icon && <Text style={ps.icon}>{icon}</Text>}
             <Text style={ps.title}>{title}</Text>
             <Text style={ps.message}>{message}</Text>
             <View style={ps.btnWrap}>
@@ -118,16 +121,30 @@ export default function PlayerStatsScreen() {
 
   const {
     unlockedLevel, totalXP, totalBattlesWon,
-    totalBattles, maxStreak, levelStars, username,
-    isLoggedIn, loginWithData, setUsername, logout,
+    totalBattles, maxStreak, levelStars, username, ingameName,
+    isLoggedIn, loginWithData, setUsername, setIngameName, logout,
   } = useGameStore();
 
   const [showRegister, setShowRegister] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [showIngameModal, setShowIngameModal] = useState(false);
+  const [showEditIngameModal, setShowEditIngameModal] = useState(false);
   const [formUser, setFormUser] = useState('');
   const [formPass, setFormPass] = useState('');
+  const [formIngameName, setFormIngameName] = useState('');
+  const [editIngameName, setEditIngameName] = useState('');
+  const [nameSuggestions, setNameSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [errorConfig, setErrorConfig] = useState<{ visible: boolean; title: string; message: string; subMessage?: string } | null>(null);
+
+  const generateSuggestions = () => {
+    const prefixes = ['Math', 'Alge', 'Calc', 'Number', 'Prime', 'Sigma', 'Geo'];
+    const suffixes = ['Wiz', 'Bro', 'Ninja', 'King', 'Master', 'Star'];
+    const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+    const suggestions = Array.from({length: 3}, () => `${pick(prefixes)}${pick(suffixes)}${Math.floor(Math.random() * 99)}`);
+    setNameSuggestions(suggestions);
+  };
 
   // Success popup state
   const [popup, setPopup] = useState<{ visible: boolean; icon: string; title: string; message: string }>({
@@ -145,7 +162,7 @@ export default function PlayerStatsScreen() {
   const safeTotalBattles = totalBattles || 0;
   const winRate = safeTotalBattles > 0 ? Math.round((totalBattlesWon / safeTotalBattles) * 100) : 0;
   const safeMaxStreak = maxStreak || 0;
-  const displayName = (isLoggedIn && username) ? username.toUpperCase() : 'GUEST USER';
+  const displayName = (isLoggedIn && ingameName) ? ingameName.toUpperCase() : (username ? username.toUpperCase() : 'GUEST USER');
 
   const achievements = [
     { id: 1, icon: '🎯', title: 'First Blood', desc: 'Win your first battle', done: totalBattlesWon >= 1 },
@@ -156,15 +173,51 @@ export default function PlayerStatsScreen() {
     { id: 6, icon: '💎', title: 'Perfectionist', desc: 'Perfect score on all levels', done: LEVELS.every(lvl => (levelStars[lvl.id] || 0) === lvl.questions) },
   ];
 
-  const resetForm = () => { setFormUser(''); setFormPass(''); };
+  const resetForm = () => { setFormUser(''); setFormPass(''); setFormIngameName(''); setNameSuggestions([]); };
 
-  const handleRegister = async () => {
+  const handleRegisterNext = async () => {
     const trimUser = formUser.trim();
     const trimPass = formPass.trim();
-    if (!trimUser || trimUser.length < 3) { Alert.alert('Invalid', 'Username must be at least 3 characters.'); return; }
-    if (!trimPass || trimPass.length < 6) { Alert.alert('Invalid', 'Password must be at least 6 characters.'); return; }
+    if (!trimUser || trimUser.length < 3) {
+      setErrorConfig({ visible: true, title: 'Invalid', message: 'Username must be at least 3 characters.' });
+      return;
+    }
+    if (!trimPass || trimPass.length < 6) {
+      setErrorConfig({ visible: true, title: 'Invalid', message: 'Password must be at least 6 characters.' });
+      return;
+    }
+    
+    setLoading(true);
+    const existingUser = await lookupByUsername(trimUser);
+    setLoading(false);
+
+    if (existingUser) {
+      setErrorConfig({ visible: true, title: 'Username Taken', message: 'That username is already registered. Try a different one.' });
+      return;
+    }
+
+    setShowRegister(false);
+    setShowIngameModal(true);
+  };
+
+  const handleRegisterSubmit = async () => {
+    const trimUser = formUser.trim();
+    const trimPass = formPass.trim();
+    const trimIngame = formIngameName.trim();
+
+    if (!trimIngame) {
+      setErrorConfig({ visible: true, title: 'Invalid', message: 'Ingame name cannot be empty.' });
+      return;
+    }
 
     setLoading(true);
+
+    const existingIngame = await lookupByIngameName(trimIngame);
+    if (existingIngame) {
+      setLoading(false);
+      setErrorConfig({ visible: true, title: 'Name Taken', message: 'That ingame name is already taken. Try a different one.' });
+      return;
+    }
     try {
       const cred = await createUserWithEmailAndPassword(auth, toEmail(trimUser), trimPass);
       const uid = cred.user.uid;
@@ -174,6 +227,7 @@ export default function PlayerStatsScreen() {
       await syncToFirestore(uid, {
         isGuest: false,
         username: trimUser,
+        ingameName: trimIngame,
         unlockedLevel: state.unlockedLevel,
         levelStars: state.levelStars,
         xp: state.totalXP,
@@ -186,6 +240,7 @@ export default function PlayerStatsScreen() {
       // Update local state
       loginWithData(uid, {
         username: trimUser,
+        ingameName: trimIngame,
         unlockedLevel: state.unlockedLevel,
         levelStars: state.levelStars,
         xp: state.totalXP,
@@ -196,14 +251,14 @@ export default function PlayerStatsScreen() {
       });
       setUsername(trimUser);
 
-      setShowRegister(false);
+      setShowIngameModal(false);
       resetForm();
-      showPopup('🎉', 'Account Created!', `Welcome, ${trimUser}!`);
+      showPopup('', 'Account Created!', `Welcome, ${trimUser}!`);
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
-        Alert.alert('Username Taken', 'That username is already registered. Try a different one.');
+        setErrorConfig({ visible: true, title: 'Username Taken', message: 'That username is already registered. Try a different one.' });
       } else {
-        Alert.alert('Error', error.message || 'Registration failed.');
+        setErrorConfig({ visible: true, title: 'Error', message: error.message || 'Registration failed.' });
       }
     } finally { setLoading(false); }
   };
@@ -211,8 +266,14 @@ export default function PlayerStatsScreen() {
   const handleLogin = async () => {
     const trimUser = formUser.trim();
     const trimPass = formPass.trim();
-    if (!trimUser) { Alert.alert('Invalid', 'Please enter a username.'); return; }
-    if (!trimPass) { Alert.alert('Invalid', 'Please enter a password.'); return; }
+    if (!trimUser) {
+      setErrorConfig({ visible: true, title: 'Invalid', message: 'Please enter a username.' });
+      return;
+    }
+    if (!trimPass) {
+      setErrorConfig({ visible: true, title: 'Invalid', message: 'Please enter a password.' });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -225,13 +286,14 @@ export default function PlayerStatsScreen() {
       // Check if account has been deactivated by admin
       if (cloudData && (cloudData as any).isActive === false) {
         await auth.signOut();
-        Alert.alert('Account Deactivated', 'Your account has been deactivated by an administrator.');
+        setErrorConfig({ visible: true, title: 'Account Deactivated', message: 'Your account has been deactivated by an administrator.' });
         setLoading(false);
         return;
       }
 
       loginWithData(uid, {
         username: trimUser,
+        ingameName: cloudData?.ingameName ?? undefined,
         unlockedLevel: cloudData?.unlockedLevel ?? 1,
         levelStars: cloudData?.levelStars ?? {},
         xp: cloudData?.xp ?? 0,
@@ -244,12 +306,12 @@ export default function PlayerStatsScreen() {
 
       setShowLogin(false);
       resetForm();
-      showPopup('👋', 'Welcome Back!', `Welcome back, ${trimUser}! Your progress has been restored.`);
+      showPopup('', 'Welcome Back!', `Welcome back, ${trimUser}! Your progress has been restored.`);
     } catch (error: any) {
       if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        Alert.alert('Login Failed', 'Invalid username or password.');
+        setErrorConfig({ visible: true, title: 'Login Failed', message: 'Invalid username or password.' });
       } else {
-        Alert.alert('Error', error.message || 'Login failed.');
+        setErrorConfig({ visible: true, title: 'Error', message: error.message || 'Login failed.' });
       }
     } finally { setLoading(false); }
   };
@@ -262,7 +324,8 @@ export default function PlayerStatsScreen() {
     setShowLogoutConfirm(false);
     try { await auth.signOut(); } catch (_) {}
     await logout();
-    showPopup('🚪', 'Logged Out', 'Logged out successfully. Starting fresh as Guest User.');
+    resetForm();
+    showPopup('', 'Logged Out', 'Logged out successfully. Starting fresh as Guest User.');
   };
 
   const renderAuthModal = (visible: boolean, onClose: () => void, title: string, onSubmit: () => void, submitLabel: string) => (
@@ -301,12 +364,129 @@ export default function PlayerStatsScreen() {
     </Modal>
   );
 
+  const renderIngameModal = () => (
+    <Modal visible={showIngameModal} transparent animationType="fade" onRequestClose={() => { setShowIngameModal(false); resetForm(); }}>
+      <View style={ms.overlay}>
+        <View style={ms.card}>
+          <View style={ms.cardShadow} />
+          <View style={ms.cardInner}>
+            <Text style={ms.title}>CHOOSE INGAME NAME</Text>
+
+            <Text style={ms.label}>INGAME NAME</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: nameSuggestions.length > 0 ? 8 : 12 }}>
+              <TextInput style={[ms.input, { flex: 1, marginBottom: 0 }]} value={formIngameName} onChangeText={setFormIngameName}
+                placeholder="Enter ingame name..." placeholderTextColor="#b5a58d"
+                maxLength={20} autoCapitalize="none" autoCorrect={false} editable={!loading} />
+              <TouchableOpacity style={ms.suggestBtn} onPress={generateSuggestions} disabled={loading}>
+                <Text style={ms.suggestBtnText}>SUGGEST</Text>
+              </TouchableOpacity>
+            </View>
+            {nameSuggestions.length > 0 && (
+              <View style={ms.chipsContainer}>
+                {nameSuggestions.map(sugg => (
+                  <TouchableOpacity key={sugg} style={ms.chip} onPress={() => setFormIngameName(sugg)}>
+                    <Text style={ms.chipText}>{sugg}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            <View style={ms.btnRow}>
+              <TouchableOpacity style={ms.cancelBtn} onPress={() => { setShowIngameModal(false); resetForm(); }} disabled={loading}>
+                <Text style={ms.cancelBtnText}>CANCEL</Text>
+              </TouchableOpacity>
+              <View style={{ flex: 1, position: 'relative' }}>
+                <View style={ms.submitShadow} />
+                <TouchableOpacity style={[ms.submitBtn, loading && ms.submitBtnDisabled]}
+                  onPress={handleRegisterSubmit} disabled={loading} activeOpacity={0.8}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>REGISTER</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const handleEditIngameSubmit = async () => {
+    const trimIngame = editIngameName.trim();
+    if (!trimIngame) {
+      setErrorConfig({ visible: true, title: 'Invalid', message: 'Ingame name cannot be empty.' });
+      return;
+    }
+    if (trimIngame === (ingameName || username)) {
+      setShowEditIngameModal(false);
+      return;
+    }
+
+    setLoading(true);
+    const existingIngame = await lookupByIngameName(trimIngame);
+    if (existingIngame) {
+      setLoading(false);
+      setErrorConfig({ visible: true, title: 'Name Taken', message: 'That ingame name is already taken. Try a different one.' });
+      return;
+    }
+
+    setIngameName(trimIngame);
+    setLoading(false);
+    setShowEditIngameModal(false);
+    showPopup('', 'Name Updated!', `Your ingame name is now ${trimIngame}`);
+  };
+
+  const renderEditIngameModal = () => (
+    <Modal visible={showEditIngameModal} transparent animationType="fade" onRequestClose={() => setShowEditIngameModal(false)}>
+      <View style={ms.overlay}>
+        <View style={ms.card}>
+          <View style={ms.cardShadow} />
+          <View style={ms.cardInner}>
+            <Text style={ms.title}>EDIT INGAME NAME</Text>
+
+            <Text style={ms.label}>NEW INGAME NAME</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: nameSuggestions.length > 0 ? 8 : 12 }}>
+              <TextInput style={[ms.input, { flex: 1, marginBottom: 0 }]} value={editIngameName} onChangeText={setEditIngameName}
+                placeholder="Enter new ingame name..." placeholderTextColor="#b5a58d"
+                maxLength={20} autoCapitalize="none" autoCorrect={false} editable={!loading} />
+              <TouchableOpacity style={ms.suggestBtn} onPress={generateSuggestions} disabled={loading}>
+                <Text style={ms.suggestBtnText}>SUGGEST</Text>
+              </TouchableOpacity>
+            </View>
+            {nameSuggestions.length > 0 && (
+              <View style={ms.chipsContainer}>
+                {nameSuggestions.map(sugg => (
+                  <TouchableOpacity key={sugg} style={ms.chip} onPress={() => setEditIngameName(sugg)}>
+                    <Text style={ms.chipText}>{sugg}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            <View style={ms.btnRow}>
+              <TouchableOpacity style={ms.cancelBtn} onPress={() => setShowEditIngameModal(false)} disabled={loading}>
+                <Text style={ms.cancelBtnText}>CANCEL</Text>
+              </TouchableOpacity>
+              <NeoButton 
+                wrapperStyle={{ flex: 1 }} 
+                shadowStyle={ms.submitShadow}
+                style={[ms.submitBtn, loading && ms.submitBtnDisabled] as ViewStyle[]}
+                disabled={loading}
+                onPress={handleEditIngameSubmit}
+              >
+                {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>SAVE</Text>}
+              </NeoButton>
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/')}>
-          <Text style={styles.backBtnText}>←</Text>
+          <Feather name="arrow-left" size={20} color="#1a1008" />
         </TouchableOpacity>
         <Text style={styles.title}>PLAYER PROFILE</Text>
       </View>
@@ -326,7 +506,17 @@ export default function PlayerStatsScreen() {
                 />
               </View>
               <View style={styles.profileInfo}>
-                <Text style={styles.playerName}>{displayName}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text style={styles.playerName}>{displayName}</Text>
+                  {isLoggedIn && (
+                    <TouchableOpacity 
+                      onPress={() => { setEditIngameName(ingameName || username || ''); setShowEditIngameModal(true); }}
+                      style={{ padding: 2, transform: [{ translateY: 1 }] }}
+                    >
+                      <Feather name="edit" size={14} color="#1a1008" />
+                    </TouchableOpacity>
+                  )}
+                </View>
                 <View style={styles.rankBadge}><Text style={styles.rankText}>{playerRank}</Text></View>
               </View>
             </View>
@@ -344,12 +534,13 @@ export default function PlayerStatsScreen() {
                 <View style={styles.statusDot} />
                 <Text style={styles.loggedInText}>Signed in as <Text style={styles.loggedInName}>{username}</Text></Text>
               </View>
-              <View style={{ position: 'relative' }}>
-                <View style={{ position: 'absolute', top: 3, left: 3, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 10 }} />
-                <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-                  <Text style={styles.logoutBtnText}>🚪 LOGOUT</Text>
-                </TouchableOpacity>
-              </View>
+              <NeoButton 
+                shadowStyle={{ position: 'absolute', top: 3, left: 3, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 10 }} 
+                style={styles.logoutBtn as ViewStyle} 
+                onPress={handleLogout}
+              >
+                <Text style={styles.logoutBtnText}>LOGOUT</Text>
+              </NeoButton>
             </View>
           </View>
         ) : (
@@ -358,20 +549,22 @@ export default function PlayerStatsScreen() {
             <View style={styles.authBannerInner}>
               <Text style={styles.authHint}>Save your progress across devices</Text>
               <View style={styles.authBtnRow}>
-                <View style={styles.authBtnWrapper}>
-                  <View style={styles.authBtnShadow} />
-                  <TouchableOpacity style={styles.registerBtn} onPress={() => setShowRegister(true)} activeOpacity={0.8}>
-                    <Text style={styles.authBtnIcon}>📝</Text>
-                    <Text style={styles.authBtnText}>REGISTER</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.authBtnWrapper}>
-                  <View style={[styles.authBtnShadow, { backgroundColor: '#1a1008' }]} />
-                  <TouchableOpacity style={styles.loginBtn} onPress={() => setShowLogin(true)} activeOpacity={0.8}>
-                    <Text style={styles.authBtnIcon}>🔑</Text>
-                    <Text style={styles.authBtnText}>LOGIN</Text>
-                  </TouchableOpacity>
-                </View>
+                <NeoButton 
+                  wrapperStyle={styles.authBtnWrapper} 
+                  shadowStyle={styles.authBtnShadow} 
+                  style={styles.registerBtn as ViewStyle} 
+                  onPress={() => setShowRegister(true)}
+                >
+                  <Text style={styles.authBtnText}>REGISTER</Text>
+                </NeoButton>
+                <NeoButton 
+                  wrapperStyle={styles.authBtnWrapper} 
+                  shadowStyle={[styles.authBtnShadow, { backgroundColor: '#1a1008' }]} 
+                  style={styles.loginBtn as ViewStyle} 
+                  onPress={() => setShowLogin(true)}
+                >
+                  <Text style={styles.authBtnText}>LOGIN</Text>
+                </NeoButton>
               </View>
             </View>
           </View>
@@ -393,7 +586,7 @@ export default function PlayerStatsScreen() {
                 <Text style={styles.sectionHeader}>SKILLS</Text>
                 <View style={styles.gearRow}>
                     {SKILLS.filter((skill) => unlockedLevel >= skill.unlockLevel).map((skill) => (
-                      <View key={skill.id} style={[styles.iconBox, {backgroundColor: '#fef3c7'}]}>
+                      <View key={skill.id} style={styles.iconBox}>
                         <Text style={styles.gearIcon}>{skill.icon}</Text>
                       </View>
                     ))}
@@ -405,7 +598,7 @@ export default function PlayerStatsScreen() {
         <Text style={styles.sectionHeader}>OUTFITS</Text>
         <View style={styles.gearRow}>
           {OUTFITS.filter((outfit) => unlockedLevel >= outfit.unlockLevel).map((outfit) => (
-            <View key={outfit.id} style={[styles.iconBox, {backgroundColor: '#fef3c7'}]}>
+            <View key={outfit.id} style={styles.iconBox}>
               <Text style={styles.gearIcon}>{outfit.icon}</Text>
             </View>
           ))}
@@ -482,8 +675,10 @@ export default function PlayerStatsScreen() {
       </ScrollView>
 
       {/* Auth Modals */}
-      {renderAuthModal(showRegister, () => setShowRegister(false), 'REGISTER', handleRegister, 'REGISTER')}
+      {renderAuthModal(showRegister, () => setShowRegister(false), 'REGISTER', handleRegisterNext, 'NEXT')}
       {renderAuthModal(showLogin, () => setShowLogin(false), 'LOG IN', handleLogin, 'LOG IN')}
+      {renderIngameModal()}
+      {renderEditIngameModal()}
 
       {/* Logout Confirmation Modal */}
       <Modal visible={showLogoutConfirm} transparent animationType="fade" onRequestClose={() => setShowLogoutConfirm(false)}>
@@ -491,7 +686,6 @@ export default function PlayerStatsScreen() {
           <View style={ms.card}>
             <View style={ms.cardShadow} />
             <View style={ms.cardInner}>
-              <Text style={{ fontSize: 40, textAlign: 'center', marginBottom: 8 }}>🚪</Text>
               <Text style={ms.title}>LOGOUT</Text>
               <Text style={{ fontSize: 14, fontWeight: '700', color: '#7a6a55', textAlign: 'center', marginBottom: 20, lineHeight: 20 }}>
                 Are you sure? This will start a fresh guest session.
@@ -520,6 +714,15 @@ export default function PlayerStatsScreen() {
         message={popup.message}
         onDismiss={hidePopup}
       />
+
+      {/* Error Modal */}
+      <ErrorModal
+        visible={errorConfig?.visible || false}
+        title={errorConfig?.title || ''}
+        message={errorConfig?.message || ''}
+        subMessage={errorConfig?.subMessage}
+        onDismiss={() => setErrorConfig(null)}
+      />
     </View>
   );
 }
@@ -540,6 +743,11 @@ const ms = StyleSheet.create({
   submitBtn: { backgroundColor: '#e8302a', borderWidth: 3, borderColor: '#1a1008', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
   submitBtnDisabled: { backgroundColor: '#7a6a55' },
   submitBtnText: { fontSize: 14, fontWeight: '900', color: '#fff', letterSpacing: 1 },
+  suggestBtn: { backgroundColor: '#f5a623', borderWidth: 3, borderColor: '#1a1008', borderRadius: 10, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' },
+  suggestBtnText: { fontSize: 12, fontWeight: '900', color: '#1a1008' },
+  chipsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+  chip: { backgroundColor: '#e5d9c4', borderWidth: 2, borderColor: '#1a1008', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4 },
+  chipText: { fontSize: 11, fontWeight: '700', color: '#1a1008' },
 });
 
 /* ── Page styles ── */
@@ -556,12 +764,12 @@ const styles = StyleSheet.create({
   cardShadow: { position: 'absolute', top: 4, left: 4, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
   cardInner: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#1a1008', borderRadius: 12, padding: 15 },
   avatarRow: { flexDirection: 'row', gap: 15, marginBottom: 15 },
-  avatarBox: { width: 80, height: 80, backgroundColor: '#1a6cf5', borderWidth: 2, borderColor: '#1a1008', borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  avatarBox: { width: 80, height: 80, backgroundColor: '#fff9f0', borderWidth: 2, borderColor: '#1a1008', borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   avatarImage: { width: 64, height: 64 },
   profileInfo: { flex: 1, justifyContent: 'center' },
   playerName: { fontSize: 20, fontWeight: '900' },
-  rankBadge: { backgroundColor: '#1a6cf5', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, alignSelf: 'flex-start' },
-  rankText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  rankBadge: { backgroundColor: '#ffb347', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 2, borderColor: '#1a1008', alignSelf: 'flex-start', marginTop: 2 },
+  rankText: { color: '#1a1008', fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
 
   /* Auth banner below player card */
   authBanner: { marginBottom: 15, position: 'relative' },
