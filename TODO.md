@@ -2,7 +2,7 @@
 
 ## Current Task: Add per-level instruction popup in `app/map.tsx`
 
-**🔄 IN PROGRESS**
+**✅ COMPLETED**
 
 **TODO Steps:**
 - [x] 1. Read `app/map.tsx` fully and confirm existing style/component patterns

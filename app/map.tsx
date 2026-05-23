@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import NeoButton from '../components/NeoButton';
 import { useGameStore } from '../hooks/useGameStore';
 
@@ -11,67 +11,157 @@ const LEVELS = [
     title: 'Variables & Expressions',
     questions: 10,
     timePerQuestion: 30,
-    instruction: 'Learn how to simplify expressions and evaluate variables using basic algebra rules.',
+    overview: 'Master the basics of algebra by evaluating algebraic expressions and combining like terms.',
+    strategies: [
+      {
+        title: 'Precise Substitution',
+        desc: 'Enclose substituted values in parentheses to prevent sign errors.'
+      },
+      {
+        title: 'Order of Operations',
+        desc: 'Strictly adhere to PEMDAS/BODMAS rules.'
+      },
+      {
+        title: 'Like Terms Only',
+        desc: 'Only add or subtract terms with identical variables and exponents.'
+      }
+    ]
   },
   {
     id: 2,
     title: 'Equations & Inequalities',
     questions: 20,
     timePerQuestion: 30,
-    instruction: 'Solve one-step and multi-step equations, then compare values with inequality symbols.',
+    overview: 'Isolate variables to determine their exact values or operational ranges.',
+    strategies: [
+      {
+        title: 'Algebraic Balance',
+        desc: 'Perform the exact same operation on both sides of the relation.'
+      },
+      {
+        title: 'Inverse Operations',
+        desc: 'Work backward to isolate the variable (e.g., undo division with multiplication).'
+      },
+      {
+        title: 'The Negative Rule',
+        desc: 'Automatically reverse the inequality sign (< to >) whenever multiplying or dividing by a negative number.'
+      }
+    ]
   },
   {
     id: 3,
     title: 'Polynomials',
     questions: 20,
     timePerQuestion: 60,
-    instruction: 'Practice adding, subtracting, and multiplying polynomial terms with confidence.',
+    overview: 'Execute addition, subtraction, and multiplication across multi-term expressions.',
+    strategies: [
+      {
+        title: 'Vertical Stacking',
+        desc: 'Align identical terms vertically to simplify multi-term addition and subtraction.'
+      },
+      {
+        title: 'Total Distribution',
+        desc: 'Ensure external terms are multiplied across every internal term within parentheses.'
+      },
+      {
+        title: 'FOIL Method',
+        desc: 'Use First, Outer, Inner, Last ordering when multiplying binomials.'
+      }
+    ]
   },
   {
     id: 4,
     title: 'Factoring',
     questions: 30,
     timePerQuestion: 60,
-    instruction: 'Break expressions into factors using common factors and special factoring patterns.',
+    overview: 'Reverse polynomial multiplication by deconstructing complex expressions into their foundational factors.',
+    strategies: [
+      {
+        title: 'GCF Priority',
+        desc: 'Always extract the Greatest Common Factor before applying other methods.'
+      },
+      {
+        title: 'Pattern Recognition',
+        desc: 'Identify special products instantly, such as the Difference of Squares:\na² - b² = (a + b)(a - b)'
+      },
+      {
+        title: 'Verification',
+        desc: 'Re-multiply your factors to ensure they return to the original expression.'
+      }
+    ]
   },
   {
     id: 5,
     title: 'Systems of Equations',
     questions: 30,
     timePerQuestion: 60,
-    instruction: 'Find where equations meet by solving systems with substitution and elimination.',
+    overview: 'Solve for two unknown variables simultaneously by locating their single point of intersection.',
+    strategies: [
+      {
+        title: 'Strategic Selection',
+        desc: 'Choose Substitution if a variable is already isolated, or Elimination if variables are aligned vertically.'
+      },
+      {
+        title: 'Double Verification',
+        desc: 'Validate your final coordinates by plugging them back into both original equations.'
+      }
+    ]
   },
   {
     id: 6,
     title: 'Exponents & Roots',
     questions: 50,
     timePerQuestion: 60,
-    instruction: 'Master exponent laws, square roots, and how powers relate to radical expressions.',
+    overview: 'Simplify advanced expressions by manipulating exponential bases and radicals.',
+    strategies: [
+      {
+        title: 'Exponent Laws',
+        desc: 'Apply core operational rules (add exponents for multiplication, subtract for division, multiply for powers).'
+      },
+      {
+        title: 'Inverses & Identities',
+        desc: 'Remember that any non-zero base to the power of 0 equals 1, and negative exponents shift terms to the denominator.'
+      },
+      {
+        title: 'Fractional Powers',
+        desc: 'Treat fractional exponents as radical operations (e.g., an exponent of 1/2 denotes a square root).'
+      }
+    ]
   },
   {
     id: 7,
     title: 'Random Mode',
     questions: 100,
     timePerQuestion: 25,
-    instruction: 'A mixed challenge of every topic. Survive the gauntlet and test full algebra mastery.',
-  },
+    overview: 'An ultimate, randomized endurance test spanning all previous algebraic concepts.',
+    strategies: [
+      {
+        title: 'Concept Diagnosis',
+        desc: 'Pause to categorize the problem type before selecting an operational strategy.'
+      },
+      {
+        title: 'Pacing & Precision',
+        desc: 'Maintain focus across a long series; double-check signs and arithmetic fundamentals to avoid unforced errors.'
+      }
+    ]
+  }
 ];
 
 export default function MapScreen() {
   const router = useRouter();
-  const [selectedInstruction, setSelectedInstruction] = useState<{ title: string; text: string } | null>(null);
+  const [selectedLevel, setSelectedLevel] = useState<typeof LEVELS[number] | null>(null);
   const [isInstructionVisible, setIsInstructionVisible] = useState(false);
 
   const { unlockedLevel, levelStars } = useGameStore();
 
-  const openInstruction = (title: string, instruction: string) => {
-    setSelectedInstruction({ title, text: instruction });
+  const openInstruction = (level: typeof LEVELS[number]) => {
+    setSelectedLevel(level);
     setIsInstructionVisible(true);
   };
 
   const closeInstruction = () => {
     setIsInstructionVisible(false);
-    setSelectedInstruction(null);
+    setSelectedLevel(null);
   };
 
   return (
@@ -82,8 +172,8 @@ export default function MapScreen() {
       <Text style={[styles.bgSymbol, { bottom: '5%', right: '10%', transform: [{ rotate: '10deg' }] }]}>÷</Text>
 
       <View style={styles.headerRow}>
-        <NeoButton 
-          style={styles.backBtn as ViewStyle} 
+        <NeoButton
+          style={styles.backBtn as ViewStyle}
           shadowStyle={{ borderRadius: 23 }}
           wrapperStyle={{ width: 45 }}
           onPress={() => router.replace('/')}
@@ -107,7 +197,7 @@ export default function MapScreen() {
 
           const isPerfect = scoreEarned === level.questions;
           const hasScore = scoreEarned > 0;
-          
+
           const staggerAlignment = (index % 2 === 0) ? { alignSelf: 'flex-start' as const } : { alignSelf: 'flex-end' as const };
 
           return (
@@ -133,7 +223,7 @@ export default function MapScreen() {
               </View>
 
               <View style={styles.cardBody}>
-                <Text 
+                <Text
                   style={[styles.titleText, isLocked && styles.lockedText]}
                   numberOfLines={2}
                   adjustsFontSizeToFit
@@ -160,14 +250,14 @@ export default function MapScreen() {
                 </View>
               </View>
 
-                <NeoButton
-                  wrapperStyle={styles.helpButtonWrapper}
-                  shadowStyle={{ backgroundColor: '#1a1008', borderRadius: 14, position: 'absolute', top: 2, left: 2, width: '100%', height: '100%' }}
-                  style={styles.helpButton as ViewStyle}
-                  onPress={() => openInstruction(level.title, level.instruction)}
-                >
-                  <Text style={styles.helpButtonText}>?</Text>
-                </NeoButton>
+              <NeoButton
+                wrapperStyle={styles.helpButtonWrapper}
+                shadowStyle={{ backgroundColor: '#1a1008', borderRadius: 14, position: 'absolute', top: 2, left: 2, width: '100%', height: '100%' }}
+                style={styles.helpButton as ViewStyle}
+                onPress={() => openInstruction(level)}
+              >
+                <Text style={styles.helpButtonText}>?</Text>
+              </NeoButton>
             </NeoButton>
           );
         })}
@@ -182,15 +272,52 @@ export default function MapScreen() {
         <Pressable style={styles.modalOverlay} onPress={closeInstruction}>
           <Pressable style={styles.modalCard} onPress={() => { }}>
             <Text style={styles.modalTitle}>
-              {selectedInstruction ? selectedInstruction.title : 'LEVEL INFO'}
+              {selectedLevel ? selectedLevel.title : 'LEVEL INFO'}
             </Text>
-            <Text style={styles.modalBodyText}>
-              {selectedInstruction ? selectedInstruction.text : ''}
-            </Text>
-            <NeoButton 
-              style={styles.modalButton as ViewStyle} 
+
+            {selectedLevel && (
+              <ScrollView
+                style={styles.modalScrollView}
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator={true}
+              >
+                {/* Quest Info Container */}
+                <View style={styles.modalInfoContainer}>
+                  <View style={styles.modalInfoItem}>
+                    <Text style={styles.modalInfoLabel}>QUESTS</Text>
+                    <Text style={styles.modalInfoValue}>{selectedLevel.questions} Qs</Text>
+                  </View>
+                  <View style={styles.modalInfoDivider} />
+                  <View style={styles.modalInfoItem}>
+                    <Text style={styles.modalInfoLabel}>TIME LIMIT</Text>
+                    <Text style={styles.modalInfoValue}>
+                      {selectedLevel.id === 7 ? 'Dynamic' : `${selectedLevel.timePerQuestion}s / Q`}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Overview */}
+                <Text style={styles.sectionSubHeader}>OVERVIEW</Text>
+                <Text style={styles.modalOverviewText}>{selectedLevel.overview}</Text>
+
+                {/* Core Strategies */}
+                <Text style={styles.sectionSubHeader}>CORE STRATEGIES</Text>
+                {selectedLevel.strategies.map((strat, idx) => (
+                  <View key={idx} style={styles.strategyRow}>
+                    <Text style={styles.strategyBullet}>•</Text>
+                    <View style={styles.strategyTextContainer}>
+                      <Text style={styles.strategyTitle}>{strat.title}</Text>
+                      <Text style={styles.strategyDesc}>{strat.desc}</Text>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+
+            <NeoButton
+              style={styles.modalButton as ViewStyle}
               shadowStyle={{ backgroundColor: '#1a1008', borderRadius: 12, position: 'absolute', top: 3, left: 3, width: '100%', height: '100%' }}
-              wrapperStyle={{ alignSelf: 'flex-end', marginTop: 10, width: 100 }}
+              wrapperStyle={{ alignSelf: 'stretch', marginTop: 10 }}
               onPress={closeInstruction}
             >
               <Text style={styles.modalButtonText}>GOT IT</Text>
@@ -340,8 +467,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   modalCard: {
-    width: '100%',
+    width: '90%',
     maxWidth: 420,
+    maxHeight: '80%',
     backgroundColor: '#fff9f0',
     borderWidth: 3,
     borderColor: '#1a1008',
@@ -358,12 +486,88 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     letterSpacing: 0.5,
   },
-  modalBodyText: {
-    fontSize: 15,
+  modalScrollView: {
+    marginVertical: 12,
+    flexShrink: 1,
+  },
+  modalScrollContent: {
+    paddingBottom: 10,
+  },
+  modalInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#1a1008',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 14,
+  },
+  modalInfoItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  modalInfoLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#7a6a55',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  modalInfoValue: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#1a1008',
+  },
+  modalInfoDivider: {
+    width: 2,
+    height: 24,
+    backgroundColor: '#1a1008',
+    marginHorizontal: 8,
+  },
+  sectionSubHeader: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#1a6cf5',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 6,
+    marginTop: 8,
+  },
+  modalOverviewText: {
+    fontSize: 14,
     color: '#1a1008',
     fontWeight: '700',
-    lineHeight: 22,
-    marginBottom: 14,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  strategyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  strategyBullet: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1a6cf5',
+    marginRight: 6,
+    lineHeight: 18,
+  },
+  strategyTextContainer: {
+    flex: 1,
+  },
+  strategyTitle: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#1a1008',
+    marginBottom: 2,
+  },
+  strategyDesc: {
+    fontSize: 13,
+    color: '#7a6a55',
+    fontWeight: '700',
+    lineHeight: 18,
   },
   modalButton: {
     backgroundColor: '#1a6cf5',

@@ -1,7 +1,7 @@
 // app/login.tsx
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
 import ErrorModal from '../components/ErrorModal';
 import NeoButton from '../components/NeoButton';
 import { useGameStore } from '../hooks/useGameStore';
@@ -130,7 +130,7 @@ export default function LoginScreen() {
         </NeoButton>
 
         <Text style={styles.footerHint}>
-          Don't have an account? Just play as a guest and claim a username from the Profile screen later.
+          {"Don't"} have an account? Just play as a guest and claim a username from the Profile screen later.
         </Text>
       </View>
 

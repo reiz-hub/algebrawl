@@ -471,7 +471,7 @@ export default function VersusBattleScreen() {
             <View style={styles.turnNotificationShadow} />
             <View style={styles.turnNotificationContent}>
               <Text style={styles.turnNotificationTitle}>NEXT TURN</Text>
-              <Text style={styles.turnNotificationSubtitle}>{nextPlayerName.toUpperCase()}'S TURN!</Text>
+              <Text style={styles.turnNotificationSubtitle}>{nextPlayerName.toUpperCase()}{"'S TURN!"}</Text>
             </View>
           </View>
         </View>
