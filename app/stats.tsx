@@ -105,13 +105,13 @@ const SKILLS = [
   { id: 's4', name: 'Double Strike', desc: '2x Damage (1x)', icon: '🔥', unlockLevel: 6 },
 ];
 
-const OUTFITS = [
-  { id: 'o1', name: 'Default Uniform', icon: '👕', unlockLevel: 1 },
-  { id: 'o2', name: 'School Bag', icon: '🎒', unlockLevel: 2 },
-  { id: 'o3', name: 'Lucky Cap', icon: '🧢', unlockLevel: 3 },
-  { id: 'o4', name: 'Focus Scarf', icon: '🧣', unlockLevel: 4 },
-  { id: 'o5', name: 'Battle Gi', icon: '🥋', unlockLevel: 5 },
-  { id: 'o6', name: 'Champion Crown', icon: '👑', unlockLevel: 6 },
+const ARMORS = [
+  { id: 'o1', name: 'Leather Jerkin', icon: '🦺', unlockLevel: 1 },
+  { id: 'o2', name: 'Iron Chainmail', icon: '⛓️', unlockLevel: 2 },
+  { id: 'o3', name: 'Steel Cuirass', icon: '🛡️', unlockLevel: 3 },
+  { id: 'o4', name: 'Knight Helmet', icon: '🪖', unlockLevel: 4 },
+  { id: 'o5', name: 'Dragon Scale Mail', icon: '🐲', unlockLevel: 5 },
+  { id: 'o6', name: 'Mythril Plate', icon: '🌟', unlockLevel: 6 },
 ];
 
 const toEmail = (username: string) => `${username.toLowerCase()}@algebrawler.app`;
@@ -619,12 +619,12 @@ export default function PlayerStatsScreen() {
             </View>
         </View>
 
-        {/* OUTFITS */}
-        <Text style={styles.sectionHeader}>OUTFITS</Text>
+        {/* ARMOR */}
+        <Text style={styles.sectionHeader}>ARMORS</Text>
         <View style={styles.gearRow}>
-          {OUTFITS.filter((outfit) => unlockedLevel >= outfit.unlockLevel).map((outfit) => (
-            <View key={outfit.id} style={styles.iconBox}>
-              <Text style={styles.gearIcon}>{outfit.icon}</Text>
+          {ARMORS.filter((armor) => unlockedLevel >= armor.unlockLevel).map((armor) => (
+            <View key={armor.id} style={styles.iconBox}>
+              <Text style={styles.gearIcon}>{armor.icon}</Text>
             </View>
           ))}
         </View>

@@ -17,13 +17,13 @@ const SKILLS = [
   { id: 's4', name: 'Double Strike', desc: '2x Damage (1x)', icon: '🔥', unlockLevel: 6 },
 ];
 
-const OUTFITS = [
-  { id: 'o1', name: 'Default Uniform', icon: '👕', unlockLevel: 1 },
-  { id: 'o2', name: 'School Bag', icon: '🎒', unlockLevel: 2 },
-  { id: 'o3', name: 'Lucky Cap', icon: '🧢', unlockLevel: 3 },
-  { id: 'o4', name: 'Focus Scarf', icon: '🧣', unlockLevel: 4 },
-  { id: 'o5', name: 'Battle Gi', icon: '🥋', unlockLevel: 5 },
-  { id: 'o6', name: 'Champion Crown', icon: '👑', unlockLevel: 6 },
+const ARMORS = [
+  { id: 'o1', name: 'Leather Jerkin', icon: '🦺', unlockLevel: 1 },
+  { id: 'o2', name: 'Iron Chainmail', icon: '⛓️', unlockLevel: 2 },
+  { id: 'o3', name: 'Steel Cuirass', icon: '🛡️', unlockLevel: 3 },
+  { id: 'o4', name: 'Knight Helmet', icon: '🪖', unlockLevel: 4 },
+  { id: 'o5', name: 'Dragon Scale Mail', icon: '🐲', unlockLevel: 5 },
+  { id: 'o6', name: 'Mythril Plate', icon: '🌟', unlockLevel: 6 },
 ];
 
 export default function Players() {
@@ -312,11 +312,11 @@ export default function Players() {
                               <h3 className="text-sm font-black text-game-text uppercase tracking-wider">Unlocked Loadout</h3>
                               <div className="bg-white border-2 border-game-border rounded-lg p-4 max-h-[228px] overflow-y-auto shadow-sm space-y-4">
                                 <div>
-                                  <div className="text-xs font-bold text-game-muted uppercase tracking-wider mb-2">Outfits</div>
+                                  <div className="text-xs font-bold text-game-muted uppercase tracking-wider mb-2">Armor</div>
                                   <div className="flex flex-wrap gap-2">
-                                    {OUTFITS.filter(o => o.unlockLevel <= (player.unlockedLevel || 1)).map(o => (
-                                      <span key={o.id} className="inline-flex items-center gap-1 px-2 py-1 bg-game-cream border border-game-border rounded text-xs font-bold text-game-text" title={o.name}>
-                                        <span>{o.icon}</span> <span className="truncate max-w-[80px]">{o.name}</span>
+                                    {ARMORS.filter(a => a.unlockLevel <= (player.unlockedLevel || 1)).map(a => (
+                                      <span key={a.id} className="inline-flex items-center gap-1 px-2 py-1 bg-game-cream border border-game-border rounded text-xs font-bold text-game-text" title={a.name}>
+                                        <span>{a.icon}</span> <span className="truncate max-w-[80px]">{a.name}</span>
                                       </span>
                                     ))}
                                   </div>

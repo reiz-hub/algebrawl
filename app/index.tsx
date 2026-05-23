@@ -64,7 +64,6 @@ export default function HomeScreen() {
             <Text style={styles.btnSecondaryText}>Player Stats</Text>
           </NeoButton>
 
-
         </View>
       </View>
 

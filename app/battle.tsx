@@ -23,16 +23,16 @@ const ALL_SKILLS = [
   { id: 's4', name: 'Double Strike', desc: '2x Damage (1x)', icon: '🔥', unlockLevel: 6 },
 ];
 
-const OUTFITS = [
-  { id: 'o1', name: 'Default Uniform', icon: '👕', unlockLevel: 1 },
-  { id: 'o2', name: 'School Bag', icon: '🎒', unlockLevel: 2 },
-  { id: 'o3', name: 'Lucky Cap', icon: '🧢', unlockLevel: 3 },
-  { id: 'o4', name: 'Focus Scarf', icon: '🧣', unlockLevel: 4 },
-  { id: 'o5', name: 'Battle Gi', icon: '🥋', unlockLevel: 5 },
-  { id: 'o6', name: 'Champion Crown', icon: '👑', unlockLevel: 6 },
+const ARMORS = [
+  { id: 'o1', name: 'Leather Jerkin', icon: '🦺', unlockLevel: 1 },
+  { id: 'o2', name: 'Iron Chainmail', icon: '⛓️', unlockLevel: 2 },
+  { id: 'o3', name: 'Steel Cuirass', icon: '🛡️', unlockLevel: 3 },
+  { id: 'o4', name: 'Knight Helmet', icon: '🪖', unlockLevel: 4 },
+  { id: 'o5', name: 'Dragon Scale Mail', icon: '🐲', unlockLevel: 5 },
+  { id: 'o6', name: 'Mythril Plate', icon: '🌟', unlockLevel: 6 },
 ];
 
-type UnlockItem = { icon: string; name: string; type: 'GEAR' | 'SKILL' | 'OUTFIT'; detail: string };
+type UnlockItem = { icon: string; name: string; type: 'GEAR' | 'SKILL' | 'ARMOR'; detail: string };
 
 const computeNewUnlocks = (nextLevel: number): UnlockItem[] => {
   const unlocks: UnlockItem[] = [];
@@ -42,8 +42,8 @@ const computeNewUnlocks = (nextLevel: number): UnlockItem[] => {
   for (const s of ALL_SKILLS) {
     if (s.unlockLevel === nextLevel) unlocks.push({ icon: s.icon, name: s.name, type: 'SKILL', detail: s.desc });
   }
-  for (const o of OUTFITS) {
-    if (o.unlockLevel === nextLevel) unlocks.push({ icon: o.icon, name: o.name, type: 'OUTFIT', detail: 'Cosmetic' });
+  for (const a of ARMORS) {
+    if (a.unlockLevel === nextLevel) unlocks.push({ icon: a.icon, name: a.name, type: 'ARMOR', detail: 'Armor' });
   }
   return unlocks;
 };
@@ -55,6 +55,8 @@ export default function BattleScreen() {
 
   const totalQuestions = Number(questions) || 10;
   const currentLevel = Number(level) || 1;
+  const isExtraLarge = currentLevel <= 2;
+  const isMedium = currentLevel === 3;
 
   const LEVEL_TITLES: Record<number, string> = {
     1: 'Variable Basics',
@@ -230,7 +232,6 @@ export default function BattleScreen() {
         updateStats(0, false);
         setIsAnswering(false);
         setSelectedOption(null);
-        setCurrentQ(null);
         setShowDefeat(true);
       } else {
         resetForNextQuestion();
@@ -250,10 +251,15 @@ export default function BattleScreen() {
   };
 
   const getOptionStyle = (opt: string) => {
-    if (!isAnswering || !currentQ) return styles.optionButton;
-    if (opt === currentQ.correctAnswer) return [styles.optionButton, styles.optionCorrect];
-    if (opt === selectedOption && opt !== currentQ.correctAnswer) return [styles.optionButton, styles.optionWrong];
-    return [styles.optionButton, styles.optionDimmed];
+    const baseStyle = [
+      styles.optionButton,
+      isMedium && styles.optionButtonMedium,
+      isExtraLarge && styles.optionButtonLarge
+    ];
+    if (!isAnswering || !currentQ) return baseStyle;
+    if (opt === currentQ.correctAnswer) return [...baseStyle, styles.optionCorrect];
+    if (opt === selectedOption && opt !== currentQ.correctAnswer) return [...baseStyle, styles.optionWrong];
+    return [...baseStyle, styles.optionDimmed];
   };
 
   const actionBadgeImage = useMemo(() => {
@@ -318,34 +324,33 @@ export default function BattleScreen() {
 
           <Sprite action={playerAction} />
 
-          {activeGearStat ? (
-            <View style={styles.gearIndicator}>
-              <Text style={styles.gearIndicatorText}>{activeGearIcon} {activeGearStat}</Text>
-            </View>
-          ) : (
-            <View style={styles.gearIndicatorPlaceholder} />
-          )}
+          <View style={styles.bottomUIArea}>
+            {activeGearStat ? (
+              <View style={styles.gearIndicator}>
+                <Text style={styles.gearIndicatorText}>{activeGearIcon} {activeGearStat}</Text>
+              </View>
+            ) : null}
 
-          <TouchableOpacity
-            style={styles.skillBadgeContainer}
-            activeOpacity={0.8}
-            disabled={skillUsed || activeSkillName === "Basic Attack"}
-            onPress={activateSkill}
-          >
-            <View style={[styles.skillBadge, skillUsed && styles.skillBadgeUsed]}>
-              <Text style={[styles.skillBadgeText, skillUsed && styles.skillBadgeTextUsed]}>
-                {activeSkillIcon} {activeSkillName} {skillUsed ? "(USED)" : ""}
-              </Text>
-            </View>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.skillBadgeContainer}
+              activeOpacity={0.8}
+              disabled={skillUsed || activeSkillName === "Basic Attack"}
+              onPress={activateSkill}
+            >
+              <View style={[styles.skillBadge, skillUsed && styles.skillBadgeUsed]}>
+                <Text style={[styles.skillBadgeText, skillUsed && styles.skillBadgeTextUsed]}>
+                  {activeSkillIcon} {activeSkillName} {skillUsed ? "(USED)" : ""}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Enemy Side */}
         <View style={styles.characterSlot}>
           <View style={styles.statusBadgeArea} />
           <Sprite action={enemyAction} isEnemy />
-          <View style={styles.gearIndicatorPlaceholder} />
-          <View style={styles.skillPlaceholder} />
+          <View style={styles.bottomUIArea} />
         </View>
 
       </View>
@@ -354,9 +359,9 @@ export default function BattleScreen() {
       {currentQ && (
         <View style={styles.questionPanel}>
           {currentQ.hint ? (
-            <Text style={styles.hintText}>{currentQ.hint}</Text>
+            <Text style={[styles.hintText, isMedium && styles.hintTextMedium, isExtraLarge && styles.hintTextLarge]}>{currentQ.hint}</Text>
           ) : null}
-          <Text style={styles.equation}>{currentQ.equation}</Text>
+          <Text style={[styles.equation, isMedium && styles.equationMedium, isExtraLarge && styles.equationLarge]} adjustsFontSizeToFit numberOfLines={2}>{currentQ.equation}</Text>
 
           <View style={styles.optionsContainer}>
             {currentQ.options.map((opt, idx) => (
@@ -370,9 +375,11 @@ export default function BattleScreen() {
                 >
                   <Text style={[
                     styles.optionText,
+                    isMedium && styles.optionTextMedium,
+                    isExtraLarge && styles.optionTextLarge,
                     isAnswering && opt === currentQ.correctAnswer && styles.optionTextCorrect,
                     isAnswering && opt === selectedOption && opt !== currentQ.correctAnswer && styles.optionTextWrong
-                  ]}>
+                  ]} adjustsFontSizeToFit numberOfLines={2}>
                     {opt}
                   </Text>
                 </TouchableOpacity>
@@ -490,7 +497,7 @@ export default function BattleScreen() {
                   const badgeBg = item.type === 'GEAR' ? '#1a6cf5' : item.type === 'SKILL' ? '#f5a623' : '#a855f7';
                   const badgeText = item.type === 'SKILL' ? '#1a1008' : '#fff';
                   return (
-                    <View key={idx} style={[styles.unlockRow, { borderLeftColor: borderColor }]}> 
+                    <View key={idx} style={[styles.unlockRow, { borderLeftColor: borderColor }]}>
                       <Text style={styles.unlockIcon}>{item.icon}</Text>
                       <View style={styles.unlockInfo}>
                         <View style={styles.unlockNameRow}>
@@ -609,6 +616,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'flex-end',
   },
+  bottomUIArea: {
+    height: 90,
+    alignItems: 'flex-start',
+    width: '100%',
+  },
   statusBadgeArea: {
     minHeight: 36,
     justifyContent: 'flex-end',
@@ -634,10 +646,6 @@ const styles = StyleSheet.create({
     borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
   },
   gearIndicatorText: { fontSize: 12, fontWeight: '900', color: '#1a1008' },
-  gearIndicatorPlaceholder: {
-    marginTop: 8,
-    height: 28,
-  },
   skillBadgeContainer: {
     marginTop: 10,
     position: 'relative',
@@ -657,25 +665,31 @@ const styles = StyleSheet.create({
   skillBadgeTextUsed: { color: '#7a6a55' },
   skillActionImage: { width: 24, height: 24 },
   skillActionImageUsed: { opacity: 0.7 },
-  skillPlaceholder: {
-    marginTop: 10,
-    height: 46,
-  },
 
   questionPanel: {
+    height: 340,
+    justifyContent: 'center',
     backgroundColor: '#fff', borderTopWidth: 4, borderColor: '#1a1008',
-    padding: 25, borderTopLeftRadius: 30, borderTopRightRadius: 30, alignItems: 'center',
+    paddingTop: 20, paddingBottom: 20, paddingHorizontal: 25, borderTopLeftRadius: 30, borderTopRightRadius: 30, alignItems: 'center',
   },
-  equation: { fontSize: 48, fontWeight: '900', color: '#1a1008', marginVertical: 20 },
-  hintText: { fontSize: 17, fontWeight: '700', color: '#7a6a55', marginBottom: 4, textAlign: 'center', fontStyle: 'italic' },
-  optionsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 15, width: '100%', paddingBottom: 30 },
+  equation: { fontSize: 32, fontWeight: '900', color: '#1a1008', marginVertical: 10, textAlign: 'center' },
+  equationMedium: { fontSize: 40, marginVertical: 15 },
+  equationLarge: { fontSize: 44, marginVertical: 15 },
+  hintText: { fontSize: 14, fontWeight: '700', color: '#7a6a55', marginBottom: 4, textAlign: 'center', fontStyle: 'italic' },
+  hintTextMedium: { fontSize: 15, marginBottom: 6 },
+  hintTextLarge: { fontSize: 16, marginBottom: 6 },
+  optionsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, width: '100%', marginTop: 10 },
   optionWrapper: { width: '45%', position: 'relative' },
   optionShadow: { position: 'absolute', top: 5, left: 5, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
-  optionButton: { backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#1a1008', borderRadius: 12, paddingVertical: 18, alignItems: 'center' },
+  optionButton: { backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#1a1008', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', minHeight: 60 },
+  optionButtonMedium: { paddingVertical: 14, minHeight: 64 },
+  optionButtonLarge: { paddingVertical: 15, minHeight: 66 },
   optionCorrect: { backgroundColor: '#22c55e', borderColor: '#14532d' },
   optionWrong: { backgroundColor: '#e8302a', borderColor: '#7f1d1d' },
   optionDimmed: { opacity: 0.5 },
-  optionText: { fontSize: 28, fontWeight: '900', color: '#1a1008' },
+  optionText: { fontSize: 20, fontWeight: '900', color: '#1a1008', textAlign: 'center' },
+  optionTextMedium: { fontSize: 24 },
+  optionTextLarge: { fontSize: 26 },
   optionTextCorrect: { color: '#fff' },
   optionTextWrong: { color: '#fff' },
 

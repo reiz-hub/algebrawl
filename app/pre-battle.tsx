@@ -20,13 +20,13 @@ const SKILLS = [
   { id: 's4', name: 'Double Strike', desc: '2x Damage (1x)', icon: '🔥', unlockLevel: 6 },
 ];
 
-const OUTFITS = [
-  { id: 'o1', name: 'Default Uniform', icon: '👕', unlockLevel: 1 },
-  { id: 'o2', name: 'School Bag', icon: '🎒', unlockLevel: 2 },
-  { id: 'o3', name: 'Lucky Cap', icon: '🧢', unlockLevel: 3 },
-  { id: 'o4', name: 'Focus Scarf', icon: '🧣', unlockLevel: 4 },
-  { id: 'o5', name: 'Battle Gi', icon: '🥋', unlockLevel: 5 },
-  { id: 'o6', name: 'Champion Crown', icon: '👑', unlockLevel: 6 },
+const ARMORS = [
+  { id: 'o1', name: 'Leather Jerkin', icon: '🦺', unlockLevel: 1 },
+  { id: 'o2', name: 'Iron Chainmail', icon: '⛓️', unlockLevel: 2 },
+  { id: 'o3', name: 'Steel Cuirass', icon: '🛡️', unlockLevel: 3 },
+  { id: 'o4', name: 'Knight Helmet', icon: '🪖', unlockLevel: 4 },
+  { id: 'o5', name: 'Dragon Scale Mail', icon: '🐲', unlockLevel: 5 },
+  { id: 'o6', name: 'Mythril Plate', icon: '🌟', unlockLevel: 6 },
 ];
 
 export default function PreBattleScreen() {
@@ -38,7 +38,7 @@ export default function PreBattleScreen() {
 
   const [selectedGear, setSelectedGear] = useState('g1');
   const [selectedSkill, setSelectedSkill] = useState('s1');
-  const [selectedOutfit, setSelectedOutfit] = useState('o1');
+  const [selectedArmor, setSelectedArmor] = useState('o1');
 
   const BrutalistCard = ({ children, style }: { children: React.ReactNode, style?: any }) => (
     <View style={styles.cardWrapper}>
@@ -117,23 +117,23 @@ export default function PreBattleScreen() {
           </ScrollView>
         </View>
 
-        {/* 3. CHOOSE OUTFIT */}
-        <Text style={[styles.sectionHeader, { marginTop: 3 }]}>EQUIP OUTFIT (CHOOSE 1)</Text>
+        {/* 3. CHOOSE ARMOR */}
+        <Text style={[styles.sectionHeader, { marginTop: 3 }]}>EQUIP ARMOR (CHOOSE 1)</Text>
         <View style={styles.gearScrollWrapper}>
           <ScrollView
             horizontal={true}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.gearScrollContainer}
           >
-            {OUTFITS.map((outfit) => {
-              const isLocked = unlockedLevel < outfit.unlockLevel;
-              const isSelected = selectedOutfit === outfit.id;
+            {ARMORS.map((armor) => {
+              const isLocked = unlockedLevel < armor.unlockLevel;
+              const isSelected = selectedArmor === armor.id;
               return (
                 <TouchableOpacity
-                  key={outfit.id}
+                  key={armor.id}
                   activeOpacity={0.8}
                   disabled={isLocked}
-                  onPress={() => setSelectedOutfit(outfit.id)}
+                  onPress={() => setSelectedArmor(armor.id)}
                   style={styles.itemWrapper}
                 >
                   <View style={styles.itemShadow} />
@@ -142,10 +142,10 @@ export default function PreBattleScreen() {
                     isSelected && styles.itemSlotSelected,
                     isLocked && styles.itemSlotLocked
                   ]}>
-                    <Text style={styles.itemIcon}>{isLocked ? '🔒' : outfit.icon}</Text>
+                    <Text style={styles.itemIcon}>{isLocked ? '🔒' : armor.icon}</Text>
                   </View>
                   <Text style={[styles.itemName, isLocked && styles.lockedText]}>
-                    {isLocked ? `Lv. ${outfit.unlockLevel}` : outfit.name}
+                    {isLocked ? `Lv. ${armor.unlockLevel}` : armor.name}
                   </Text>
 
                 </TouchableOpacity>
@@ -199,7 +199,7 @@ export default function PreBattleScreen() {
             onPress={() => {
               const activeSkill = SKILLS.find(s => s.id === selectedSkill);
               const activeGear = GEARS.find(g => g.id === selectedGear);
-              const activeOutfit = OUTFITS.find(o => o.id === selectedOutfit);
+              const activeArmor = ARMORS.find(a => a.id === selectedArmor);
 
               router.push({
                 pathname: '/battle',
@@ -212,8 +212,8 @@ export default function PreBattleScreen() {
                   gearName: activeGear?.name,
                   gearIcon: activeGear?.icon,
                   gearStat: activeGear?.stat,
-                  outfitName: activeOutfit?.name,
-                  outfitIcon: activeOutfit?.icon,
+                  armorName: activeArmor?.name,
+                  armorIcon: activeArmor?.icon,
 
                 }
               });

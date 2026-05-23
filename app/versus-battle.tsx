@@ -42,6 +42,8 @@ export default function VersusBattleScreen() {
   const [turn, setTurn] = useState<1 | 2>(1);
   const [round, setRound] = useState(1);
   const currentLevel = Math.min(Math.ceil(round / 2), 6);
+  const isExtraLarge = currentLevel <= 2;
+  const isMedium = currentLevel === 3;
   const [timer, setTimer] = useState(p1InitialTime);
   const [currentQ, setCurrentQ] = useState<Question | null>(null);
 
@@ -367,7 +369,7 @@ export default function VersusBattleScreen() {
 
       {currentQ && (
         <View style={styles.questionPanel}>
-          <Text style={styles.equation}>{currentQ.equation}</Text>
+          <Text style={[styles.equation, isMedium && styles.equationMedium, isExtraLarge && styles.equationLarge]} adjustsFontSizeToFit numberOfLines={2}>{currentQ.equation}</Text>
 
           <View style={styles.optionsContainer}>
             {currentQ.options.map((opt, idx) => {
@@ -380,6 +382,8 @@ export default function VersusBattleScreen() {
                     activeOpacity={0.7}
                     style={[
                       styles.optionButton,
+                      isMedium && styles.optionButtonMedium,
+                      isExtraLarge && styles.optionButtonLarge,
                       isAnswering && isCorrect && styles.optionCorrect,
                       isAnswering && isWrongPick && styles.optionWrong,
                       isAnswering && !isCorrect && !isWrongPick && styles.optionDimmed,
@@ -390,8 +394,10 @@ export default function VersusBattleScreen() {
                     <Text
                       style={[
                         styles.optionText,
+                        isMedium && styles.optionTextMedium,
+                        isExtraLarge && styles.optionTextLarge,
                         isAnswering && (isCorrect || isWrongPick) && styles.optionTextOnColor,
-                      ]}
+                      ]} adjustsFontSizeToFit numberOfLines={2}
                     >
                       {opt}
                     </Text>
@@ -555,18 +561,26 @@ const styles = StyleSheet.create({
   statusBadgeLabel: { fontSize: 12, fontWeight: '900', color: '#1a1008' },
 
   questionPanel: {
+    height: 340,
+    justifyContent: 'center',
     backgroundColor: '#fff', borderTopWidth: 4, borderColor: '#1a1008',
-    padding: 25, borderTopLeftRadius: 30, borderTopRightRadius: 30, alignItems: 'center',
+    paddingTop: 20, paddingBottom: 20, paddingHorizontal: 25, borderTopLeftRadius: 30, borderTopRightRadius: 30, alignItems: 'center',
   },
-  equation: { fontSize: 48, fontWeight: '900', color: '#1a1008', marginVertical: 20 },
-  optionsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 15, width: '100%', paddingBottom: 30 },
+  equation: { fontSize: 32, fontWeight: '900', color: '#1a1008', marginVertical: 10, textAlign: 'center' },
+  equationMedium: { fontSize: 40, marginVertical: 15 },
+  equationLarge: { fontSize: 44, marginVertical: 15 },
+  optionsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, width: '100%', marginTop: 10 },
   optionWrapper: { width: '45%', position: 'relative' },
   optionShadow: { position: 'absolute', top: 5, left: 5, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
-  optionButton: { backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#1a1008', borderRadius: 12, paddingVertical: 18, alignItems: 'center' },
+  optionButton: { backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#1a1008', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', minHeight: 60 },
+  optionButtonMedium: { paddingVertical: 14, minHeight: 64 },
+  optionButtonLarge: { paddingVertical: 15, minHeight: 66 },
   optionCorrect: { backgroundColor: '#22c55e', borderColor: '#14532d' },
   optionWrong: { backgroundColor: '#e8302a', borderColor: '#7f1d1d' },
   optionDimmed: { opacity: 0.5 },
-  optionText: { fontSize: 28, fontWeight: '900', color: '#1a1008' },
+  optionText: { fontSize: 20, fontWeight: '900', color: '#1a1008', textAlign: 'center' },
+  optionTextMedium: { fontSize: 24 },
+  optionTextLarge: { fontSize: 26 },
   optionTextOnColor: { color: '#fff' },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(26, 16, 8, 0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
