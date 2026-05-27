@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import NeoButton from '../components/NeoButton';
 
 const GEARS = [

@@ -2,7 +2,9 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
+import { soundService } from '../services/soundService';
 import ReviewModal from '../components/ReviewModal';
 import Sprite from '../components/sprite';
 import { useGameStore } from '../hooks/useGameStore';
@@ -117,6 +119,16 @@ export default function BattleScreen() {
   const [hasShield, setHasShield] = useState(false);
   const [hasDoubleStrike, setHasDoubleStrike] = useState(false);
 
+  const [musicEnabled, setMusicEnabled] = useState(soundService.getMusicEnabled());
+  const [soundEnabled, setSoundEnabled] = useState(soundService.getSoundEnabled());
+
+  useEffect(() => {
+    if (isPaused) {
+      setMusicEnabled(soundService.getMusicEnabled());
+      setSoundEnabled(soundService.getSoundEnabled());
+    }
+  }, [isPaused]);
+
   const playerAction = useMemo(() => {
     if (showVictory) return 'win';
     if (showDefeat) return 'defeat';
@@ -143,6 +155,27 @@ export default function BattleScreen() {
       setTimer(getTimeForLevel(q.sourceLevel));
     }
   }, []);
+
+  // Play victory sound: when showVictory is true and there are no new unlocks,
+  // OR when showUnlocks is true (newly unlocked skill modal appears).
+  useEffect(() => {
+    if (showVictory && newUnlocks.length === 0) {
+      soundService.playSound('victory');
+    }
+  }, [showVictory, newUnlocks]);
+
+  useEffect(() => {
+    if (showUnlocks) {
+      soundService.playSound('victory');
+    }
+  }, [showUnlocks]);
+
+  // Play defeat sound: when showDefeat becomes true.
+  useEffect(() => {
+    if (showDefeat) {
+      soundService.playSound('defeat');
+    }
+  }, [showDefeat]);
 
   useEffect(() => {
     if (isPaused || showVictory || showDefeat || isAnswering || !currentQ || playerHP <= 0) return;
@@ -176,6 +209,7 @@ export default function BattleScreen() {
   const handleTimeOut = () => {
     setIsAnswering(true);
     setSelectedOption('TIMEOUT');
+    soundService.playSound('break');
 
     setTimeout(() => {
       applyWrongAnswer();
@@ -189,6 +223,11 @@ export default function BattleScreen() {
     setSelectedOption(opt);
 
     const isCorrect = opt === currentQ.correctAnswer;
+    if (isCorrect) {
+      soundService.playSound('hit');
+    } else {
+      soundService.playSound('break');
+    }
 
     setTimeout(() => {
       if (isCorrect) {
@@ -226,6 +265,7 @@ export default function BattleScreen() {
     } else {
       const newPlayerHP = playerHP - 1;
       setPlayerHP(newPlayerHP);
+      soundService.playSound('heartbreak');
 
       if (newPlayerHP <= 0) {
         recordLevelProgress(currentLevel, correctAnswersCount, false);
@@ -369,6 +409,7 @@ export default function BattleScreen() {
                 <View style={styles.optionShadow} />
                 <TouchableOpacity
                   activeOpacity={0.7}
+                  silent={true}
                   style={getOptionStyle(opt)}
                   disabled={isAnswering}
                   onPress={() => handleOptionPress(opt)}
@@ -408,6 +449,46 @@ export default function BattleScreen() {
                   <Text style={styles.btnSecondaryText}>QUIT BATTLE</Text>
                 </TouchableOpacity>
               </View>
+
+              <View style={styles.pauseTogglesRow}>
+                <View style={styles.pauseToggleWrapper}>
+                  <View style={styles.pauseToggleShadow} />
+                  <TouchableOpacity
+                    style={[styles.pauseToggleBtn, !musicEnabled && styles.pauseToggleBtnDisabled]}
+                    activeOpacity={0.8}
+                    onPress={async () => {
+                      const newValue = !musicEnabled;
+                      setMusicEnabled(newValue);
+                      await soundService.setMusicEnabled(newValue);
+                    }}
+                  >
+                    <Feather
+                      name={musicEnabled ? "music" : "slash"}
+                      size={20}
+                      color={musicEnabled ? "#fff" : "#7a6a55"}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.pauseToggleWrapper}>
+                  <View style={styles.pauseToggleShadow} />
+                  <TouchableOpacity
+                    style={[styles.pauseToggleBtn, !soundEnabled && styles.pauseToggleBtnDisabled, soundEnabled && { backgroundColor: '#f5a623' }]}
+                    activeOpacity={0.8}
+                    onPress={async () => {
+                      const newValue = !soundEnabled;
+                      setSoundEnabled(newValue);
+                      await soundService.setSoundEnabled(newValue);
+                    }}
+                  >
+                    <Feather
+                      name={soundEnabled ? "volume-2" : "volume-x"}
+                      size={20}
+                      color={soundEnabled ? "#fff" : "#7a6a55"}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
           </View>
         </View>
@@ -435,6 +516,7 @@ export default function BattleScreen() {
                 <View style={styles.btnShadow} />
                 <TouchableOpacity style={styles.btnPrimary} onPress={() => {
                   setShowVictory(false);
+                  soundService.stopSound('victory');
                   if (newUnlocks.length > 0) {
                     setShowUnlocks(true);
                   } else if (!reviewShown.current) {
@@ -469,6 +551,7 @@ export default function BattleScreen() {
                 <View style={styles.btnShadow} />
                 <TouchableOpacity style={styles.btnSecondary} onPress={() => {
                   setShowDefeat(false);
+                  soundService.stopSound('defeat');
                   if (!reviewShown.current) {
                     reviewShown.current = true;
                     setShowReview(true);
@@ -516,6 +599,7 @@ export default function BattleScreen() {
                 <View style={styles.btnShadow} />
                 <TouchableOpacity style={styles.btnPrimary} onPress={() => {
                   setShowUnlocks(false);
+                  soundService.stopSound('victory');
                   if (!reviewShown.current) {
                     reviewShown.current = true;
                     setShowReview(true);
@@ -588,6 +672,41 @@ const styles = StyleSheet.create({
   },
   pauseIcon: { fontSize: 16, fontWeight: '900', color: '#ffffff' },
   pauseLabel: { fontSize: 16, fontWeight: '900', color: '#ffffff', textTransform: 'uppercase', letterSpacing: 1.5 },
+  pauseTogglesRow: {
+    flexDirection: 'row',
+    gap: 24,
+    marginTop: 12,
+    marginBottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pauseToggleWrapper: {
+    position: 'relative',
+    width: 48,
+    height: 48,
+  },
+  pauseToggleShadow: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: 48,
+    height: 48,
+    backgroundColor: '#1a1008',
+    borderRadius: 24,
+  },
+  pauseToggleBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#1a6cf5',
+    borderWidth: 3,
+    borderColor: '#1a1008',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pauseToggleBtnDisabled: {
+    backgroundColor: '#e5d9c4',
+  },
 
   subBar: {
     flexDirection: 'row',

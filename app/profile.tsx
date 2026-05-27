@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView } from 'react-native';
+import { Alert, StyleSheet, Text, TextInput, View, ScrollView } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { useGameStore } from '../hooks/useGameStore';
 import { lookupByUsername, lookupByIngameName } from '../services/firestoreSync';
 

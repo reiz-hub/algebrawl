@@ -1,6 +1,7 @@
 // components/ErrorModal.tsx
 import React, { useEffect, useRef } from 'react';
-import { Animated, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Modal, StyleSheet, Text, View } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 
 interface ErrorModalProps {
   visible: boolean;

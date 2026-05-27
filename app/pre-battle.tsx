@@ -1,7 +1,8 @@
 // app/pre-battle.tsx
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { useGameStore } from '../hooks/useGameStore';
 import NeoButton from '../components/NeoButton';
 

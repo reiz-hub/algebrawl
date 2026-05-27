@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
-import { Animated, Image, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Animated, ImageBackground, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import NeoButton from '../components/NeoButton';
 
 export default function HomeScreen() {
@@ -26,7 +26,11 @@ export default function HomeScreen() {
   }, [bounceAnim]);
 
   return (
-    <View style={styles.container}>
+    <ImageBackground
+      source={require('../assets/images/mapbg/homebg.png')}
+      style={styles.backgroundImage}
+      resizeMode="cover"
+    >
       {/* Floating Background Symbols */}
       <Text style={[styles.bgSymbol, { top: '15%', left: '15%', transform: [{ rotate: '-10deg' }] }]}>-</Text>
       <Text style={[styles.bgSymbol, { top: '45%', left: '10%', transform: [{ rotate: '15deg' }] }]}>x²</Text>
@@ -69,13 +73,15 @@ export default function HomeScreen() {
 
       {/* App Version */}
       <Text style={styles.versionText}>version 0.0.01</Text>
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  backgroundImage: {
     flex: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#fff9f0',
     overflow: 'hidden'
   },

@@ -5,8 +5,9 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'fire
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Animated, Image, Modal, ScrollView,
-  StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle
+  StyleSheet, Text, TextInput, View, ViewStyle
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import ErrorModal from '../components/ErrorModal';
 import NeoButton from '../components/NeoButton';
 import { useGameStore } from '../hooks/useGameStore';
@@ -510,10 +511,16 @@ export default function PlayerStatsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/')}>
-          <Feather name="arrow-left" size={20} color="#1a1008" />
-        </TouchableOpacity>
+        <NeoButton
+          style={styles.backBtn as ViewStyle}
+          shadowStyle={{ borderRadius: 23 }}
+          wrapperStyle={{ width: 45 }}
+          onPress={() => router.replace('/')}
+        >
+          <Feather name="arrow-left" size={24} color="#1a1008" />
+        </NeoButton>
         <Text style={styles.title}>PLAYER PROFILE</Text>
+        <View style={{ width: 45 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -778,10 +785,10 @@ const ms = StyleSheet.create({
 /* ── Page styles ── */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff9f0' },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingTop: 60 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', borderWidth: 2, borderColor: '#1a1008', justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 10, zIndex: 10 },
+  backBtn: { width: 45, height: 45, borderRadius: 23, backgroundColor: '#fff', borderWidth: 3, borderColor: '#1a1008', justifyContent: 'center', alignItems: 'center' },
   backBtnText: { fontSize: 20, fontWeight: '900' },
-  title: { fontSize: 24, fontWeight: '900', color: '#1a1008' },
+  title: { fontSize: 28, fontWeight: '900', color: '#1a1008', textTransform: 'uppercase', letterSpacing: 1 },
   scrollContent: { padding: 20 },
   sectionHeader: { fontSize: 16, fontWeight: '900', color: '#1a1008', marginTop: 20, marginBottom: 10, textTransform: 'uppercase' },
   

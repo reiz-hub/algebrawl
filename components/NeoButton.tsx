@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
-import { Animated, StyleSheet, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { Animated, StyleSheet, View, ViewStyle } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 
 interface NeoButtonProps {
   onPress?: () => void;

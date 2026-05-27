@@ -8,9 +8,9 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import TouchableOpacity from './TouchableOpacity';
 import { useGameStore } from '../hooks/useGameStore';
 import { submitReview } from '../services/reviewService';
 

@@ -1,8 +1,10 @@
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import { useEffect, useState } from 'react';
 import DeactivatedModal from '../components/DeactivatedModal';
+import SettingsButton from '../components/SettingsButton';
 import { useGameStore } from '../hooks/useGameStore';
 import { checkAccountStatus } from '../services/firestoreSync';
+import { soundService } from '../services/soundService';
 
 export default function RootLayout() {
   const loadLocalData = useGameStore((state) => state.loadLocalData);
@@ -10,11 +12,13 @@ export default function RootLayout() {
   const isLoggedIn = useGameStore((state) => state.isLoggedIn);
   const isLoaded = useGameStore((state) => state.isLoaded);
   const logout = useGameStore((state) => state.logout);
+  const pathname = usePathname();
 
   const [showDeactivated, setShowDeactivated] = useState(false);
 
   useEffect(() => {
     loadLocalData();
+    soundService.initialize();
   }, []);
 
   // Check account status when a logged-in user's data finishes loading
@@ -49,6 +53,8 @@ export default function RootLayout() {
         <Stack.Screen name="versus" />
         <Stack.Screen name="versus-battle" />
       </Stack>
+
+      {(pathname === '/' || pathname === '/index') && <SettingsButton />}
 
       <DeactivatedModal
         visible={showDeactivated}

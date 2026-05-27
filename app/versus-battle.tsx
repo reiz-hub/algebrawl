@@ -1,7 +1,9 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Modal, StyleSheet, Text, View } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
+import { soundService } from '../services/soundService';
 import ReviewModal from '../components/ReviewModal';
 import Sprite from '../components/sprite';
 import { generateQuestion, Question } from '../scripts/mathGenerator';
@@ -65,6 +67,16 @@ export default function VersusBattleScreen() {
   const [showReview, setShowReview] = useState(false);
   const reviewShown = useRef(false);
 
+  const [musicEnabled, setMusicEnabled] = useState(soundService.getMusicEnabled());
+  const [soundEnabled, setSoundEnabled] = useState(soundService.getSoundEnabled());
+
+  useEffect(() => {
+    if (isPaused) {
+      setMusicEnabled(soundService.getMusicEnabled());
+      setSoundEnabled(soundService.getSoundEnabled());
+    }
+  }, [isPaused]);
+
   const activeName = turn === 1 ? p1Name : p2Name;
   const activeSkillName = turn === 1 ? p1SkillName : p2SkillName;
   const activeSkillIcon = turn === 1 ? p1SkillIcon : p2SkillIcon;
@@ -78,6 +90,12 @@ export default function VersusBattleScreen() {
   useEffect(() => {
     setCurrentQ(generateQuestion(currentLevel));
   }, []);
+
+  useEffect(() => {
+    if (showVictory) {
+      soundService.playSound('victory');
+    }
+  }, [showVictory]);
 
   useEffect(() => {
     if (isPaused || showVictory || isAnswering || !currentQ) return;
@@ -170,6 +188,7 @@ export default function VersusBattleScreen() {
   const handleTimeOut = () => {
     setIsAnswering(true);
     setSelectedOption('TIMEOUT');
+    soundService.playSound('break');
     setTimeout(() => {
       applyWrongAnswer();
     }, 1000);
@@ -181,6 +200,11 @@ export default function VersusBattleScreen() {
     setSelectedOption(opt);
 
     const isCorrect = opt === currentQ.correctAnswer;
+    if (isCorrect) {
+      soundService.playSound('hit');
+    } else {
+      soundService.playSound('break');
+    }
     setTimeout(() => {
       if (isCorrect) applyCorrectAnswer();
       else applyWrongAnswer();
@@ -200,6 +224,7 @@ export default function VersusBattleScreen() {
       } else {
         const newHP = p1HP - 1;
         setP1HP(newHP);
+        soundService.playSound('heartbreak');
         if (newHP <= 0) {
           setWinner(p2Name);
           setShowVictory(true);
@@ -212,6 +237,7 @@ export default function VersusBattleScreen() {
       } else {
         const newHP = p2HP - 1;
         setP2HP(newHP);
+        soundService.playSound('heartbreak');
         if (newHP <= 0) {
           setWinner(p1Name);
           setShowVictory(true);
@@ -380,6 +406,7 @@ export default function VersusBattleScreen() {
                   <View style={styles.optionShadow} />
                   <TouchableOpacity
                     activeOpacity={0.7}
+                    silent={true}
                     style={[
                       styles.optionButton,
                       isMedium && styles.optionButtonMedium,
@@ -429,6 +456,46 @@ export default function VersusBattleScreen() {
                   <Text style={styles.btnSecondaryText}>QUIT BATTLE</Text>
                 </TouchableOpacity>
               </View>
+
+              <View style={styles.pauseTogglesRow}>
+                <View style={styles.pauseToggleWrapper}>
+                  <View style={styles.pauseToggleShadow} />
+                  <TouchableOpacity
+                    style={[styles.pauseToggleBtn, !musicEnabled && styles.pauseToggleBtnDisabled]}
+                    activeOpacity={0.8}
+                    onPress={async () => {
+                      const newValue = !musicEnabled;
+                      setMusicEnabled(newValue);
+                      await soundService.setMusicEnabled(newValue);
+                    }}
+                  >
+                    <Feather
+                      name={musicEnabled ? "music" : "slash"}
+                      size={20}
+                      color={musicEnabled ? "#fff" : "#7a6a55"}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.pauseToggleWrapper}>
+                  <View style={styles.pauseToggleShadow} />
+                  <TouchableOpacity
+                    style={[styles.pauseToggleBtn, !soundEnabled && styles.pauseToggleBtnDisabled, soundEnabled && { backgroundColor: '#f5a623' }]}
+                    activeOpacity={0.8}
+                    onPress={async () => {
+                      const newValue = !soundEnabled;
+                      setSoundEnabled(newValue);
+                      await soundService.setSoundEnabled(newValue);
+                    }}
+                  >
+                    <Feather
+                      name={soundEnabled ? "volume-2" : "volume-x"}
+                      size={20}
+                      color={soundEnabled ? "#fff" : "#7a6a55"}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
           </View>
         </View>
@@ -448,6 +515,7 @@ export default function VersusBattleScreen() {
                 <View style={styles.btnShadow} />
                 <TouchableOpacity style={styles.btnPrimary} onPress={() => {
                   setShowVictory(false);
+                  soundService.stopSound('victory');
                   if (!reviewShown.current) {
                     reviewShown.current = true;
                     setShowReview(true);
@@ -511,6 +579,41 @@ const styles = StyleSheet.create({
   pauseIcon: { fontSize: 18, fontWeight: '900', color: '#1a1008', transform: [{ rotate: '90deg' }] },
   hpHearts: { fontSize: 20 },
   enemyHpText: { fontSize: 20 },
+  pauseTogglesRow: {
+    flexDirection: 'row',
+    gap: 24,
+    marginTop: 12,
+    marginBottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pauseToggleWrapper: {
+    position: 'relative',
+    width: 48,
+    height: 48,
+  },
+  pauseToggleShadow: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: 48,
+    height: 48,
+    backgroundColor: '#1a1008',
+    borderRadius: 24,
+  },
+  pauseToggleBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#1a6cf5',
+    borderWidth: 3,
+    borderColor: '#1a1008',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pauseToggleBtnDisabled: {
+    backgroundColor: '#e5d9c4',
+  },
   timer: { fontSize: 32, fontWeight: '900', color: '#1a1008' },
   timerDanger: { color: '#e8302a' },
   turnText: { fontSize: 12, fontWeight: '900', color: '#1a1008', marginTop: 2 },
