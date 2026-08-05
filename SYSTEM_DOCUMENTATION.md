@@ -604,7 +604,7 @@ The following describes the complete user journey from app launch to completing 
 
 ### Step 5: Battle Phase
 
-12. The **Battle Screen** (`battle.tsx`) initializes:
+12. The **Battle Screen** (`battle.tsx`) initializes
     - Player HP is set to 3 + gear bonus hearts
     - Enemy HP is set to the total question count
     - The `mathGenerator.ts` generates the first question based on the level
