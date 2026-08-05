@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 import DeactivatedModal from '../components/DeactivatedModal';
 import SettingsButton from '../components/SettingsButton';
 import { useGameStore } from '../hooks/useGameStore';
-import { checkAccountStatus } from '../services/firestoreSync';
 import { soundService } from '../services/soundService';
+import { checkAccountStatus } from '../services/supabaseSync';
 
 export default function RootLayout() {
   const loadLocalData = useGameStore((state) => state.loadLocalData);

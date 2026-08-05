@@ -2,11 +2,11 @@ import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Modal, StyleSheet, Text, View } from 'react-native';
-import TouchableOpacity from '../components/TouchableOpacity';
-import { soundService } from '../services/soundService';
 import ReviewModal from '../components/ReviewModal';
 import Sprite from '../components/sprite';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { generateQuestion, Question } from '../scripts/mathGenerator';
+import { soundService } from '../services/soundService';
 
 export default function VersusBattleScreen() {
   const params = useLocalSearchParams();

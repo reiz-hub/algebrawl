@@ -5,7 +5,7 @@ import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, View, ViewStyle 
 import ErrorModal from '../components/ErrorModal';
 import NeoButton from '../components/NeoButton';
 import { useGameStore } from '../hooks/useGameStore';
-import { lookupByUsername } from '../services/firestoreSync';
+import { lookupByUsername } from '../services/supabaseSync';
 
 export default function LoginScreen() {
   const router = useRouter();

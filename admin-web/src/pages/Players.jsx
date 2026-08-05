@@ -1,6 +1,5 @@
-import { collection, deleteDoc, doc, getDocs, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
-import React, { useEffect, useState, Fragment } from 'react';
-import { db } from '../firebase';
+import { useEffect, useState, Fragment } from 'react';
+import { supabase } from '../supabase';
 
 const GEARS = [
   { id: 'g1', name: 'No. 2 Pencil', stat: '+2s / Q', icon: '✏️', unlockLevel: 1 },
@@ -35,31 +34,91 @@ export default function Players() {
   const [confirmDialog, setConfirmDialog] = useState(null);
   const [expandedPlayer, setExpandedPlayer] = useState(null);
 
-  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
-      const all = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const fetchPlayers = async () => {
+    const { data, error } = await supabase.from('users').select('*');
+    if (error) { console.error('Fetch failed:', error); return; }
 
-      // Count orphaned guest docs (no username)
-      setGuestCount(all.filter((d) => !d.username).length);
+    // Retrieve emails from Supabase Auth as a fallback if not set in public.users
+    const authUsersMap = {};
+    try {
+      const { data: authData } = await supabase.auth.admin.listUsers();
+      if (authData && authData.users) {
+        authData.users.forEach((u) => {
+          if (u.email) authUsersMap[u.id] = u.email;
+        });
+      }
+    } catch (e) {
+      console.warn('Could not list auth users:', e);
+    }
 
-      // Only show registered players (those with a username)
-      const registered = all.filter((d) => !!d.username);
-      registered.sort((a, b) => {
-        const nameA = a.ingameName || a.username || '';
-        const nameB = b.ingameName || b.username || '';
-        return nameA.localeCompare(nameB);
-      });
-      setPlayers(registered);
+    const all = (data || []).map((d) => {
+      const email = d.email || authUsersMap[d.id] || null;
+      const ingameName = d.ingame_name || d.username || null;
+
+      // Auto-backfill missing email or ingame_name in public.users
+      if ((!d.email && email) || (!d.ingame_name && ingameName)) {
+        supabase
+          .from('users')
+          .update({
+            ...(d.email ? {} : { email }),
+            ...(d.ingame_name ? {} : { ingame_name: ingameName }),
+          })
+          .eq('id', d.id)
+          .then(() => {});
+      }
+
+      // Backfill Supabase Auth display_name with username (so it shows in Supabase dashboard)
+      if (d.username && authUsersMap[d.id] !== undefined) {
+        supabase.auth.admin.updateUserById(d.id, {
+          user_metadata: { display_name: d.username, username: d.username },
+        }).then(() => {});
+      }
+
+      return {
+        ...d,
+        email,
+        ingameName,
+        isActive: d.is_active,
+        unlockedLevel: d.unlocked_level,
+        levelStars: d.level_stars,
+        totalBattles: d.total_battles,
+        currentStreak: d.current_streak,
+        maxStreak: d.max_streak,
+      };
     });
-    return () => unsubscribe();
+
+    setGuestCount(all.filter((d) => !d.username).length);
+
+    const registered = all.filter((d) => !!d.username);
+    registered.sort((a, b) => {
+      const nameA = a.ingameName || a.username || '';
+      const nameB = b.ingameName || b.username || '';
+      return nameA.localeCompare(nameB);
+    });
+    setPlayers(registered);
+  };
+
+  useEffect(() => {
+    fetchPlayers();
+
+    // Subscribe to real-time changes (replaces Firestore onSnapshot)
+    const channel = supabase
+      .channel('users-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+        fetchPlayers();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const toggleActive = async (playerId, currentlyActive) => {
     setUpdating(playerId);
     try {
-      await updateDoc(doc(db, 'users', playerId), {
-        isActive: !currentlyActive,
-      });
+      await supabase
+        .from('users')
+        .update({ is_active: !currentlyActive })
+        .eq('id', playerId);
     } catch (err) {
       console.error('Failed to update player:', err);
     } finally {
@@ -70,9 +129,18 @@ export default function Players() {
   const handleDeletePlayer = async (playerId) => {
     setUpdating(playerId);
     try {
-      await deleteDoc(doc(db, 'users', playerId));
+      // 1. Delete user from Supabase Auth (auth.users)
+      try {
+        await supabase.auth.admin.deleteUser(playerId);
+      } catch (authErr) {
+        console.warn('Supabase Auth user delete notice:', authErr);
+      }
+
+      // 2. Delete player profile row from public.users table
+      await supabase.from('users').delete().eq('id', playerId);
     } catch (err) {
       console.error('Failed to delete player:', err);
+    } finally {
       setUpdating(null);
     }
   };
@@ -80,10 +148,20 @@ export default function Players() {
   const executePurgeGuests = async () => {
     setPurging(true);
     try {
-      // Fetch all user docs, delete ones without a username
-      const snapshot = await getDocs(collection(db, 'users'));
-      const guestDocs = snapshot.docs.filter((d) => !d.data().username);
-      await Promise.all(guestDocs.map((d) => deleteDoc(doc(db, 'users', d.id))));
+      const { data: guests } = await supabase
+        .from('users')
+        .select('id')
+        .is('username', null);
+
+      if (guests && guests.length > 0) {
+        for (const guest of guests) {
+          try {
+            await supabase.auth.admin.deleteUser(guest.id);
+          } catch (_) {}
+        }
+      }
+
+      await supabase.from('users').delete().is('username', null);
     } catch (err) {
       console.error('Failed to purge guests:', err);
     } finally {
@@ -94,8 +172,10 @@ export default function Players() {
   const filtered = players.filter((p) => {
     const q = search.toLowerCase();
     const displayName = p.ingameName || p.username || '';
+    const email = p.email || '';
     return (
       displayName.toLowerCase().includes(q) ||
+      email.toLowerCase().includes(q) ||
       p.id.toLowerCase().includes(q)
     );
   });
@@ -188,9 +268,7 @@ export default function Players() {
             <tbody className="divide-y divide-game-border/50">
               {filtered.map((player) => {
                 const isActive = player.isActive !== false;
-                const email = player.username
-                  ? `${player.username.toLowerCase()}@algebrawler.app`
-                  : '—';
+                const email = player.email || '—';
                 const displayName = player.ingameName || player.username;
                 const avatarLetter = (displayName || 'G').charAt(0).toUpperCase();
 
@@ -203,10 +281,15 @@ export default function Players() {
                             {avatarLetter}
                           </div>
                           <div>
-                            <div className="font-bold text-game-text">
-                              {displayName}
+                            <div className="font-bold text-game-text flex items-center gap-2">
+                              <span>{displayName}</span>
+                              {player.ingameName && (
+                                <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded font-black uppercase tracking-wider">
+                                  In-Game
+                                </span>
+                              )}
                             </div>
-                            {player.ingameName && player.ingameName !== player.username && (
+                            {player.username && (
                               <div className="text-xs text-game-muted font-bold">
                                 @{player.username}
                               </div>

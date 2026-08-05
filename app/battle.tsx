@@ -1,59 +1,22 @@
 // app/battle.tsx
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
-import TouchableOpacity from '../components/TouchableOpacity';
-import { soundService } from '../services/soundService';
 import ReviewModal from '../components/ReviewModal';
 import Sprite from '../components/sprite';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { useGameStore } from '../hooks/useGameStore';
 import { generateQuestion, Question } from '../scripts/mathGenerator';
+import { soundService } from '../services/soundService';
 
-const GEARS = [
-  { id: 'g1', name: 'No. 2 Pencil', stat: '+2s / Q', icon: '✏️', unlockLevel: 1 },
-  { id: 'g2', name: 'Study Notes', stat: '+1 Heart', icon: '📓', unlockLevel: 1 },
-  { id: 'g3', name: 'Math Ruler', stat: '+4s / Q', icon: '📏', unlockLevel: 3 },
-  { id: 'g4', name: 'Pocket Calc', stat: '+2 Hearts', icon: '📱', unlockLevel: 5 },
-  { id: 'g5', name: 'Golden Protractor', stat: '2x XP Boost', icon: '📐', unlockLevel: 7 },
-];
 
-const ALL_SKILLS = [
-  { id: 's1', name: 'Basic Attack', desc: 'Standard Damage', icon: '⚔️', unlockLevel: 1 },
-  { id: 's2', name: 'Focus', desc: '+5s Timer (1x)', icon: '⏱️', unlockLevel: 2 },
-  { id: 's3', name: 'Shield', desc: 'Block 1 Hit (1x)', icon: '🛡️', unlockLevel: 4 },
-  { id: 's4', name: 'Double Strike', desc: '2x Damage (1x)', icon: '🔥', unlockLevel: 6 },
-];
-
-const ARMORS = [
-  { id: 'o1', name: 'Leather Jerkin', icon: '🦺', unlockLevel: 1 },
-  { id: 'o2', name: 'Iron Chainmail', icon: '⛓️', unlockLevel: 2 },
-  { id: 'o3', name: 'Steel Cuirass', icon: '🛡️', unlockLevel: 3 },
-  { id: 'o4', name: 'Knight Helmet', icon: '🪖', unlockLevel: 4 },
-  { id: 'o5', name: 'Dragon Scale Mail', icon: '🐲', unlockLevel: 5 },
-  { id: 'o6', name: 'Mythril Plate', icon: '🌟', unlockLevel: 6 },
-];
-
-type UnlockItem = { icon: string; name: string; type: 'GEAR' | 'SKILL' | 'ARMOR'; detail: string };
-
-const computeNewUnlocks = (nextLevel: number): UnlockItem[] => {
-  const unlocks: UnlockItem[] = [];
-  for (const g of GEARS) {
-    if (g.unlockLevel === nextLevel) unlocks.push({ icon: g.icon, name: g.name, type: 'GEAR', detail: g.stat });
-  }
-  for (const s of ALL_SKILLS) {
-    if (s.unlockLevel === nextLevel) unlocks.push({ icon: s.icon, name: s.name, type: 'SKILL', detail: s.desc });
-  }
-  for (const a of ARMORS) {
-    if (a.unlockLevel === nextLevel) unlocks.push({ icon: a.icon, name: a.name, type: 'ARMOR', detail: 'Armor' });
-  }
-  return unlocks;
-};
 
 export default function BattleScreen() {
-  const { level, questions, timePerQuestion: timeParam, skillName, skillIcon, gearName, gearIcon, gearStat } = useLocalSearchParams();
+  const { level, questions, timePerQuestion: timeParam, skillName, skillIcon, gearName, gearIcon, gearStat, characterId: paramCharId } = useLocalSearchParams();
   const router = useRouter();
-  const { recordLevelProgress, updateStats } = useGameStore();
+  const { recordLevelProgress, updateStats, coins, equippedCharacter } = useGameStore();
+  const selectedCharId = String(paramCharId || equippedCharacter || 'c0');
 
   const totalQuestions = Number(questions) || 10;
   const currentLevel = Number(level) || 1;
@@ -106,10 +69,9 @@ export default function BattleScreen() {
   const [currentQ, setCurrentQ] = useState<Question | null>(null);
 
   const [isPaused, setIsPaused] = useState(false);
+  const [isWon, setIsWon] = useState(false);
   const [showVictory, setShowVictory] = useState(false);
   const [showDefeat, setShowDefeat] = useState(false);
-  const [showUnlocks, setShowUnlocks] = useState(false);
-  const [newUnlocks, setNewUnlocks] = useState<UnlockItem[]>([]);
   const [isAnswering, setIsAnswering] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const reviewShown = useRef(false);
@@ -130,16 +92,16 @@ export default function BattleScreen() {
   }, [isPaused]);
 
   const playerAction = useMemo(() => {
-    if (showVictory) return 'win';
+    if (isWon || showVictory) return 'win';
     if (showDefeat) return 'defeat';
     if (isAnswering && selectedOption) {
       return currentQ && selectedOption === currentQ.correctAnswer ? 'attack' : 'hit';
     }
     return 'idle';
-  }, [showVictory, showDefeat, isAnswering, selectedOption, currentQ]);
+  }, [isWon, showVictory, showDefeat, isAnswering, selectedOption, currentQ]);
 
   const enemyAction = useMemo(() => {
-    if (showVictory) return 'defeat';
+    if (isWon || showVictory) return 'defeat';
     if (showDefeat) return 'win';
     if (isAnswering && selectedOption) {
       // Player hit correctly → villain takes damage
@@ -147,28 +109,24 @@ export default function BattleScreen() {
       return currentQ && selectedOption === currentQ.correctAnswer ? 'hit' : 'attack';
     }
     return 'idle';
-  }, [showVictory, showDefeat, isAnswering, selectedOption, currentQ]);
+  }, [isWon, showVictory, showDefeat, isAnswering, selectedOption, currentQ]);
+
+  const [questionIndex, setQuestionIndex] = useState(0);
+
   useEffect(() => {
-    const q = generateQuestion(currentLevel);
+    const q = generateQuestion(currentLevel, 0, totalQuestions);
     setCurrentQ(q);
     if (currentLevel === 7) {
       setTimer(getTimeForLevel(q.sourceLevel));
     }
   }, []);
 
-  // Play victory sound: when showVictory is true and there are no new unlocks,
-  // OR when showUnlocks is true (newly unlocked skill modal appears).
+  // Play victory sound: when win pose starts.
   useEffect(() => {
-    if (showVictory && newUnlocks.length === 0) {
+    if (isWon) {
       soundService.playSound('victory');
     }
-  }, [showVictory, newUnlocks]);
-
-  useEffect(() => {
-    if (showUnlocks) {
-      soundService.playSound('victory');
-    }
-  }, [showUnlocks]);
+  }, [isWon]);
 
   // Play defeat sound: when showDefeat becomes true.
   useEffect(() => {
@@ -178,7 +136,7 @@ export default function BattleScreen() {
   }, [showDefeat]);
 
   useEffect(() => {
-    if (isPaused || showVictory || showDefeat || isAnswering || !currentQ || playerHP <= 0) return;
+    if (isPaused || isWon || showVictory || showDefeat || isAnswering || !currentQ || playerHP <= 0) return;
 
     if (timer === 0) {
       handleTimeOut();
@@ -248,11 +206,12 @@ export default function BattleScreen() {
     setHasDoubleStrike(false);
 
     if (newEnemyHP <= 0) {
+      setIsWon(true);
       recordLevelProgress(currentLevel, newCorrectCount, true);
-      updateStats(50 * xpMultiplier, true);
-      const unlocks = computeNewUnlocks(currentLevel + 1);
-      setNewUnlocks(unlocks);
-      setShowVictory(true);
+      updateStats(50 * xpMultiplier, true, 50);
+      setTimeout(() => {
+        setShowVictory(true);
+      }, 1800);
     } else {
       resetForNextQuestion();
     }
@@ -280,7 +239,9 @@ export default function BattleScreen() {
   };
 
   const resetForNextQuestion = () => {
-    const nextQ = generateQuestion(currentLevel);
+    const nextIndex = questionIndex + 1;
+    setQuestionIndex(nextIndex);
+    const nextQ = generateQuestion(currentLevel, nextIndex, totalQuestions);
     const nextTime = currentLevel === 7
       ? getTimeForLevel(nextQ.sourceLevel)
       : initialTime;
@@ -303,15 +264,24 @@ export default function BattleScreen() {
   };
 
   const actionBadgeImage = useMemo(() => {
-    if (showVictory) return require('../assets/images/sprites/hero_win.png');
-    if (showDefeat) return require('../assets/images/sprites/hero_defeat.png');
+    const CHARACTER_SPRITES: Record<string, Record<string, any>> = {
+      c0: { win: require('../assets/images/sprites/hero_win.png'), attack: require('../assets/images/sprites/hero_attack.png'), defeat: require('../assets/images/sprites/hero_defeat.png'), hit: require('../assets/images/sprites/hero_hit.png') },
+      char_algebro: { win: require('../assets/images/sprites/hero_win.png'), attack: require('../assets/images/sprites/hero_attack.png'), defeat: require('../assets/images/sprites/hero_defeat.png'), hit: require('../assets/images/sprites/hero_hit.png') },
+      c1: { win: require('../assets/images/sprites/lovelacewin.png'), attack: require('../assets/images/sprites/lovelaceattack.png'), defeat: require('../assets/images/sprites/Lovelacedefeat.png'), hit: require('../assets/images/sprites/Lovelacehit.png') },
+      c2: { win: require('../assets/images/sprites/newtonwin.png'), attack: require('../assets/images/sprites/newtonattack.png'), defeat: require('../assets/images/sprites/Newtondefeat.png'), hit: require('../assets/images/sprites/Newtonhit.png') },
+      c3: { win: require('../assets/images/sprites/teslawin.png'), attack: require('../assets/images/sprites/teslaattack.png'), defeat: require('../assets/images/sprites/tesladefeat.png'), hit: require('../assets/images/sprites/teslahit.png') },
+      c4: { win: require('../assets/images/sprites/curiewin.png'), attack: require('../assets/images/sprites/curieattack.png'), defeat: require('../assets/images/sprites/curiedefeat.png'), hit: require('../assets/images/sprites/curiehit.png') },
+    };
+    const charSpriteSet = CHARACTER_SPRITES[selectedCharId] || CHARACTER_SPRITES.c0;
+    if (showVictory) return charSpriteSet.win;
+    if (showDefeat) return charSpriteSet.defeat;
     if (isAnswering && selectedOption && currentQ) {
       return selectedOption === currentQ.correctAnswer
-        ? require('../assets/images/sprites/hero_attack.png')
-        : require('../assets/images/sprites/hero_hit.png');
+        ? charSpriteSet.attack
+        : charSpriteSet.hit;
     }
-    return require('../assets/images/sprites/hero_win.png');
-  }, [showVictory, showDefeat, isAnswering, selectedOption, currentQ]);
+    return charSpriteSet.win;
+  }, [showVictory, showDefeat, isAnswering, selectedOption, currentQ, selectedCharId]);
 
   const renderHearts = () => {
     const safeHP = Math.max(0, playerHP);
@@ -362,7 +332,7 @@ export default function BattleScreen() {
             )}
           </View>
 
-          <Sprite action={playerAction} />
+          <Sprite action={playerAction} characterId={selectedCharId} />
 
           <View style={styles.bottomUIArea}>
             {activeGearStat ? (
@@ -507,27 +477,49 @@ export default function BattleScreen() {
                 </Text>
               </View>
               <Text style={styles.victorySubtitle}>Level {currentLevel} Cleared!</Text>
+
+              {/* Coin Reward Banner */}
+              <View style={{ backgroundColor: '#1e293b', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14, borderWidth: 2, borderColor: '#fbbf24', marginBottom: 16, alignItems: 'center', width: '100%' }}>
+                <Text style={{ color: '#fbbf24', fontSize: 18, fontWeight: '900' }}>🪙 +50 COINS EARNED!</Text>
+                <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: '700', marginTop: 2 }}>Current Balance: 🪙 {coins}</Text>
+              </View>
+
               {xpMultiplier > 1 && (
                 <Text style={{ color: '#fff', fontWeight: '900', marginBottom: 15 }}>
                   ✨ {xpMultiplier}x XP BOOST APPLIED! ✨
                 </Text>
               )}
-              <View style={styles.btnWrapper}>
-                <View style={styles.btnShadow} />
-                <TouchableOpacity style={styles.btnPrimary} onPress={() => {
-                  setShowVictory(false);
-                  soundService.stopSound('victory');
-                  if (newUnlocks.length > 0) {
-                    setShowUnlocks(true);
-                  } else if (!reviewShown.current) {
-                    reviewShown.current = true;
-                    setShowReview(true);
-                  } else {
+
+              <View style={{ width: '100%', gap: 10 }}>
+                <View style={styles.btnWrapper}>
+                  <View style={styles.btnShadow} />
+                  <TouchableOpacity style={styles.btnPrimary} onPress={() => {
+                    setShowVictory(false);
+                    soundService.stopSound('victory');
+                    if (!reviewShown.current) {
+                      reviewShown.current = true;
+                      setShowReview(true);
+                    } else {
+                      router.replace('/map');
+                    }
+                  }}>
+                    <Text style={styles.btnPrimaryText}>NEXT LEVEL</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.btnWrapper}>
+                  <View style={styles.btnShadow} />
+                  <TouchableOpacity style={[styles.btnSecondary, { backgroundColor: '#3b82f6' }]} onPress={() => {
+                    setShowVictory(false);
+                    soundService.stopSound('victory');
                     router.replace('/map');
-                  }
-                }}>
-                  <Text style={styles.btnPrimaryText}>NEXT LEVEL</Text>
-                </TouchableOpacity>
+                    setTimeout(() => {
+                      router.push('/shop');
+                    }, 50);
+                  }}>
+                    <Text style={styles.btnSecondaryText}>VISIT ITEM SHOP 🛍️</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
@@ -559,7 +551,7 @@ export default function BattleScreen() {
                     router.replace('/map');
                   }
                 }}>
-                  <Text style={styles.btnSecondaryText}>RETREAT</Text>
+                  <Text style={styles.btnSecondaryText}>Try Again</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -567,53 +559,7 @@ export default function BattleScreen() {
         </View>
       </Modal>
 
-      {/* 7. NEW UNLOCKS MODAL */}
-      <Modal visible={showUnlocks} transparent={true} animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.menuWrapper}>
-            <View style={styles.menuShadow} />
-            <View style={styles.unlockContent}>
-              <Text style={styles.unlockTitle}>🎉 NEW UNLOCKS!</Text>
-              <ScrollView style={styles.unlockList} showsVerticalScrollIndicator={false}>
-                {newUnlocks.map((item, idx) => {
-                  const borderColor = item.type === 'GEAR' ? '#1a6cf5' : item.type === 'SKILL' ? '#f5a623' : '#a855f7';
-                  const badgeBg = item.type === 'GEAR' ? '#1a6cf5' : item.type === 'SKILL' ? '#f5a623' : '#a855f7';
-                  const badgeText = item.type === 'SKILL' ? '#1a1008' : '#fff';
-                  return (
-                    <View key={idx} style={[styles.unlockRow, { borderLeftColor: borderColor }]}>
-                      <Text style={styles.unlockIcon}>{item.icon}</Text>
-                      <View style={styles.unlockInfo}>
-                        <View style={styles.unlockNameRow}>
-                          <Text style={styles.unlockName}>{item.name}</Text>
-                          <View style={[styles.unlockBadge, { backgroundColor: badgeBg }]}>
-                            <Text style={[styles.unlockBadgeText, { color: badgeText }]}>{item.type}</Text>
-                          </View>
-                        </View>
-                        <Text style={styles.unlockDetail}>{item.detail}</Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </ScrollView>
-              <View style={styles.btnWrapper}>
-                <View style={styles.btnShadow} />
-                <TouchableOpacity style={styles.btnPrimary} onPress={() => {
-                  setShowUnlocks(false);
-                  soundService.stopSound('victory');
-                  if (!reviewShown.current) {
-                    reviewShown.current = true;
-                    setShowReview(true);
-                  } else {
-                    router.replace('/map');
-                  }
-                }}>
-                  <Text style={styles.btnPrimaryText}>AWESOME!</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
+
 
       {/* 8. POST-GAME REVIEW MODAL */}
       <ReviewModal

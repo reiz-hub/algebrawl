@@ -62,6 +62,12 @@ export default function HomeScreen() {
             <Text style={styles.btnVersusText}>Versus</Text>
           </NeoButton>
 
+          {/* Shop Button */}
+          <NeoButton style={styles.btnShop as ViewStyle} onPress={() => router.push('/shop')}>
+            <Feather name="shopping-bag" size={28} color="#fff" />
+            <Text style={styles.btnShopText}>Item Shop</Text>
+          </NeoButton>
+
           {/* Secondary Button: Player Stats */}
           <NeoButton style={styles.btnSecondary as ViewStyle} onPress={() => router.push('/stats')}>
             <Feather name="user" size={28} color="#1a1008" />
@@ -152,6 +158,24 @@ const styles = StyleSheet.create({
     gap: 12
   },
   btnVersusText: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1
+  },
+  btnShop: {
+    backgroundColor: '#10b981',
+    borderWidth: 3,
+    borderColor: '#1a1008',
+    paddingVertical: 18,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12
+  },
+  btnShopText: {
     color: '#fff',
     fontSize: 22,
     fontWeight: '900',

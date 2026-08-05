@@ -61,19 +61,9 @@ const randomOp = (): Operation => {
   return ops[Math.floor(Math.random() * ops.length)];
 };
 
-// Pick an operation limited by progress (easy = only +/-, harder = all four)
-const progressOp = (progress: number): Operation => {
-  if (progress < 0.3) {
-    // Easy: only + and -
-    return Math.random() > 0.5 ? '+' : '-';
-  } else if (progress < 0.6) {
-    // Medium: +, -, *
-    const ops: Operation[] = ['+', '-', '*'];
-    return ops[Math.floor(Math.random() * ops.length)];
-  } else {
-    // Hard: all four
-    return randomOp();
-  }
+// Pick an operation randomly across all four operations (+, -, *, /)
+const progressOp = (_progress: number): Operation => {
+  return randomOp();
 };
 
 // Formats the operation symbol for display

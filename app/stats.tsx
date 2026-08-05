@@ -1,7 +1,6 @@
 // app/stats.tsx
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Animated, Image, Modal, ScrollView,
@@ -11,8 +10,8 @@ import TouchableOpacity from '../components/TouchableOpacity';
 import ErrorModal from '../components/ErrorModal';
 import NeoButton from '../components/NeoButton';
 import { useGameStore } from '../hooks/useGameStore';
-import { auth } from '../services/firebase';
-import { fetchFromFirestore, syncToFirestore, lookupByUsername, lookupByIngameName } from '../services/firestoreSync';
+import { supabase } from '../services/supabase';
+import { fetchFromSupabase, syncToSupabase, lookupByUsername, lookupByIngameName, lookupByEmail } from '../services/supabaseSync';
 
 /* ── Neo-Brutalist Success Popup ── */
 interface SuccessPopupProps {
@@ -106,16 +105,22 @@ const SKILLS = [
   { id: 's4', name: 'Double Strike', desc: '2x Damage (1x)', icon: '🔥', unlockLevel: 6 },
 ];
 
-const ARMORS = [
-  { id: 'o1', name: 'Leather Jerkin', icon: '🦺', unlockLevel: 1 },
-  { id: 'o2', name: 'Iron Chainmail', icon: '⛓️', unlockLevel: 2 },
-  { id: 'o3', name: 'Steel Cuirass', icon: '🛡️', unlockLevel: 3 },
-  { id: 'o4', name: 'Knight Helmet', icon: '🪖', unlockLevel: 4 },
-  { id: 'o5', name: 'Dragon Scale Mail', icon: '🐲', unlockLevel: 5 },
-  { id: 'o6', name: 'Mythril Plate', icon: '🌟', unlockLevel: 6 },
+const CHARACTERS = [
+  { id: 'c0', name: 'Algebro', icon: '🧮', image: require('../assets/images/avatar/algebroavatar.png'), unlockLevel: 1 },
+  { id: 'c1', name: 'Ada Lovelace', icon: '👩‍💻', image: require('../assets/images/avatar/lovelaceavatar.png'), unlockLevel: 2 },
+  { id: 'c2', name: 'Isaac Newton', icon: '🍎', image: require('../assets/images/avatar/newtonavatar.png'), unlockLevel: 3 },
+  { id: 'c3', name: 'Nikola Tesla', icon: '⚡', image: require('../assets/images/avatar/teslaavatar.png'), unlockLevel: 4 },
+  { id: 'c4', name: 'Marie Curie', icon: '☢️', image: require('../assets/images/avatar/curieavatar.png'), unlockLevel: 5 },
 ];
 
-const toEmail = (username: string) => `${username.toLowerCase()}@algebrawler.app`;
+const CHARACTER_AVATARS: Record<string, any> = {
+  c0: require('../assets/images/avatar/algebroavatar.png'),
+  char_algebro: require('../assets/images/avatar/algebroavatar.png'),
+  c1: require('../assets/images/avatar/lovelaceavatar.png'),
+  c2: require('../assets/images/avatar/newtonavatar.png'),
+  c3: require('../assets/images/avatar/teslaavatar.png'),
+  c4: require('../assets/images/avatar/curieavatar.png'),
+};
 
 export default function PlayerStatsScreen() {
   const router = useRouter();
@@ -124,15 +129,21 @@ export default function PlayerStatsScreen() {
     unlockedLevel, totalXP, totalBattlesWon,
     totalBattles, maxStreak, levelStars, username, ingameName,
     isLoggedIn, loginWithData, setUsername, setIngameName, logout,
+    equippedCharacter, equipItem, inventory,
   } = useGameStore();
 
   const [showRegister, setShowRegister] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showIngameModal, setShowIngameModal] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
   const [showEditIngameModal, setShowEditIngameModal] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [formEmail, setFormEmail] = useState('');
   const [formUser, setFormUser] = useState('');
   const [formPass, setFormPass] = useState('');
   const [formIngameName, setFormIngameName] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [pendingReg, setPendingReg] = useState<{ email: string; user: string; pass: string; ingame: string } | null>(null);
   const [editIngameName, setEditIngameName] = useState('');
   const [nameSuggestions, setNameSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -174,7 +185,7 @@ export default function PlayerStatsScreen() {
     { id: 6, icon: '💎', title: 'Perfectionist', desc: 'Perfect score on all levels', done: LEVELS.every(lvl => (levelStars[lvl.id] || 0) === lvl.questions) },
   ];
 
-  const resetForm = () => { setFormUser(''); setFormPass(''); setFormIngameName(''); setNameSuggestions([]); };
+  const resetForm = () => { setFormEmail(''); setFormUser(''); setFormPass(''); setFormIngameName(''); setOtpCode(''); setNameSuggestions([]); setPendingReg(null); };
 
   const checkNetwork = async (): Promise<boolean> => {
     try {
@@ -186,14 +197,20 @@ export default function PlayerStatsScreen() {
   };
 
   const handleRegisterNext = async () => {
+    const trimEmail = formEmail.trim().toLowerCase();
     const trimUser = formUser.trim();
     const trimPass = formPass.trim();
+
+    if (!trimEmail || !trimEmail.includes('@') || !trimEmail.includes('.')) {
+      setErrorConfig({ visible: true, title: 'Invalid Email', message: 'Please enter a valid email address.' });
+      return;
+    }
     if (!trimUser || trimUser.length < 3) {
-      setErrorConfig({ visible: true, title: 'Invalid', message: 'Username must be at least 3 characters.' });
+      setErrorConfig({ visible: true, title: 'Invalid Username', message: 'Username must be at least 3 characters.' });
       return;
     }
     if (!trimPass || trimPass.length < 6) {
-      setErrorConfig({ visible: true, title: 'Invalid', message: 'Password must be at least 6 characters.' });
+      setErrorConfig({ visible: true, title: 'Invalid Password', message: 'Password must be at least 6 characters.' });
       return;
     }
     
@@ -204,6 +221,14 @@ export default function PlayerStatsScreen() {
       setErrorConfig({ visible: true, title: 'No Internet', message: 'Please check your internet connection and try again.' });
       return;
     }
+
+    const existingEmail = await lookupByEmail(trimEmail);
+    if (existingEmail) {
+      setLoading(false);
+      setErrorConfig({ visible: true, title: 'Email Taken', message: 'That email is already registered. Try logging in instead.' });
+      return;
+    }
+
     const existingUser = await lookupByUsername(trimUser);
     setLoading(false);
 
@@ -217,12 +242,13 @@ export default function PlayerStatsScreen() {
   };
 
   const handleRegisterSubmit = async () => {
+    const trimEmail = formEmail.trim().toLowerCase();
     const trimUser = formUser.trim();
     const trimPass = formPass.trim();
     const trimIngame = formIngameName.trim();
 
     if (!trimIngame) {
-      setErrorConfig({ visible: true, title: 'Invalid', message: 'Ingame name cannot be empty.' });
+      setErrorConfig({ visible: true, title: 'Invalid Name', message: 'Ingame name cannot be empty.' });
       return;
     }
 
@@ -235,57 +261,181 @@ export default function PlayerStatsScreen() {
       return;
     }
     try {
-      const cred = await createUserWithEmailAndPassword(auth, toEmail(trimUser), trimPass);
-      const uid = cred.user.uid;
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: trimEmail,
+        password: trimPass,
+        options: {
+          data: {
+            display_name: trimUser,
+            username: trimUser,
+          },
+        },
+      });
+
+      if (authError || !authData.user) {
+        const msg = authError?.message || 'Registration failed.';
+        if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already been registered')) {
+          setErrorConfig({ visible: true, title: 'Email Taken', message: 'That email is already registered.' });
+        } else {
+          setErrorConfig({ visible: true, title: 'Registration Error', message: msg });
+        }
+        setLoading(false);
+        return;
+      }
+
+      const uid = authData.user.id;
       const state = useGameStore.getState();
 
-      // Save current guest progress to Firestore under the new auth uid
-      await syncToFirestore(uid, {
-        isGuest: false,
-        username: trimUser,
-        ingameName: trimIngame,
-        unlockedLevel: state.unlockedLevel,
-        levelStars: state.levelStars,
-        xp: state.totalXP,
-        totalBattles: state.totalBattles,
-        wins: state.totalBattlesWon,
-        currentStreak: state.currentStreak,
-        maxStreak: state.maxStreak,
-      });
+      // If user is immediately logged in/confirmed (Confirm Email = OFF in Supabase)
+      if (authData.session || authData.user.confirmed_at || authData.user.email_confirmed_at) {
+        await syncToSupabase(uid, {
+          email: trimEmail,
+          username: trimUser,
+          ingameName: trimIngame,
+          isGuest: false,
+          unlockedLevel: state.unlockedLevel,
+          levelStars: state.levelStars,
+          xp: state.totalXP,
+          totalBattles: state.totalBattles,
+          wins: state.totalBattlesWon,
+          currentStreak: state.currentStreak,
+          maxStreak: state.maxStreak,
+        });
 
-      // Update local state
-      loginWithData(uid, {
-        username: trimUser,
-        ingameName: trimIngame,
-        unlockedLevel: state.unlockedLevel,
-        levelStars: state.levelStars,
-        xp: state.totalXP,
-        totalBattles: state.totalBattles,
-        wins: state.totalBattlesWon,
-        currentStreak: state.currentStreak,
-        maxStreak: state.maxStreak,
-      });
-      setUsername(trimUser);
+        loginWithData(uid, {
+          email: trimEmail,
+          username: trimUser,
+          ingameName: trimIngame,
+          unlockedLevel: state.unlockedLevel,
+          levelStars: state.levelStars,
+          xp: state.totalXP,
+          totalBattles: state.totalBattles,
+          wins: state.totalBattlesWon,
+          currentStreak: state.currentStreak,
+          maxStreak: state.maxStreak,
+        });
+        setUsername(trimUser);
 
-      setShowIngameModal(false);
-      resetForm();
-      showPopup('', 'Account Created!', `Welcome, ${trimUser}!`);
-    } catch (error: any) {
-      if (error.code === 'auth/network-request-failed') {
-        setErrorConfig({ visible: true, title: 'No Internet', message: 'Please check your internet connection and try again.' });
-      } else if (error.code === 'auth/email-already-in-use') {
-        setErrorConfig({ visible: true, title: 'Username Taken', message: 'That username is already registered. Try a different one.' });
-      } else {
-        setErrorConfig({ visible: true, title: 'Error', message: error.message || 'Registration failed.' });
+        setShowIngameModal(false);
+        resetForm();
+        showPopup('', 'Account Created!', `Welcome, ${trimUser}! Your account has been created.`);
+        return;
       }
+
+      setPendingReg({ email: trimEmail, user: trimUser, pass: trimPass, ingame: trimIngame });
+      setShowIngameModal(false);
+      setShowOtpModal(true);
+    } catch (error: any) {
+      setErrorConfig({ visible: true, title: 'Error', message: error.message || 'Registration failed.' });
+    } finally { setLoading(false); }
+  };
+
+  const handleVerifyOtp = async () => {
+    const cleanCode = otpCode.trim();
+    if (!cleanCode || cleanCode.length < 6) {
+      setErrorConfig({ visible: true, title: 'Invalid Code', message: 'Please enter the 6-digit OTP code sent to your email.' });
+      return;
+    }
+    if (!pendingReg) {
+      setErrorConfig({ visible: true, title: 'Error', message: 'Session expired. Please try registering again.' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+        email: pendingReg.email,
+        token: cleanCode,
+        type: 'signup',
+      });
+
+      if (verifyError || !verifyData.user) {
+        // Also check if verifyOtp with type 'email' works
+        const { data: altData, error: altError } = await supabase.auth.verifyOtp({
+          email: pendingReg.email,
+          token: cleanCode,
+          type: 'email',
+        });
+
+        if (altError || !altData.user) {
+          setErrorConfig({ visible: true, title: 'Verification Failed', message: verifyError?.message || altError?.message || 'Invalid verification code.' });
+          setLoading(false);
+          return;
+        }
+        verifyData.user = altData.user;
+      }
+
+      const uid = verifyData.user.id;
+      const state = useGameStore.getState();
+
+      await syncToSupabase(uid, {
+        email: pendingReg.email,
+        username: pendingReg.user,
+        ingameName: pendingReg.ingame,
+        isGuest: false,
+        unlockedLevel: state.unlockedLevel,
+        levelStars: state.levelStars,
+        xp: state.totalXP,
+        totalBattles: state.totalBattles,
+        wins: state.totalBattlesWon,
+        currentStreak: state.currentStreak,
+        maxStreak: state.maxStreak,
+      });
+
+      loginWithData(uid, {
+        email: pendingReg.email,
+        username: pendingReg.user,
+        ingameName: pendingReg.ingame,
+        unlockedLevel: state.unlockedLevel,
+        levelStars: state.levelStars,
+        xp: state.totalXP,
+        totalBattles: state.totalBattles,
+        wins: state.totalBattlesWon,
+        currentStreak: state.currentStreak,
+        maxStreak: state.maxStreak,
+      });
+      setUsername(pendingReg.user);
+
+      setShowOtpModal(false);
+      resetForm();
+      showPopup('', 'Email Verified!', `Welcome, ${pendingReg.user}! Your email has been verified.`);
+    } catch (error: any) {
+      setErrorConfig({ visible: true, title: 'Error', message: error.message || 'Verification failed.' });
+    } finally { setLoading(false); }
+  };
+
+  const handleResendOtp = async () => {
+    if (!pendingReg) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: pendingReg.email,
+      });
+      if (error) {
+        // Fallback: re-trigger signUp to send confirmation code
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: pendingReg.email,
+          password: pendingReg.pass,
+        });
+        if (signUpError && !signUpError.message.toLowerCase().includes('already registered')) {
+          setErrorConfig({ visible: true, title: 'Resend Failed', message: signUpError.message || error.message });
+        } else {
+          showPopup('📧', 'Code Sent!', `A new verification code has been sent to ${pendingReg.email}`);
+        }
+      } else {
+        showPopup('📧', 'Code Sent!', `A new verification code has been sent to ${pendingReg.email}`);
+      }
+    } catch (error: any) {
+      setErrorConfig({ visible: true, title: 'Error', message: error.message || 'Failed to resend code.' });
     } finally { setLoading(false); }
   };
 
   const handleLogin = async () => {
-    const trimUser = formUser.trim();
+    const input = formUser.trim();
     const trimPass = formPass.trim();
-    if (!trimUser) {
-      setErrorConfig({ visible: true, title: 'Invalid', message: 'Please enter a username.' });
+    if (!input) {
+      setErrorConfig({ visible: true, title: 'Invalid', message: 'Please enter your username or email.' });
       return;
     }
     if (!trimPass) {
@@ -301,22 +451,78 @@ export default function PlayerStatsScreen() {
       return;
     }
     try {
-      const cred = await signInWithEmailAndPassword(auth, toEmail(trimUser), trimPass);
-      const uid = cred.user.uid;
+      let targetEmail = input;
 
-      // Fetch progress from Firestore
-      const cloudData = await fetchFromFirestore(uid);
+      // If input is a username (not an email), resolve its email address
+      if (!input.includes('@')) {
+        const found = await lookupByUsername(input);
+        if (found && found.data.email) {
+          targetEmail = found.data.email;
+        } else if (found && !found.data.email) {
+          // Email missing in public.users — fetch from Supabase Auth via RPC
+          try {
+            const { data: authEmail } = await supabase.rpc('get_auth_email', {
+              target_user_id: found.userId,
+            });
+            if (authEmail) {
+              targetEmail = authEmail;
+              // Backfill email in public.users so future logins work directly
+              supabase.from('users').update({ email: authEmail }).eq('id', found.userId).then(() => {});
+            } else {
+              setErrorConfig({ visible: true, title: 'Login Failed', message: 'Could not resolve email for that username. Please try logging in with your email.' });
+              setLoading(false);
+              return;
+            }
+          } catch (_) {
+            setErrorConfig({ visible: true, title: 'Login Failed', message: 'Could not resolve email for that username. Please try logging in with your email.' });
+            setLoading(false);
+            return;
+          }
+        } else {
+          setErrorConfig({ visible: true, title: 'Login Failed', message: 'No account found with that username.' });
+          setLoading(false);
+          return;
+        }
+      }
 
-      // Check if account has been deactivated by admin
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: targetEmail,
+        password: trimPass,
+      });
+
+      if (authError || !authData.user) {
+        const msg = authError?.message || 'Login failed.';
+        if (msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('credentials')) {
+          setErrorConfig({ visible: true, title: 'Login Failed', message: 'Invalid username/email or password.' });
+        } else if (msg.toLowerCase().includes('email not confirmed')) {
+          setErrorConfig({ visible: true, title: 'Email Not Verified', message: 'Please check your email and verify your account first.' });
+        } else {
+          setErrorConfig({ visible: true, title: 'Error', message: msg });
+        }
+        setLoading(false);
+        return;
+      }
+
+      const uid = authData.user.id;
+      const cloudData = await fetchFromSupabase(uid);
+
       if (cloudData && (cloudData as any).isActive === false) {
-        await auth.signOut();
+        await supabase.auth.signOut();
         setErrorConfig({ visible: true, title: 'Account Deactivated', message: 'Your account has been deactivated by an administrator.' });
         setLoading(false);
         return;
       }
 
+      // Backfill email in public.users if it was missing (enables future username login)
+      if (!cloudData?.email && authData.user.email) {
+        await supabase.from('users').update({ email: authData.user.email }).eq('id', uid);
+      }
+
+      const resolvedUser = cloudData?.username || input;
+
       loginWithData(uid, {
-        username: trimUser,
+        email: authData.user.email || cloudData?.email,
+        username: resolvedUser,
         ingameName: cloudData?.ingameName ?? undefined,
         unlockedLevel: cloudData?.unlockedLevel ?? 1,
         levelStars: cloudData?.levelStars ?? {},
@@ -326,19 +532,13 @@ export default function PlayerStatsScreen() {
         currentStreak: cloudData?.currentStreak ?? 0,
         maxStreak: cloudData?.maxStreak ?? 0,
       });
-      setUsername(trimUser);
+      setUsername(resolvedUser);
 
       setShowLogin(false);
       resetForm();
-      showPopup('', 'Welcome Back!', `Welcome back, ${trimUser}! Your progress has been restored.`);
+      showPopup('', 'Welcome Back!', `Welcome back, ${resolvedUser}! Your progress has been restored.`);
     } catch (error: any) {
-      if (error.code === 'auth/network-request-failed') {
-        setErrorConfig({ visible: true, title: 'No Internet', message: 'Please check your internet connection and try again.' });
-      } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        setErrorConfig({ visible: true, title: 'Login Failed', message: 'Invalid username or password.' });
-      } else {
-        setErrorConfig({ visible: true, title: 'Error', message: error.message || 'Login failed.' });
-      }
+      setErrorConfig({ visible: true, title: 'Error', message: error.message || 'Login failed.' });
     } finally { setLoading(false); }
   };
 
@@ -348,19 +548,24 @@ export default function PlayerStatsScreen() {
 
   const confirmLogout = async () => {
     setShowLogoutConfirm(false);
-    try { await auth.signOut(); } catch (_) {}
+    try { await supabase.auth.signOut(); } catch (_) {}
     await logout();
     resetForm();
     showPopup('', 'Logged Out', 'Logged out successfully. Starting fresh as Guest User.');
   };
 
-  const renderAuthModal = (visible: boolean, onClose: () => void, title: string, onSubmit: () => void, submitLabel: string) => (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+  const renderRegisterModal = () => (
+    <Modal visible={showRegister} transparent animationType="fade" onRequestClose={() => { setShowRegister(false); resetForm(); }}>
       <View style={ms.overlay}>
         <View style={ms.card}>
           <View style={ms.cardShadow} />
           <View style={ms.cardInner}>
-            <Text style={ms.title}>{title}</Text>
+            <Text style={ms.title}>REGISTER</Text>
+
+            <Text style={ms.label}>REAL EMAIL ADDRESS</Text>
+            <TextInput style={ms.input} value={formEmail} onChangeText={setFormEmail}
+              placeholder="user@example.com" placeholderTextColor="#b5a58d"
+              keyboardType="email-address" autoCapitalize="none" autoCorrect={false} editable={!loading} />
 
             <Text style={ms.label}>USERNAME</Text>
             <TextInput style={ms.input} value={formUser} onChangeText={setFormUser}
@@ -373,14 +578,94 @@ export default function PlayerStatsScreen() {
               secureTextEntry maxLength={40} autoCapitalize="none" editable={!loading} />
 
             <View style={ms.btnRow}>
-              <TouchableOpacity style={ms.cancelBtn} onPress={() => { onClose(); resetForm(); }} disabled={loading}>
+              <TouchableOpacity style={ms.cancelBtn} onPress={() => { setShowRegister(false); resetForm(); }} disabled={loading}>
                 <Text style={ms.cancelBtnText}>CANCEL</Text>
               </TouchableOpacity>
               <View style={{ flex: 1, position: 'relative' }}>
                 <View style={ms.submitShadow} />
                 <TouchableOpacity style={[ms.submitBtn, loading && ms.submitBtnDisabled]}
-                  onPress={onSubmit} disabled={loading} activeOpacity={0.8}>
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>{submitLabel}</Text>}
+                  onPress={handleRegisterNext} disabled={loading} activeOpacity={0.8}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>NEXT</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const renderLoginModal = () => (
+    <Modal visible={showLogin} transparent animationType="fade" onRequestClose={() => { setShowLogin(false); resetForm(); }}>
+      <View style={ms.overlay}>
+        <View style={ms.card}>
+          <View style={ms.cardShadow} />
+          <View style={ms.cardInner}>
+            <Text style={ms.title}>LOG IN</Text>
+
+            <Text style={ms.label}>USERNAME OR EMAIL</Text>
+            <TextInput style={ms.input} value={formUser} onChangeText={setFormUser}
+              placeholder="Username or Email..." placeholderTextColor="#b5a58d"
+              maxLength={40} autoCapitalize="none" autoCorrect={false} editable={!loading} />
+
+            <Text style={ms.label}>PASSWORD</Text>
+            <TextInput style={ms.input} value={formPass} onChangeText={setFormPass}
+              placeholder="Enter password..." placeholderTextColor="#b5a58d"
+              secureTextEntry maxLength={40} autoCapitalize="none" editable={!loading} />
+
+            <View style={ms.btnRow}>
+              <TouchableOpacity style={ms.cancelBtn} onPress={() => { setShowLogin(false); resetForm(); }} disabled={loading}>
+                <Text style={ms.cancelBtnText}>CANCEL</Text>
+              </TouchableOpacity>
+              <View style={{ flex: 1, position: 'relative' }}>
+                <View style={ms.submitShadow} />
+                <TouchableOpacity style={[ms.submitBtn, loading && ms.submitBtnDisabled]}
+                  onPress={handleLogin} disabled={loading} activeOpacity={0.8}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>LOG IN</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const renderOtpModal = () => (
+    <Modal visible={showOtpModal} transparent animationType="fade" onRequestClose={() => { setShowOtpModal(false); resetForm(); }}>
+      <View style={ms.overlay}>
+        <View style={ms.card}>
+          <View style={ms.cardShadow} />
+          <View style={ms.cardInner}>
+            <Text style={ms.title}>VERIFY EMAIL</Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#7a6a55', textAlign: 'center', marginBottom: 16 }}>
+              A 6-digit OTP code was sent to{'\n'}
+              <Text style={{ fontWeight: '900', color: '#1a1008' }}>{pendingReg?.email}</Text>
+            </Text>
+
+            <Text style={ms.label}>6-DIGIT OTP CODE</Text>
+            <TextInput style={[ms.input, { textAlign: 'center', letterSpacing: 6, fontSize: 22 }]}
+              value={otpCode} onChangeText={setOtpCode}
+              placeholder="123456" placeholderTextColor="#b5a58d"
+              keyboardType="number-pad" maxLength={6} editable={!loading} />
+
+            <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 12 }}>
+              <TouchableOpacity onPress={handleResendOtp} disabled={loading}>
+                <Text style={{ fontSize: 12, fontWeight: '900', color: '#f5a623', textDecorationLine: 'underline' }}>
+                  Didn't receive code? Resend OTP
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={ms.btnRow}>
+              <TouchableOpacity style={ms.cancelBtn} onPress={() => { setShowOtpModal(false); resetForm(); }} disabled={loading}>
+                <Text style={ms.cancelBtnText}>CANCEL</Text>
+              </TouchableOpacity>
+              <View style={{ flex: 1, position: 'relative' }}>
+                <View style={ms.submitShadow} />
+                <TouchableOpacity style={[ms.submitBtn, loading && ms.submitBtnDisabled]}
+                  onPress={handleVerifyOtp} disabled={loading} activeOpacity={0.8}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>VERIFY OTP</Text>}
                 </TouchableOpacity>
               </View>
             </View>
@@ -507,6 +792,80 @@ export default function PlayerStatsScreen() {
     </Modal>
   );
 
+  const renderAvatarModal = () => (
+    <Modal visible={showAvatarModal} transparent animationType="fade" onRequestClose={() => setShowAvatarModal(false)}>
+      <View style={ms.overlay}>
+        <View style={ms.card}>
+          <View style={ms.cardShadow} />
+          <View style={ms.cardInner}>
+            <Text style={ms.title}>SELECT AVATAR</Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#7a6a55', textAlign: 'center', marginBottom: 16 }}>
+              Tap an avatar to equip it on your profile:
+            </Text>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 8 }}>
+              {CHARACTERS.map((char) => {
+                const isOwned = inventory.includes(char.id) || char.id === 'c0' || char.id === 'char_algebro';
+                const isEquipped = equippedCharacter === char.id || (char.id === 'c0' && equippedCharacter === 'char_algebro');
+
+                return (
+                  <TouchableOpacity
+                    key={char.id}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      if (isOwned) {
+                        equipItem(char.id);
+                        setShowAvatarModal(false);
+                        showPopup('', 'Avatar Updated!', `Equipped ${char.name} as your profile avatar.`);
+                      } else {
+                        setShowAvatarModal(false);
+                        router.push('/shop');
+                      }
+                    }}
+                    style={{
+                      alignItems: 'center',
+                      padding: 10,
+                      borderRadius: 14,
+                      borderWidth: 3,
+                      borderColor: isEquipped ? '#22c55e' : '#1a1008',
+                      backgroundColor: isEquipped ? '#f0fdf4' : isOwned ? '#ffffff' : '#f1f5f9',
+                      width: 96,
+                    }}
+                  >
+                    <View style={{ position: 'relative', width: 56, height: 56, marginBottom: 6 }}>
+                      <Image source={char.image} style={{ width: 56, height: 56, opacity: isOwned ? 1 : 0.4 }} resizeMode="contain" />
+                      {!isOwned && (
+                        <View style={{ position: 'absolute', top: 14, left: 14, backgroundColor: '#1a1008', borderRadius: 10, padding: 4 }}>
+                          <Feather name="lock" size={14} color="#ffffff" />
+                        </View>
+                      )}
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: '900', color: '#1a1008', textAlign: 'center' }} numberOfLines={1}>
+                      {char.name}
+                    </Text>
+                    {isEquipped ? (
+                      <Text style={{ fontSize: 9, fontWeight: '900', color: '#22c55e', marginTop: 4 }}>✓ EQUIPPED</Text>
+                    ) : isOwned ? (
+                      <Text style={{ fontSize: 9, fontWeight: '900', color: '#1a6cf5', marginTop: 4 }}>EQUIP</Text>
+                    ) : (
+                      <Text style={{ fontSize: 9, fontWeight: '900', color: '#7a6a55', marginTop: 4 }}>SHOP 🛍️</Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <View style={{ marginTop: 16 }}>
+              <TouchableOpacity style={ms.cancelBtn} onPress={() => setShowAvatarModal(false)}>
+                <Text style={ms.cancelBtnText}>CANCEL</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -530,13 +889,20 @@ export default function PlayerStatsScreen() {
           <View style={styles.cardShadow} />
           <View style={styles.cardInner}>
             <View style={styles.avatarRow}>
-              <View style={styles.avatarBox}>
+              <TouchableOpacity 
+                style={styles.avatarBox} 
+                onPress={() => setShowAvatarModal(true)}
+                activeOpacity={0.8}
+              >
                 <Image
-                  source={require('../assets/images/sprites/hero_win.png')}
+                  source={CHARACTER_AVATARS[equippedCharacter] || require('../assets/images/avatar/algebroavatar.png')}
                   style={styles.avatarImage}
                   resizeMode="contain"
                 />
-              </View>
+                <View style={styles.avatarEditBadge}>
+                  <Feather name="camera" size={11} color="#ffffff" />
+                </View>
+              </TouchableOpacity>
               <View style={styles.profileInfo}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <Text style={styles.playerName}>{displayName}</Text>
@@ -607,7 +973,7 @@ export default function PlayerStatsScreen() {
             <View style={{flex: 1}}>
                 <Text style={styles.sectionHeader}>EQUIPMENT</Text>
                 <View style={styles.gearRow}>
-                    {GEARS.filter((gear) => unlockedLevel >= gear.unlockLevel).map((gear) => (
+                    {GEARS.filter((gear) => inventory.includes(gear.id) || gear.id === 'g1').map((gear) => (
                       <View key={gear.id} style={styles.iconBox}>
                         <Text style={styles.gearIcon}>{gear.icon}</Text>
                       </View>
@@ -617,7 +983,7 @@ export default function PlayerStatsScreen() {
             <View style={{flex: 1}}>
                 <Text style={styles.sectionHeader}>SKILLS</Text>
                 <View style={styles.gearRow}>
-                    {SKILLS.filter((skill) => unlockedLevel >= skill.unlockLevel).map((skill) => (
+                    {SKILLS.filter((skill) => inventory.includes(skill.id) || skill.id === 's1').map((skill) => (
                       <View key={skill.id} style={styles.iconBox}>
                         <Text style={styles.gearIcon}>{skill.icon}</Text>
                       </View>
@@ -626,12 +992,16 @@ export default function PlayerStatsScreen() {
             </View>
         </View>
 
-        {/* ARMOR */}
-        <Text style={styles.sectionHeader}>ARMORS</Text>
+        {/* CHARACTERS */}
+        <Text style={styles.sectionHeader}>CHARACTERS</Text>
         <View style={styles.gearRow}>
-          {ARMORS.filter((armor) => unlockedLevel >= armor.unlockLevel).map((armor) => (
-            <View key={armor.id} style={styles.iconBox}>
-              <Text style={styles.gearIcon}>{armor.icon}</Text>
+          {CHARACTERS.filter((char) => inventory.includes(char.id) || char.id === 'c0' || char.id === 'char_algebro').map((char) => (
+            <View key={char.id} style={styles.iconBox}>
+              {char.image ? (
+                <Image source={char.image} style={{ width: 44, height: 44 }} resizeMode="contain" />
+              ) : (
+                <Text style={styles.gearIcon}>{char.icon}</Text>
+              )}
             </View>
           ))}
         </View>
@@ -707,10 +1077,12 @@ export default function PlayerStatsScreen() {
       </ScrollView>
 
       {/* Auth Modals */}
-      {renderAuthModal(showRegister, () => setShowRegister(false), 'REGISTER', handleRegisterNext, 'NEXT')}
-      {renderAuthModal(showLogin, () => setShowLogin(false), 'LOG IN', handleLogin, 'LOG IN')}
+      {renderRegisterModal()}
+      {renderLoginModal()}
       {renderIngameModal()}
+      {renderOtpModal()}
       {renderEditIngameModal()}
+      {renderAvatarModal()}
 
       {/* Logout Confirmation Modal */}
       <Modal visible={showLogoutConfirm} transparent animationType="fade" onRequestClose={() => setShowLogoutConfirm(false)}>
@@ -796,7 +1168,8 @@ const styles = StyleSheet.create({
   cardShadow: { position: 'absolute', top: 4, left: 4, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
   cardInner: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#1a1008', borderRadius: 12, padding: 15 },
   avatarRow: { flexDirection: 'row', gap: 15, marginBottom: 15 },
-  avatarBox: { width: 80, height: 80, backgroundColor: '#fff9f0', borderWidth: 2, borderColor: '#1a1008', borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  avatarBox: { width: 80, height: 80, backgroundColor: '#fff9f0', borderWidth: 2, borderColor: '#1a1008', borderRadius: 10, justifyContent: 'center', alignItems: 'center', position: 'relative' },
+  avatarEditBadge: { position: 'absolute', bottom: -4, right: -4, backgroundColor: '#f5a623', borderRadius: 12, width: 22, height: 22, borderWidth: 2, borderColor: '#1a1008', justifyContent: 'center', alignItems: 'center' },
   avatarImage: { width: 64, height: 64 },
   profileInfo: { flex: 1, justifyContent: 'center' },
   playerName: { fontSize: 20, fontWeight: '900' },

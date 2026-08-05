@@ -85,7 +85,7 @@ The primary objective of Algebrawls is to help students practice and reinforce a
 | Service | Purpose |
 |---------|---------|
 | **Cloud Firestore** | NoSQL document database. Stores two main collections: `users` (player data, progress, stats) and `reviews` (post-game feedback). A separate `admins` collection stores admin credentials. |
-| **Firebase Authentication** | Handles user registration and login via email/password (usernames are mapped to virtual emails: `username@algebrawler.app`). |
+| **Supabase / Auth** | Handles user registration and login via email/password using the user's provided email address. |
 | **EAS Build (Expo Application Services)** | Cloud-based build service for compiling native Android APKs and iOS binaries without requiring local native toolchains. |
 | **Expo Updates** | OTA update delivery service for pushing JavaScript bundle updates to deployed apps. |
 | **Firebase Hosting** | Hosts the admin web panel as a static site. |
@@ -328,7 +328,7 @@ Algebrawls supports **two user modes**:
 1. User enters a username (minimum 3 characters) and password (minimum 6 characters)
 2. System checks for username uniqueness via Firestore query
 3. User selects an in-game display name (with "Suggest" button for random names)
-4. Firebase Authentication creates the account using a virtual email (`username@algebrawler.app`)
+4. Supabase Authentication creates the account using the user's provided email address and password
 5. Current guest progress is migrated to the new authenticated user ID
 6. Local storage is updated with the authenticated session
 

@@ -61,6 +61,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     "expo-image",
+    "expo-font",
+    "expo-web-browser",
   ],
   experiments: {
     typedRoutes: true,

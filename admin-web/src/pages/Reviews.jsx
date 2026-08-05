@@ -1,6 +1,5 @@
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import { db } from '../firebase';
+import { supabase } from '../supabase';
 
 /* ──────────────────────────────────────────────
    Admin Reviews page — real-time reviews list
@@ -22,19 +21,41 @@ export default function Reviews() {
   const [deleting, setDeleting] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
 
+  const fetchReviews = async () => {
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) { console.error('Fetch reviews failed:', error); return; }
+
+    // Map snake_case to camelCase for UI compatibility
+    const mapped = (data || []).map((d) => ({
+      ...d,
+      playerId: d.player_id,
+      createdAt: d.created_at,
+    }));
+    setReviews(mapped);
+  };
+
   useEffect(() => {
-    const q = query(collection(db, 'reviews'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setReviews(data);
-    });
-    return () => unsubscribe();
+    fetchReviews();
+
+    // Subscribe to real-time changes (replaces Firestore onSnapshot)
+    const channel = supabase
+      .channel('reviews-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reviews' }, () => {
+        fetchReviews();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const executeDelete = async (reviewId) => {
     setDeleting(reviewId);
     try {
-      await deleteDoc(doc(db, 'reviews', reviewId));
+      await supabase.from('reviews').delete().eq('id', reviewId);
     } catch (err) {
       console.error('Failed to delete review:', err);
       setDeleting(null);
@@ -49,8 +70,8 @@ export default function Reviews() {
       : '—';
 
   const formatDate = (timestamp) => {
-    if (!timestamp?.toDate) return '—';
-    return timestamp.toDate().toLocaleDateString('en-US', {
+    if (!timestamp) return '—';
+    return new Date(timestamp).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

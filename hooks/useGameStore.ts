@@ -2,11 +2,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { create } from 'zustand';
+import { SHOP_ITEMS } from '../constants/shopItems';
 import {
   fetchFromFirestore,
   syncToFirestore,
   UserData,
-} from '../services/firestoreSync';
+} from '../services/supabaseSync';
+import { PurchaseResult } from '../types/shop';
 
 const STORAGE_KEY_USER_ID = '@algebrawl_userId';
 const STORAGE_KEY_USERNAME = '@algebrawl_username';
@@ -30,15 +32,26 @@ interface GameState {
   maxStreak: number;
   levelStars: Record<number, number>;
 
+  // Economy & Inventory
+  coins: number;
+  inventory: string[];
+  equippedCharacter: string;
+  equippedGear: string | null;
+
   // Actions
   loadLocalData: () => Promise<void>;
   recordLevelProgress: (levelId: number, score: number, didWin: boolean) => void;
-  updateStats: (xpToAdd: number, isWin: boolean) => void;
+  updateStats: (xpToAdd: number, isWin: boolean, coinsEarned?: number) => void;
   setUsername: (username: string) => void;
   setIngameName: (ingameName: string) => void;
   loginWithData: (userId: string, data: UserData) => void;
   logout: () => Promise<void>;
   getUserId: () => string | null;
+
+  // Shop & Inventory Actions
+  buyItem: (itemId: string) => PurchaseResult;
+  equipItem: (itemId: string) => void;
+  addCoins: (amount: number) => void;
 }
 
 /**
@@ -54,6 +67,10 @@ const persistLocally = async (state: Partial<GameState>) => {
       currentStreak: state.currentStreak,
       maxStreak: state.maxStreak,
       levelStars: state.levelStars,
+      coins: state.coins,
+      inventory: state.inventory,
+      equippedCharacter: state.equippedCharacter,
+      equippedGear: state.equippedGear,
     };
     await AsyncStorage.setItem(STORAGE_KEY_GAME_STATE, JSON.stringify(saveable));
   } catch (error) {
@@ -62,12 +79,14 @@ const persistLocally = async (state: Partial<GameState>) => {
 };
 
 /**
- * Sync current game state to Firestore.
+ * Sync current game state to Firestore / Supabase.
  */
 const syncToCloud = async (userId: string | null, state: Partial<GameState>) => {
   if (!userId || !state.isLoggedIn) return;
   await syncToFirestore(userId, {
     isGuest: !state.isLoggedIn,
+    ...(state.username ? { username: state.username } : {}),
+    ...(state.ingameName ? { ingameName: state.ingameName } : {}),
     unlockedLevel: state.unlockedLevel ?? 1,
     levelStars: state.levelStars ?? {},
     xp: state.totalXP ?? 0,
@@ -75,6 +94,10 @@ const syncToCloud = async (userId: string | null, state: Partial<GameState>) => 
     wins: state.totalBattlesWon ?? 0,
     currentStreak: state.currentStreak ?? 0,
     maxStreak: state.maxStreak ?? 0,
+    coins: state.coins ?? 100,
+    inventory: state.inventory ?? ['char_algebro'],
+    equippedCharacter: state.equippedCharacter ?? 'char_algebro',
+    equippedGear: state.equippedGear ?? null,
   });
 };
 
@@ -94,6 +117,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   currentStreak: 0,
   maxStreak: 0,
   levelStars: {},
+
+  // Economy & Inventory defaults
+  coins: 100,
+  inventory: ['g1', 's1', 'c0', 'char_algebro'],
+  equippedCharacter: 'c0',
+  equippedGear: 'g1',
 
   /**
    * Initialize: load userId from AsyncStorage (or generate one),
@@ -120,7 +149,16 @@ export const useGameStore = create<GameState>((set, get) => ({
       const cloudData = await fetchFromFirestore(userId);
 
       if (cloudData) {
-        // Merge: take the "best" of local vs cloud
+        // Merge inventory lists (union)
+        const combinedInventory = Array.from(
+          new Set([
+            'char_algebro',
+            ...(localState?.inventory ?? []),
+            ...(cloudData.inventory ?? []),
+          ])
+        );
+
+        // Merge: take the best of local vs cloud
         const merged = {
           unlockedLevel: Math.max(
             localState?.unlockedLevel ?? 1,
@@ -147,6 +185,19 @@ export const useGameStore = create<GameState>((set, get) => ({
             cloudData.maxStreak ?? 0
           ),
           levelStars: {} as Record<number, number>,
+          coins: Math.max(
+            localState?.coins ?? 100,
+            cloudData.coins ?? 100
+          ),
+          inventory: combinedInventory,
+          equippedCharacter:
+            cloudData.equippedCharacter ||
+            localState?.equippedCharacter ||
+            'char_algebro',
+          equippedGear:
+            cloudData.equippedGear !== undefined
+              ? cloudData.equippedGear
+              : localState?.equippedGear ?? null,
         };
 
         // Merge levelStars — take best per level
@@ -181,6 +232,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         currentStreak: localState?.currentStreak ?? 0,
         maxStreak: localState?.maxStreak ?? 0,
         levelStars: localState?.levelStars ?? {},
+        coins: localState?.coins ?? 100,
+        inventory: localState?.inventory ?? ['char_algebro'],
+        equippedCharacter: localState?.equippedCharacter ?? 'char_algebro',
+        equippedGear: localState?.equippedGear ?? null,
       });
 
       // Persist the merged state back
@@ -220,12 +275,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       };
     }),
 
-  updateStats: (xpToAdd, isWin) =>
+  updateStats: (xpToAdd, isWin, coinsEarned) =>
     set((state) => {
       const newCurrentStreak = isWin ? state.currentStreak + 1 : 0;
+      const coinReward = coinsEarned !== undefined ? coinsEarned : (isWin ? 50 : 10); // Bonus coins on battle win/completion
       const newState = {
         ...state,
         totalXP: state.totalXP + xpToAdd,
+        coins: state.coins + coinReward,
         totalBattles: state.totalBattles + 1,
         totalBattlesWon: isWin
           ? state.totalBattlesWon + 1
@@ -240,6 +297,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       return {
         totalXP: newState.totalXP,
+        coins: newState.coins,
         totalBattles: newState.totalBattles,
         totalBattlesWon: newState.totalBattlesWon,
         currentStreak: newState.currentStreak,
@@ -282,6 +340,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       currentStreak: data.currentStreak ?? 0,
       maxStreak: data.maxStreak ?? 0,
       levelStars: data.levelStars ?? {},
+      coins: data.coins ?? 100,
+      inventory: data.inventory ?? ['char_algebro'],
+      equippedCharacter: data.equippedCharacter ?? 'char_algebro',
+      equippedGear: data.equippedGear ?? null,
     };
 
     set(newState);
@@ -299,6 +361,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     // Also push to Firestore with isGuest: false since user is now authenticated
     syncToFirestore(userId, {
       isGuest: false,
+      email: data.email,
       username: data.username,
       ingameName: data.ingameName,
       unlockedLevel: data.unlockedLevel ?? 1,
@@ -308,6 +371,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       wins: data.wins ?? 0,
       currentStreak: data.currentStreak ?? 0,
       maxStreak: data.maxStreak ?? 0,
+      coins: data.coins ?? 100,
+      inventory: data.inventory ?? ['char_algebro'],
+      equippedCharacter: data.equippedCharacter ?? 'char_algebro',
+      equippedGear: data.equippedGear ?? null,
     }).catch(() => { });
   },
 
@@ -335,16 +402,109 @@ export const useGameStore = create<GameState>((set, get) => ({
         currentStreak: 0,
         maxStreak: 0,
         levelStars: {} as Record<number, number>,
+        coins: 100,
+        inventory: ['char_algebro'],
+        equippedCharacter: 'char_algebro',
+        equippedGear: null,
       };
 
       set(freshState);
       await persistLocally(freshState);
-
-      // Guest sessions are local-only — no Firestore doc created
     } catch (error) {
       console.warn('[useGameStore] logout failed:', error);
     }
   },
 
   getUserId: () => get().userId,
+
+  // ── Purchase & Inventory Actions ──────────────────────────
+
+  buyItem: (itemId: string): PurchaseResult => {
+    const state = get();
+    const item = SHOP_ITEMS.find((i) => i.id === itemId);
+
+    if (!item) {
+      return { success: false, message: 'Item not found in catalog.' };
+    }
+
+    if (state.inventory.includes(itemId)) {
+      return { success: false, message: `You already own ${item.name}!`, item };
+    }
+
+    if (state.coins < item.cost) {
+      const deficit = item.cost - state.coins;
+      return {
+        success: false,
+        message: `Insufficient coins! You need ${deficit} more 🪙.`,
+        item,
+      };
+    }
+
+    const newCoins = state.coins - item.cost;
+    const newInventory = [...state.inventory, itemId];
+
+    let newEquippedChar = state.equippedCharacter;
+    let newEquippedGear = state.equippedGear;
+
+    if (item.category === 'character' && !newEquippedChar) {
+      newEquippedChar = item.id;
+    } else if (item.category === 'gear' && !newEquippedGear) {
+      newEquippedGear = item.id;
+    }
+
+    const newState = {
+      ...state,
+      coins: newCoins,
+      inventory: newInventory,
+      equippedCharacter: newEquippedChar,
+      equippedGear: newEquippedGear,
+    };
+
+    set({
+      coins: newCoins,
+      inventory: newInventory,
+      equippedCharacter: newEquippedChar,
+      equippedGear: newEquippedGear,
+    });
+
+    persistLocally(newState);
+    syncToCloud(state.userId, newState);
+
+    return {
+      success: true,
+      message: `Unlocked ${item.name}!`,
+      item,
+    };
+  },
+
+  equipItem: (itemId: string) => {
+    const state = get();
+    if (!state.inventory.includes(itemId)) return;
+
+    const item = SHOP_ITEMS.find((i) => i.id === itemId);
+    if (!item) return;
+
+    let updates: Partial<GameState> = {};
+    if (item.category === 'character') {
+      updates.equippedCharacter = itemId;
+    } else if (item.category === 'gear') {
+      updates.equippedGear = state.equippedGear === itemId ? null : itemId;
+    }
+
+    const newState = { ...state, ...updates };
+    set(updates);
+
+    persistLocally(newState);
+    syncToCloud(state.userId, newState);
+  },
+
+  addCoins: (amount: number) => {
+    const state = get();
+    const newCoins = Math.max(0, state.coins + amount);
+    const newState = { ...state, coins: newCoins };
+    set({ coins: newCoins });
+
+    persistLocally(newState);
+    syncToCloud(state.userId, newState);
+  },
 }));

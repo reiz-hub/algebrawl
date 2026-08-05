@@ -1,19 +1,12 @@
 /**
  * Admin Authentication Service
  *
- * Authenticates admin users against the separate `admins` Firestore collection.
- * Completely independent from Firebase Auth / player auth.
+ * Authenticates admin users against the separate `admins` Supabase table.
+ * Completely independent from Supabase Auth / player auth.
  */
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-} from 'firebase/firestore';
-import { db } from '../firebase';
+import { supabase } from '../supabase';
 import SHA256 from 'crypto-js/sha256';
 
-const ADMINS_COLLECTION = 'admins';
 const SESSION_KEY = 'algebrawl_admin_session';
 
 /* ── helpers ───────────────────────────────────── */
@@ -34,27 +27,25 @@ function generateToken() {
 
 /**
  * POST /admin/login equivalent.
- * Validates email + password against the `admins` collection only.
+ * Validates email + password against the `admins` table only.
  * Returns { success, admin, token } or { success: false, error }.
  */
 export async function adminLogin(email, password) {
   try {
-    const q = query(
-      collection(db, ADMINS_COLLECTION),
-      where('email', '==', email.trim().toLowerCase()),
-    );
-    const snapshot = await getDocs(q);
+    const { data: adminData, error } = await supabase
+      .from('admins')
+      .select('*')
+      .eq('email', email.trim().toLowerCase())
+      .limit(1)
+      .single();
 
-    if (snapshot.empty) {
+    if (error || !adminData) {
       return { success: false, error: 'Invalid admin credentials.' };
     }
 
-    const adminDoc = snapshot.docs[0];
-    const adminData = adminDoc.data();
-
     // Compare hashed passwords
     const inputHash = hashPassword(password);
-    if (inputHash !== adminData.passwordHash) {
+    if (inputHash !== adminData.password_hash) {
       return { success: false, error: 'Invalid admin credentials.' };
     }
 
@@ -62,7 +53,7 @@ export async function adminLogin(email, password) {
     const token = generateToken();
     const session = {
       token,
-      adminId: adminDoc.id,
+      adminId: adminData.id,
       username: adminData.username,
       email: adminData.email,
       loginAt: Date.now(),
@@ -79,7 +70,7 @@ export async function adminLogin(email, password) {
 
 /**
  * POST /admin/logout equivalent.
- * Clears the admin session — does NOT touch Firebase Auth / player tokens.
+ * Clears the admin session — does NOT touch Supabase Auth / player tokens.
  */
 export function adminLogout() {
   sessionStorage.removeItem(SESSION_KEY);
@@ -100,7 +91,7 @@ export function getAdminSession() {
 
 /**
  * Guard: returns true only if there is a valid admin session token.
- * Player tokens (Firebase Auth) are irrelevant here.
+ * Player tokens (Supabase Auth) are irrelevant here.
  */
 export function isAdminAuthenticated() {
   const session = getAdminSession();

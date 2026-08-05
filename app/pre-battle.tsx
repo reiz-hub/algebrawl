@@ -1,33 +1,32 @@
 // app/pre-battle.tsx
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, ViewStyle, Image } from 'react-native';
+import NeoButton from '../components/NeoButton';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { useGameStore } from '../hooks/useGameStore';
-import NeoButton from '../components/NeoButton';
 
 const GEARS = [
-  { id: 'g1', name: 'No. 2 Pencil', stat: '+2s / Q', icon: '✏️', unlockLevel: 1 },
-  { id: 'g2', name: 'Study Notes', stat: '+1 Heart', icon: '📓', unlockLevel: 1 },
-  { id: 'g3', name: 'Math Ruler', stat: '+4s / Q', icon: '📏', unlockLevel: 3 },
-  { id: 'g4', name: 'Pocket Calc', stat: '+2 Hearts', icon: '📱', unlockLevel: 5 },
-  { id: 'g5', name: 'Golden Protractor', stat: '2x XP Boost', icon: '📐', unlockLevel: 7 },
+  { id: 'g1', name: 'No. 2 Pencil', stat: '+2s / Q', icon: '✏️', cost: 0 },
+  { id: 'g2', name: 'Study Notes', stat: '+1 Heart', icon: '📓', cost: 100 },
+  { id: 'g3', name: 'Math Ruler', stat: '+4s / Q', icon: '📏', cost: 200 },
+  { id: 'g4', name: 'Pocket Calc', stat: '+2 Hearts', icon: '📱', cost: 350 },
+  { id: 'g5', name: 'Golden Protractor', stat: '2x XP Boost', icon: '📐', cost: 600 },
 ];
 
 const SKILLS = [
-  { id: 's1', name: 'Basic Attack', desc: 'Standard Damage', icon: '⚔️', unlockLevel: 1 },
-  { id: 's2', name: 'Focus', desc: '+5s Timer (1x)', icon: '⏱️', unlockLevel: 2 },
-  { id: 's3', name: 'Shield', desc: 'Block 1 Hit (1x)', icon: '🛡️', unlockLevel: 4 },
-  { id: 's4', name: 'Double Strike', desc: '2x Damage (1x)', icon: '🔥', unlockLevel: 6 },
+  { id: 's1', name: 'Basic Attack', desc: 'Standard Damage', icon: '⚔️', cost: 0 },
+  { id: 's2', name: 'Focus', desc: '+5s Timer (1x)', icon: '⏱️', cost: 150 },
+  { id: 's3', name: 'Shield', desc: 'Block 1 Hit (1x)', icon: '🛡️', cost: 250 },
+  { id: 's4', name: 'Double Strike', desc: '2x Damage (1x)', icon: '🔥', cost: 400 },
 ];
 
-const ARMORS = [
-  { id: 'o1', name: 'Leather Jerkin', icon: '🦺', unlockLevel: 1 },
-  { id: 'o2', name: 'Iron Chainmail', icon: '⛓️', unlockLevel: 2 },
-  { id: 'o3', name: 'Steel Cuirass', icon: '🛡️', unlockLevel: 3 },
-  { id: 'o4', name: 'Knight Helmet', icon: '🪖', unlockLevel: 4 },
-  { id: 'o5', name: 'Dragon Scale Mail', icon: '🐲', unlockLevel: 5 },
-  { id: 'o6', name: 'Mythril Plate', icon: '🌟', unlockLevel: 6 },
+const CHARACTERS = [
+  { id: 'c0', name: 'Algebro', icon: '🧮', image: require('../assets/images/avatar/algebroavatar.png'), cost: 0 },
+  { id: 'c1', name: 'Ada Lovelace', icon: '👩‍💻', image: require('../assets/images/avatar/lovelaceavatar.png'), cost: 150 },
+  { id: 'c2', name: 'Isaac Newton', icon: '🍎', image: require('../assets/images/avatar/newtonavatar.png'), cost: 300 },
+  { id: 'c3', name: 'Nikola Tesla', icon: '⚡', image: require('../assets/images/avatar/teslaavatar.png'), cost: 500 },
+  { id: 'c4', name: 'Marie Curie', icon: '☢️', image: require('../assets/images/avatar/curieavatar.png'), cost: 750 },
 ];
 
 export default function PreBattleScreen() {
@@ -35,24 +34,54 @@ export default function PreBattleScreen() {
   const { level, questions, timePerQuestion: timeParam } = useLocalSearchParams();
   const timePerQuestion = Number(timeParam) || 30;
   const currentLevel = Number(level) || 1;
-  const unlockedLevel = useGameStore((state) => state.unlockedLevel);
+
+  const inventory = useGameStore((state) => state.inventory);
+  const coins = useGameStore((state) => state.coins);
 
   const [selectedGear, setSelectedGear] = useState('g1');
   const [selectedSkill, setSelectedSkill] = useState('s1');
-  const [selectedArmor, setSelectedArmor] = useState('o1');
+  const [selectedCharacter, setSelectedCharacter] = useState('c0');
 
-  const BrutalistCard = ({ children, style }: { children: React.ReactNode, style?: any }) => (
+  // Helper: check if item is unlocked (owned in inventory or free starter item)
+  const isItemUnlocked = (id: string, cost: number) => {
+    if (cost === 0) return true;
+    return inventory.includes(id);
+  };
+
+  const BrutalistCard = ({ children, style }: { children: React.ReactNode; style?: any }) => (
     <View style={styles.cardWrapper}>
       <View style={styles.cardShadow} />
-      <View style={[styles.cardContent, style]}>
-        {children}
-      </View>
+      <View style={[styles.cardContent, style]}>{children}</View>
     </View>
   );
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.bgSymbol, { top: '5%', left: '10%', transform: [{ rotate: '-10deg' }] }]}>-</Text>
+      {/* Fixed Neo-Brutalist Top Bar */}
+      <View style={styles.fixedTopBar}>
+        <TouchableOpacity
+          style={styles.backShortcutBtn}
+          activeOpacity={0.8}
+          onPress={() => router.replace('/map')}
+        >
+          <Text style={styles.backShortcutText}>‹ MAP</Text>
+        </TouchableOpacity>
+
+        <View style={styles.fixedShopWrapper}>
+          <View style={styles.fixedShopShadow} />
+          <TouchableOpacity
+            style={styles.fixedShopBtn}
+            activeOpacity={0.8}
+            onPress={() => router.push('/shop')}
+          >
+            <Text style={styles.fixedShopCoins}>🪙 {coins}</Text>
+            <View style={styles.fixedShopDivider} />
+            <Text style={styles.fixedShopText}>ITEM SHOP 🛍️</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <Text style={[styles.bgSymbol, { top: '8%', left: '10%', transform: [{ rotate: '-10deg' }] }]}>-</Text>
       <Text style={[styles.bgSymbol, { top: '25%', right: '15%', transform: [{ rotate: '20deg' }] }]}>x²</Text>
       <Text style={[styles.bgSymbol, { bottom: '25%', left: '20%', transform: [{ rotate: '-15deg' }] }]}>+</Text>
       <Text style={[styles.bgSymbol, { bottom: '5%', right: '10%', transform: [{ rotate: '10deg' }] }]}>÷</Text>
@@ -90,65 +119,89 @@ export default function PreBattleScreen() {
             contentContainerStyle={styles.gearScrollContainer}
           >
             {GEARS.map((gear) => {
-              const isLocked = unlockedLevel < gear.unlockLevel;
+              const isUnlocked = isItemUnlocked(gear.id, gear.cost);
               const isSelected = selectedGear === gear.id;
               return (
                 <TouchableOpacity
                   key={gear.id}
                   activeOpacity={0.8}
-                  disabled={isLocked}
-                  onPress={() => setSelectedGear(gear.id)}
+                  onPress={() => {
+                    if (isUnlocked) {
+                      setSelectedGear(gear.id);
+                    } else {
+                      router.push('/shop');
+                    }
+                  }}
                   style={styles.itemWrapper}
                 >
                   <View style={styles.itemShadow} />
-                  <View style={[
-                    styles.itemSlot,
-                    isSelected && styles.itemSlotSelected,
-                    isLocked && styles.itemSlotLocked
-                  ]}>
-                    <Text style={styles.itemIcon}>{isLocked ? '🔒' : gear.icon}</Text>
+                  <View
+                    style={[
+                      styles.itemSlot,
+                      isSelected && styles.itemSlotSelected,
+                      !isUnlocked && styles.itemSlotLocked,
+                    ]}
+                  >
+                    <Text style={styles.itemIcon}>{!isUnlocked ? '🔒' : gear.icon}</Text>
                   </View>
-                  <Text style={[styles.itemName, isLocked && styles.lockedText]}>
-                    {isLocked ? `Lv. ${gear.unlockLevel}` : gear.name}
+                  <Text style={[styles.itemName, !isUnlocked && styles.lockedText]}>
+                    {!isUnlocked ? `🪙 ${gear.cost}` : gear.name}
                   </Text>
-                  {!isLocked && <Text style={styles.itemStat}>{gear.stat}</Text>}
+                  {isUnlocked ? (
+                    <Text style={styles.itemStat}>{gear.stat}</Text>
+                  ) : (
+                    <Text style={styles.shopPromptText}>BUY IN SHOP</Text>
+                  )}
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
         </View>
 
-        {/* 3. CHOOSE ARMOR */}
-        <Text style={[styles.sectionHeader, { marginTop: 3 }]}>EQUIP ARMOR (CHOOSE 1)</Text>
+        {/* 3. CHOOSE CHARACTER */}
+        <Text style={[styles.sectionHeader, { marginTop: 3 }]}>CHOOSE CHARACTER</Text>
         <View style={styles.gearScrollWrapper}>
           <ScrollView
             horizontal={true}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.gearScrollContainer}
           >
-            {ARMORS.map((armor) => {
-              const isLocked = unlockedLevel < armor.unlockLevel;
-              const isSelected = selectedArmor === armor.id;
+            {CHARACTERS.map((char) => {
+              const isUnlocked = isItemUnlocked(char.id, char.cost);
+              const isSelected = selectedCharacter === char.id;
               return (
                 <TouchableOpacity
-                  key={armor.id}
+                  key={char.id}
                   activeOpacity={0.8}
-                  disabled={isLocked}
-                  onPress={() => setSelectedArmor(armor.id)}
+                  onPress={() => {
+                    if (isUnlocked) {
+                      setSelectedCharacter(char.id);
+                    } else {
+                      router.push('/shop');
+                    }
+                  }}
                   style={styles.itemWrapper}
                 >
                   <View style={styles.itemShadow} />
-                  <View style={[
-                    styles.itemSlot,
-                    isSelected && styles.itemSlotSelected,
-                    isLocked && styles.itemSlotLocked
-                  ]}>
-                    <Text style={styles.itemIcon}>{isLocked ? '🔒' : armor.icon}</Text>
+                  <View
+                    style={[
+                      styles.itemSlot,
+                      isSelected && styles.itemSlotSelected,
+                      !isUnlocked && styles.itemSlotLocked,
+                    ]}
+                  >
+                    {!isUnlocked ? (
+                      <Text style={styles.itemIcon}>🔒</Text>
+                    ) : char.image ? (
+                      <Image source={char.image} style={{ width: 48, height: 48, borderRadius: 8 }} resizeMode="contain" />
+                    ) : (
+                      <Text style={styles.itemIcon}>{char.icon}</Text>
+                    )}
                   </View>
-                  <Text style={[styles.itemName, isLocked && styles.lockedText]}>
-                    {isLocked ? `Lv. ${armor.unlockLevel}` : armor.name}
+                  <Text style={[styles.itemName, !isUnlocked && styles.lockedText]}>
+                    {!isUnlocked ? `🪙 ${char.cost}` : char.name}
                   </Text>
-
+                  {!isUnlocked && <Text style={styles.shopPromptText}>BUY IN SHOP</Text>}
                 </TouchableOpacity>
               );
             })}
@@ -159,29 +212,36 @@ export default function PreBattleScreen() {
         <Text style={styles.sectionHeader}>ACTIVE SKILL (CHOOSE 1)</Text>
         <BrutalistCard style={styles.skillBox}>
           {SKILLS.map((skill, index) => {
-            const isLocked = unlockedLevel < skill.unlockLevel;
+            const isUnlocked = isItemUnlocked(skill.id, skill.cost);
             const isSelected = selectedSkill === skill.id;
             return (
               <TouchableOpacity
                 key={skill.id}
                 activeOpacity={0.8}
-                disabled={isLocked}
-                onPress={() => setSelectedSkill(skill.id)}
+                onPress={() => {
+                  if (isUnlocked) {
+                    setSelectedSkill(skill.id);
+                  } else {
+                    router.push('/shop');
+                  }
+                }}
                 style={[
                   styles.skillRow,
                   index < SKILLS.length - 1 && styles.skillBorder,
                   isSelected && styles.skillRowSelected,
-                  isLocked && styles.skillRowLocked
+                  !isUnlocked && styles.skillRowLocked,
                 ]}
               >
-                <View style={[styles.skillIconContainer, isLocked && styles.lockedIconContainer]}>
-                  <Text style={styles.skillIcon}>{isLocked ? '🔒' : skill.icon}</Text>
+                <View style={[styles.skillIconContainer, !isUnlocked && styles.lockedIconContainer]}>
+                  <Text style={styles.skillIcon}>{!isUnlocked ? '🔒' : skill.icon}</Text>
                 </View>
                 <View style={styles.skillTextContainer}>
-                  <Text style={[styles.skillName, isLocked && styles.lockedText]}>
-                    {isLocked ? `Unlocks at Level ${skill.unlockLevel}` : skill.name}
+                  <Text style={[styles.skillName, !isUnlocked && styles.lockedText]}>
+                    {!isUnlocked ? `${skill.name} (🪙 ${skill.cost})` : skill.name}
                   </Text>
-                  {!isLocked && <Text style={styles.skillDesc}>{skill.desc}</Text>}
+                  <Text style={styles.skillDesc}>
+                    {!isUnlocked ? 'Unlock in Item Shop using Coins' : skill.desc}
+                  </Text>
                 </View>
                 <View style={styles.radioCircle}>
                   {isSelected && <View style={styles.radioInner} />}
@@ -198,9 +258,9 @@ export default function PreBattleScreen() {
             shadowStyle={styles.btnShadow}
             style={styles.btnPrimary as ViewStyle}
             onPress={() => {
-              const activeSkill = SKILLS.find(s => s.id === selectedSkill);
-              const activeGear = GEARS.find(g => g.id === selectedGear);
-              const activeArmor = ARMORS.find(a => a.id === selectedArmor);
+              const activeSkill = SKILLS.find((s) => s.id === selectedSkill);
+              const activeGear = GEARS.find((g) => g.id === selectedGear);
+              const activeCharacter = CHARACTERS.find((c) => c.id === selectedCharacter);
 
               router.push({
                 pathname: '/battle',
@@ -213,10 +273,10 @@ export default function PreBattleScreen() {
                   gearName: activeGear?.name,
                   gearIcon: activeGear?.icon,
                   gearStat: activeGear?.stat,
-                  armorName: activeArmor?.name,
-                  armorIcon: activeArmor?.icon,
-
-                }
+                  characterName: activeCharacter?.name,
+                  characterIcon: activeCharacter?.icon,
+                  characterId: activeCharacter?.id,
+                },
               });
             }}
           >
@@ -242,39 +302,106 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff9f0',
   },
+  fixedTopBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 8,
+    backgroundColor: 'rgba(255, 249, 240, 0.95)',
+  },
+  backShortcutBtn: {
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#1a1008',
+  },
+  backShortcutText: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+  fixedShopWrapper: {
+    position: 'relative',
+  },
+  fixedShopShadow: {
+    position: 'absolute',
+    top: 3,
+    left: 3,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#1a1008',
+    borderRadius: 12,
+  },
+  fixedShopBtn: {
+    backgroundColor: '#f5a623',
+    borderWidth: 2.5,
+    borderColor: '#1a1008',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  fixedShopCoins: {
+    color: '#1a1008',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  fixedShopDivider: {
+    width: 2,
+    height: 14,
+    backgroundColor: '#1a1008',
+  },
+  fixedShopText: {
+    color: '#1a1008',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
   bgSymbol: {
     position: 'absolute',
     fontSize: 60,
     fontWeight: '900',
     color: '#e5d9c4',
     opacity: 0.3,
-    zIndex: 0
+    zIndex: 0,
   },
   content: {
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingTop: 72,
     paddingBottom: 40,
-    zIndex: 10
+    zIndex: 10,
   },
   title: {
-    fontSize: 50,
+    fontSize: 48,
     fontWeight: '900',
     color: '#1a1008',
-    marginBottom: 5,
+    marginBottom: 4,
     textTransform: 'uppercase',
-    letterSpacing: 2
+    letterSpacing: 2,
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
     color: '#f5a623',
-    marginBottom: 30,
+    marginBottom: 24,
     textTransform: 'uppercase',
-    letterSpacing: 1
+    letterSpacing: 1,
   },
   sectionHeader: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
     color: '#1a1008',
     alignSelf: 'flex-start',
@@ -286,7 +413,7 @@ const styles = StyleSheet.create({
   cardWrapper: {
     width: '100%',
     marginBottom: 20,
-    position: 'relative'
+    position: 'relative',
   },
   cardShadow: {
     position: 'absolute',
@@ -295,127 +422,129 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',
-    borderRadius: 16
-  },
-  cardContent: {
-    backgroundColor: '#fff',
-    borderWidth: 3,
-    borderColor: '#1a1008',
     borderRadius: 16,
   },
+  cardContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 3,
+    borderColor: '#1a1008',
+    padding: 16,
+  },
   infoBox: {
-    padding: 20,
+    gap: 12,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 8
   },
   infoLabel: {
-    color: '#7a6a55',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '900',
-    letterSpacing: 1
+    color: '#7a6a55',
   },
   infoValue: {
-    color: '#1a1008',
     fontSize: 16,
-    fontWeight: '900'
+    fontWeight: '900',
+    color: '#1a1008',
   },
   gearScrollWrapper: {
     width: '100%',
-    marginBottom: 20,
+    marginBottom: 10,
   },
   gearScrollContainer: {
-    paddingBottom: 15,
-    paddingHorizontal: 5,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    paddingRight: 20,
+    gap: 12,
   },
   itemWrapper: {
-    alignItems: 'center',
     position: 'relative',
-    width: 80,
-    marginRight: 20,
+    width: 96,
+    alignItems: 'center',
   },
   itemShadow: {
     position: 'absolute',
     top: 4,
     left: 4,
-    width: 80,
-    height: 80,
+    width: '100%',
+    height: 90,
     backgroundColor: '#1a1008',
-    borderRadius: 16
+    borderRadius: 14,
   },
   itemSlot: {
-    width: 80,
-    height: 80,
-    backgroundColor: '#fff',
+    width: '100%',
+    height: 90,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
     borderWidth: 3,
     borderColor: '#1a1008',
-    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
   },
   itemSlotSelected: {
-    backgroundColor: '#e6f0ff',
-    borderColor: '#1a6cf5',
+    backgroundColor: '#fbbf24',
+    borderColor: '#1a1008',
   },
   itemSlotLocked: {
-    backgroundColor: '#e5d9c4',
+    backgroundColor: '#e2e8f0',
+    borderColor: '#94a3b8',
   },
   itemIcon: {
-    fontSize: 36,
+    fontSize: 32,
   },
   itemName: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '900',
     color: '#1a1008',
     textAlign: 'center',
+    marginTop: 6,
   },
   itemStat: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#22c55e',
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#f5a623',
+    textAlign: 'center',
   },
   lockedText: {
-    color: '#7a6a55',
+    color: '#64748b',
+  },
+  shopPromptText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#3b82f6',
+    marginTop: 2,
   },
   skillBox: {
-    padding: 0,
-    overflow: 'hidden',
+    paddingVertical: 4,
   },
   skillRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
-  },
-  skillRowSelected: {
-    backgroundColor: '#e6f0ff',
-  },
-  skillRowLocked: {
-    backgroundColor: '#f5f5f5',
+    paddingVertical: 12,
   },
   skillBorder: {
     borderBottomWidth: 2,
-    borderColor: '#e5d9c4',
+    borderBottomColor: '#f0e6d6',
+  },
+  skillRowSelected: {
+    backgroundColor: '#fef3c7',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+  },
+  skillRowLocked: {
+    opacity: 0.7,
   },
   skillIconContainer: {
     width: 40,
     height: 40,
-    backgroundColor: '#fef3c7',
-    borderWidth: 2,
-    borderColor: '#1a1008',
-    borderRadius: 8,
+    borderRadius: 10,
+    backgroundColor: '#f5a623',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: 12,
   },
   lockedIconContainer: {
-    backgroundColor: '#e5d9c4',
+    backgroundColor: '#cbd5e1',
   },
   skillIcon: {
     fontSize: 20,
@@ -424,7 +553,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   skillName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '900',
     color: '#1a1008',
   },
@@ -434,29 +563,28 @@ const styles = StyleSheet.create({
     color: '#7a6a55',
   },
   radioCircle: {
-    height: 24,
-    width: 24,
-    borderRadius: 12,
-    borderWidth: 3,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
     borderColor: '#1a1008',
-    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    alignItems: 'center',
   },
   radioInner: {
-    height: 12,
     width: 12,
+    height: 12,
     borderRadius: 6,
-    backgroundColor: '#1a6cf5',
+    backgroundColor: '#1a1008',
   },
   buttonContainer: {
     width: '100%',
-    marginTop: 30,
-    gap: 20
+    marginTop: 24,
+    gap: 14,
   },
   btnWrapper: {
     position: 'relative',
-    width: '100%'
+    width: '100%',
   },
   btnShadow: {
     position: 'absolute',
@@ -465,10 +593,10 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',
-    borderRadius: 16
+    borderRadius: 16,
   },
   btnPrimary: {
-    backgroundColor: '#e8302a',
+    backgroundColor: '#22c55e',
     borderWidth: 3,
     borderColor: '#1a1008',
     paddingVertical: 16,
@@ -476,25 +604,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   btnPrimaryText: {
-    color: '#fff',
-    fontSize: 20,
+    color: '#ffffff',
+    fontSize: 18,
     fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 1
+    letterSpacing: 1,
   },
   btnSecondary: {
-    backgroundColor: '#f5a623',
+    backgroundColor: '#ef4444',
     borderWidth: 3,
     borderColor: '#1a1008',
     paddingVertical: 16,
     borderRadius: 16,
-    alignItems: 'center'
+    alignItems: 'center',
   },
   btnSecondaryText: {
-    color: '#1a1008',
+    color: '#ffffff',
     fontSize: 18,
     fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 1
-  }
+    letterSpacing: 1,
+  },
 });

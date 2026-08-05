@@ -2,7 +2,7 @@
  * Admin Auth Context
  *
  * Provides admin session state to the entire app.
- * Completely separate from Firebase Auth (player tokens).
+ * Completely separate from Supabase Auth (player tokens).
  */
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import {

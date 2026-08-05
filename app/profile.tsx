@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, View, ScrollView } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { useGameStore } from '../hooks/useGameStore';
-import { lookupByUsername, lookupByIngameName } from '../services/firestoreSync';
+import { lookupByUsername, lookupByIngameName } from '../services/supabaseSync';
 
 export default function ProfileScreen() {
   const router = useRouter();
