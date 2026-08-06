@@ -3,14 +3,13 @@ import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import AttackProjectile from '../components/AttackProjectile';
 import ReviewModal from '../components/ReviewModal';
 import Sprite from '../components/sprite';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { useGameStore } from '../hooks/useGameStore';
 import { generateQuestion, Question } from '../scripts/mathGenerator';
 import { soundService } from '../services/soundService';
-
-
 
 export default function BattleScreen() {
   const { level, questions, timePerQuestion: timeParam, skillName, skillIcon, gearName, gearIcon, gearStat, characterId: paramCharId } = useLocalSearchParams();
@@ -81,6 +80,10 @@ export default function BattleScreen() {
   const [hasShield, setHasShield] = useState(false);
   const [hasDoubleStrike, setHasDoubleStrike] = useState(false);
 
+  const [attackActive, setAttackActive] = useState(false);
+  const [attacker, setAttacker] = useState<'player' | 'enemy'>('player');
+  const [isImpactPhase, setIsImpactPhase] = useState(false);
+
   const [musicEnabled, setMusicEnabled] = useState(soundService.getMusicEnabled());
   const [soundEnabled, setSoundEnabled] = useState(soundService.getSoundEnabled());
 
@@ -94,22 +97,28 @@ export default function BattleScreen() {
   const playerAction = useMemo(() => {
     if (isWon || showVictory) return 'win';
     if (showDefeat) return 'defeat';
+    if (attackActive) {
+      if (attacker === 'player') return 'attack';
+      if (attacker === 'enemy') return isImpactPhase ? 'hit' : 'idle';
+    }
     if (isAnswering && selectedOption) {
       return currentQ && selectedOption === currentQ.correctAnswer ? 'attack' : 'hit';
     }
     return 'idle';
-  }, [isWon, showVictory, showDefeat, isAnswering, selectedOption, currentQ]);
+  }, [isWon, showVictory, showDefeat, attackActive, attacker, isImpactPhase, isAnswering, selectedOption, currentQ]);
 
   const enemyAction = useMemo(() => {
     if (isWon || showVictory) return 'defeat';
     if (showDefeat) return 'win';
+    if (attackActive) {
+      if (attacker === 'enemy') return 'attack';
+      if (attacker === 'player') return isImpactPhase ? 'hit' : 'idle';
+    }
     if (isAnswering && selectedOption) {
-      // Player hit correctly → villain takes damage
-      // Player wrong/timeout → villain counter-attacks
       return currentQ && selectedOption === currentQ.correctAnswer ? 'hit' : 'attack';
     }
     return 'idle';
-  }, [isWon, showVictory, showDefeat, isAnswering, selectedOption, currentQ]);
+  }, [isWon, showVictory, showDefeat, attackActive, attacker, isImpactPhase, isAnswering, selectedOption, currentQ]);
 
   const [questionIndex, setQuestionIndex] = useState(0);
 
@@ -165,35 +174,48 @@ export default function BattleScreen() {
   };
 
   const handleTimeOut = () => {
+    if (isAnswering || attackActive) return;
     setIsAnswering(true);
     setSelectedOption('TIMEOUT');
-    soundService.playSound('break');
-
-    setTimeout(() => {
-      applyWrongAnswer();
-    }, 1500);
+    setAttacker('enemy');
+    setIsImpactPhase(false);
+    setAttackActive(true);
   };
 
   const handleOptionPress = (opt: string) => {
-    if (isAnswering || !currentQ) return;
+    if (isAnswering || !currentQ || attackActive) return;
 
     setIsAnswering(true);
     setSelectedOption(opt);
 
     const isCorrect = opt === currentQ.correctAnswer;
-    if (isCorrect) {
+    setAttacker(isCorrect ? 'player' : 'enemy');
+    setIsImpactPhase(false);
+    setAttackActive(true);
+  };
+
+  const handleProjectileImpact = () => {
+    setIsImpactPhase(true);
+    if (attacker === 'player') {
       soundService.playSound('hit');
     } else {
-      soundService.playSound('break');
-    }
-
-    setTimeout(() => {
-      if (isCorrect) {
-        applyCorrectAnswer();
+      if (hasShield) {
+        soundService.playSound('click');
       } else {
-        applyWrongAnswer();
+        soundService.playSound('break');
       }
-    }, 1500);
+    }
+  };
+
+  const handleProjectileComplete = () => {
+    setAttackActive(false);
+    setIsImpactPhase(false);
+
+    if (attacker === 'player') {
+      applyCorrectAnswer();
+    } else {
+      applyWrongAnswer();
+    }
   };
 
   const applyCorrectAnswer = () => {
@@ -314,6 +336,16 @@ export default function BattleScreen() {
 
       {/* 2. ARENA AREA */}
       <View style={styles.arena}>
+
+        <AttackProjectile
+          active={attackActive}
+          attacker={attacker}
+          characterId={selectedCharId}
+          hasDoubleStrike={hasDoubleStrike}
+          hasShield={hasShield}
+          onImpact={handleProjectileImpact}
+          onComplete={handleProjectileComplete}
+        />
 
         {/* Player Side */}
         <View style={styles.characterSlot}>
@@ -672,6 +704,7 @@ const styles = StyleSheet.create({
 
   arena: {
     flex: 1,
+    position: 'relative',
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'flex-end',
