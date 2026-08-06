@@ -391,7 +391,7 @@ export default function BattleScreen() {
         {/* Enemy Side */}
         <View style={styles.characterSlot}>
           <View style={styles.statusBadgeArea} />
-          <Sprite action={enemyAction} isEnemy />
+          <Sprite action={enemyAction} isEnemy enemyId={currentLevel === 2 ? 'villain2' : 'villain1'} />
           <View style={styles.bottomUIArea} />
         </View>
 

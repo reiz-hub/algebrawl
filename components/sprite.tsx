@@ -8,6 +8,7 @@ interface SpriteProps {
   action: ActionState;
   isEnemy?: boolean;
   characterId?: string;
+  enemyId?: string;
 }
 
 const characterSprites: Record<string, Record<ActionState, any>> = {
@@ -70,9 +71,19 @@ const villainSprites: Record<ActionState, any> = {
   stand: require('../assets/images/sprites/villain_idle.png'),
 };
 
-export default function Sprite({ action, isEnemy = false, characterId }: SpriteProps) {
+const villain2Sprites: Record<ActionState, any> = {
+  attack: require('../assets/images/sprites/villain2_attack.png'),
+  defeat: require('../assets/images/sprites/villain2_defeat.png'),
+  hit: require('../assets/images/sprites/villain2_hit.png'),
+  idle: require('../assets/images/sprites/villain2_idle.png'),
+  win: require('../assets/images/sprites/villain2_win.png'),
+  stand: require('../assets/images/sprites/villain2_idle.png'),
+};
+
+export default function Sprite({ action, isEnemy = false, characterId, enemyId }: SpriteProps) {
   const heroSet = (characterId && characterSprites[characterId]) || characterSprites.c0;
-  const sprites = isEnemy ? villainSprites : heroSet;
+  const enemySet = enemyId === 'villain2' ? villain2Sprites : villainSprites;
+  const sprites = isEnemy ? enemySet : heroSet;
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
