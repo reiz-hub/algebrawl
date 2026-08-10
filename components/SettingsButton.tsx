@@ -1,15 +1,18 @@
 import { Feather } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
+  Animated,
+  Platform,
+  Pressable,
   StyleSheet,
   Text,
   View,
-  Pressable,
-  Platform,
-  Animated,
 } from 'react-native';
-import TouchableOpacity from './TouchableOpacity';
+import { useGameStore } from '../hooks/useGameStore';
+import { GameFonts } from '../constants/theme';
 import { soundService } from '../services/soundService';
+import TouchableOpacity from './TouchableOpacity';
 
 export default function SettingsButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -43,6 +46,15 @@ export default function SettingsButton() {
     const newValue = !soundEnabled;
     setSoundEnabled(newValue);
     await soundService.setSoundEnabled(newValue);
+  };
+
+  const handleDevUnlockAll = () => {
+    useGameStore.getState().unlockAllDev();
+    Alert.alert(
+      'DEV MODE 🔓',
+      'All levels (1-7), characters, gears, skills, and 9,999 coins have been unlocked!'
+    );
+    setIsOpen(false);
   };
 
   const spin = rotateAnim.interpolate({
@@ -136,6 +148,25 @@ export default function SettingsButton() {
                   <View style={[styles.switchThumb, soundEnabled ? styles.switchThumbOn : styles.switchThumbOff]} />
                 </View>
               </TouchableOpacity>
+
+              {/* Divider */}
+              <View style={styles.divider} />
+
+              {/* Developer Unlock All Button */}
+              <TouchableOpacity
+                style={styles.devUnlockRow}
+                activeOpacity={0.8}
+                onPress={handleDevUnlockAll}
+              >
+                <View style={styles.devIconBox}>
+                  <Feather name="unlock" size={15} color="#fff" />
+                </View>
+                <View style={styles.textContainer}>
+                  <Text style={styles.devUnlockTitle}>DEV UNLOCK</Text>
+                  <Text style={styles.devUnlockSub}>Unlock All 🔓</Text>
+                </View>
+              </TouchableOpacity>
+
             </View>
           </View>
         )}
@@ -182,7 +213,7 @@ const styles = StyleSheet.create({
   menuContainer: {
     position: 'relative',
     marginTop: 12,
-    width: 190,
+    width: 195,
   },
   menuShadow: {
     position: 'absolute',
@@ -202,8 +233,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   menuHeader: {
+    fontFamily: GameFonts.hud,
     fontSize: 10,
-    fontWeight: '900',
     color: '#7a6a55',
     letterSpacing: 1.5,
     marginBottom: 2,
@@ -232,8 +263,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   toggleTitle: {
+    fontFamily: GameFonts.brawl,
     fontSize: 12,
-    fontWeight: '900',
     color: '#1a1008',
     letterSpacing: 0.5,
   },
@@ -246,7 +277,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#e5d9c4',
     marginHorizontal: -4,
   },
-  // Neo-brutalist Switch Pill Styles
   switchTrack: {
     width: 42,
     height: 22,
@@ -275,5 +305,37 @@ const styles = StyleSheet.create({
   },
   switchThumbOff: {
     alignSelf: 'flex-start',
+  },
+  devUnlockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+    backgroundColor: '#fff9f0',
+    borderWidth: 2,
+    borderColor: '#1a1008',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+  },
+  devIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#e8302a',
+    borderWidth: 2,
+    borderColor: '#1a1008',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  devUnlockTitle: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 11,
+    color: '#e8302a',
+    letterSpacing: 0.5,
+  },
+  devUnlockSub: {
+    fontFamily: GameFonts.hud,
+    fontSize: 9,
+    color: '#7a6a55',
   },
 });

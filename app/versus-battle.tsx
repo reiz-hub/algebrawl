@@ -1,12 +1,14 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Modal, StyleSheet, Text, View } from 'react-native';
+import { Image, ImageBackground, Modal, StyleSheet, Text, View } from 'react-native';
 import ReviewModal from '../components/ReviewModal';
 import Sprite from '../components/sprite';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { generateQuestion, Question } from '../scripts/mathGenerator';
 import { soundService } from '../services/soundService';
+import { getLevelTheme } from '../constants/levelThemes';
+import { GameFonts } from '../constants/theme';
 
 export default function VersusBattleScreen() {
   const params = useLocalSearchParams();
@@ -44,6 +46,7 @@ export default function VersusBattleScreen() {
   const [turn, setTurn] = useState<1 | 2>(1);
   const [round, setRound] = useState(1);
   const currentLevel = Math.min(Math.ceil(round / 2), 6);
+  const levelTheme = getLevelTheme(currentLevel);
   const isExtraLarge = currentLevel <= 2;
   const isMedium = currentLevel === 3;
   const [timer, setTimer] = useState(p1InitialTime);
@@ -295,27 +298,33 @@ export default function VersusBattleScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.topBar}>
-        <View style={styles.topLeft}>
-          <View style={styles.pauseBtnPlaceholder} />
-          <Text style={styles.hpHearts}>{renderHearts(p1HP, p1MaxHearts)}</Text>
-        </View>
-
-        <View style={{ alignItems: 'center' }}>
-          <Text style={[styles.timer, timer <= 5 && styles.timerDanger]}>{timer}s</Text>
-          <Text style={styles.turnText}>{activeName.toUpperCase()} TURN</Text>
-          <Text style={styles.roundText}>Round {Math.min(round, totalQuestions)}/{totalQuestions} · Lv.{currentLevel}</Text>
-        </View>
-
-        <View style={styles.topRight}>
-          <TouchableOpacity style={styles.pauseBtn} onPress={() => setIsPaused(true)}>
-            <Feather name="pause" size={18} color="#1a1008" />
-          </TouchableOpacity>
-          <Text style={styles.enemyHpText}>{renderHearts(p2HP, p2MaxHearts)}</Text>
-        </View>
+      {/* 1. TOP HEADER BAR (HEADER & PAUSE BUTTON OUTSIDE MAP BG) */}
+      <View style={styles.headerBar}>
+        <Text style={styles.versusTitle}>⚔️ VERSUS BATTLE</Text>
+        <TouchableOpacity style={styles.pauseBtn} onPress={() => setIsPaused(true)}>
+          <Feather name="pause" size={18} color="#1a1008" />
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.arena}>
+      {/* MAP BACKGROUND COVERING SUB-BAR HUD (HEARTS, TIMER, TURN, ROUND) AND ARENA */}
+      <ImageBackground
+        source={levelTheme.bgImage || undefined}
+        style={[styles.mapArea, { backgroundColor: levelTheme.stageBgColor }]}
+        resizeMode="cover"
+      >
+        <View style={styles.topBar}>
+          <Text style={styles.hpHearts}>{renderHearts(p1HP, p1MaxHearts)}</Text>
+
+          <View style={styles.timerBadgeBox}>
+            <Text style={[styles.timer, timer <= 5 && styles.timerDanger]}>⏱️ {timer}s</Text>
+            <Text style={styles.turnText}>{activeName.toUpperCase()} TURN</Text>
+            <Text style={styles.roundText}>Round {Math.min(round, totalQuestions)}/{totalQuestions} · Lv.{currentLevel}</Text>
+          </View>
+
+          <Text style={styles.enemyHpText}>{renderHearts(p2HP, p2MaxHearts)}</Text>
+        </View>
+
+        <View style={styles.arena}>
         {/* Player 1 - left side */}
         <View style={styles.playerColumn}>
           <Sprite action={p1SpriteAction as any} />
@@ -333,13 +342,14 @@ export default function VersusBattleScreen() {
             </View>
           )}
           {!!p1GearStat && (
-            <View style={styles.gearIndicator}>
+            <View style={[styles.gearIndicator, { backgroundColor: levelTheme.buttonBg, borderColor: levelTheme.buttonBorder }]}>
               <Text style={styles.gearIndicatorText}>{p1GearIcon} {p1GearStat}</Text>
             </View>
           )}
           <TouchableOpacity
             style={[
               styles.skillBadge,
+              { backgroundColor: levelTheme.buttonBg, borderColor: levelTheme.buttonBorder },
               p1SkillCooldown > 0 && styles.skillBadgeUsed,
               turn === 1 && p1SkillCooldown === 0 && styles.skillBadgeActive,
             ]}
@@ -371,13 +381,14 @@ export default function VersusBattleScreen() {
             </View>
           )}
           {!!p2GearStat && (
-            <View style={styles.gearIndicator}>
+            <View style={[styles.gearIndicator, { backgroundColor: levelTheme.buttonBg, borderColor: levelTheme.buttonBorder }]}>
               <Text style={styles.gearIndicatorText}>{p2GearIcon} {p2GearStat}</Text>
             </View>
           )}
           <TouchableOpacity
             style={[
               styles.skillBadge,
+              { backgroundColor: levelTheme.buttonBg, borderColor: levelTheme.buttonBorder },
               p2SkillCooldown > 0 && styles.skillBadgeUsed,
               turn === 2 && p2SkillCooldown === 0 && styles.skillBadgeActive,
             ]}
@@ -392,9 +403,10 @@ export default function VersusBattleScreen() {
           </TouchableOpacity>
         </View>
       </View>
+    </ImageBackground>
 
       {currentQ && (
-        <View style={styles.questionPanel}>
+        <View style={[styles.questionPanel, { backgroundColor: levelTheme.panelBg, borderColor: levelTheme.buttonBorder }]}>
           <Text style={[styles.equation, isMedium && styles.equationMedium, isExtraLarge && styles.equationLarge]} adjustsFontSizeToFit numberOfLines={2}>{currentQ.equation}</Text>
 
           <View style={styles.optionsContainer}>
@@ -409,6 +421,7 @@ export default function VersusBattleScreen() {
                     silent={true}
                     style={[
                       styles.optionButton,
+                      { backgroundColor: levelTheme.buttonBg, borderColor: levelTheme.buttonBorder },
                       isMedium && styles.optionButtonMedium,
                       isExtraLarge && styles.optionButtonLarge,
                       isAnswering && isCorrect && styles.optionCorrect,
@@ -531,7 +544,6 @@ export default function VersusBattleScreen() {
         </View>
       </Modal>
 
-
       {/* Turn Notification Modal */}
       <Modal visible={showTurnNotification} transparent animationType="fade">
         <View style={styles.modalOverlay}>
@@ -560,10 +572,23 @@ export default function VersusBattleScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff9f0' },
 
+  headerBar: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12,
+    backgroundColor: '#1a1008', zIndex: 10,
+  },
+  versusTitle: {
+    fontFamily: GameFonts.brawl, fontSize: 18, color: '#ffffff',
+    textTransform: 'uppercase', letterSpacing: 1,
+  },
+  mapArea: {
+    flex: 1,
+    position: 'relative',
+  },
   topBar: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20,
-    backgroundColor: '#fff9f0', zIndex: 10,
+    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8,
+    backgroundColor: 'transparent', zIndex: 10,
   },
   topLeft: { flexDirection: 'column', alignItems: 'flex-start', gap: 6 },
   topRight: {
@@ -573,12 +598,22 @@ const styles = StyleSheet.create({
     width: 40, height: 40,
   },
   pauseBtn: {
-    backgroundColor: '#fff', borderWidth: 3, borderColor: '#1a1008',
-    borderRadius: 8, width: 40, height: 40, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#fff9f0', borderWidth: 2.5, borderColor: '#1a1008',
+    borderRadius: 10, width: 40, height: 40, justifyContent: 'center', alignItems: 'center',
   },
-  pauseIcon: { fontSize: 18, fontWeight: '900', color: '#1a1008', transform: [{ rotate: '90deg' }] },
-  hpHearts: { fontSize: 20 },
-  enemyHpText: { fontSize: 20 },
+  pauseIcon: {
+    fontFamily: GameFonts.brawl, fontSize: 18, color: '#1a1008', transform: [{ rotate: '90deg' }] },
+  timerBadgeBox: {
+    alignItems: 'center',
+  },
+  hpHearts: {
+    fontFamily: GameFonts.brawl, fontSize: 18,
+    textShadowColor: '#1a1008', textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 0,
+  },
+  enemyHpText: {
+    fontFamily: GameFonts.arcade, fontSize: 16,
+    textShadowColor: '#1a1008', textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 0,
+  },
   pauseTogglesRow: {
     flexDirection: 'row',
     gap: 24,
@@ -614,20 +649,32 @@ const styles = StyleSheet.create({
   pauseToggleBtnDisabled: {
     backgroundColor: '#e5d9c4',
   },
-  timer: { fontSize: 32, fontWeight: '900', color: '#1a1008' },
+  timer: {
+    fontFamily: GameFonts.arcade, fontSize: 20, color: '#ffffff',
+    textShadowColor: '#1a1008', textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 0,
+  },
   timerDanger: { color: '#e8302a' },
-  turnText: { fontSize: 12, fontWeight: '900', color: '#1a1008', marginTop: 2 },
-  roundText: { fontSize: 11, fontWeight: '800', color: '#7a6a55', marginTop: 2 },
+  turnText: {
+    fontFamily: GameFonts.brawl, fontSize: 13, color: '#f5a623', marginTop: 2,
+    textShadowColor: '#1a1008', textShadowOffset: { width: 1.5, height: 1.5 }, textShadowRadius: 0,
+  },
+  roundText: {
+    fontFamily: GameFonts.arcade, fontSize: 12, color: '#ffffff', marginTop: 2,
+    textShadowColor: '#1a1008', textShadowOffset: { width: 1.5, height: 1.5 }, textShadowRadius: 0,
+  },
 
   arena: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 16, paddingTop: 10 },
   playerColumn: { alignItems: 'flex-start', flex: 1 },
   playerColumnRight: { alignItems: 'flex-end', flex: 1 },
-  playerName: { marginTop: 4, fontWeight: '900', color: '#1a1008', fontSize: 14, marginBottom: 4, alignSelf: 'center' },
+  playerName: {
+    fontFamily: GameFonts.brawl, marginTop: 4, color: '#ffffff', fontSize: 14, marginBottom: 4, alignSelf: 'center',
+    textShadowColor: '#1a1008', textShadowOffset: { width: 1.5, height: 1.5 }, textShadowRadius: 0,
+  },
   statusBadge: {
+    fontFamily: GameFonts.hud,
     marginTop: 6,
-    backgroundColor: '#fff',
+    backgroundColor: '#fff9f0',
     color: '#1a1008',
-    fontWeight: '900',
     fontSize: 12,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -638,74 +685,91 @@ const styles = StyleSheet.create({
   },
   gearIndicator: {
     marginTop: 8,
-    backgroundColor: '#e5d9c4',
+    backgroundColor: '#fff9f0',
     borderWidth: 2,
     borderColor: '#1a1008',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  gearIndicatorText: { fontSize: 11, fontWeight: '900', color: '#1a1008' },
+  gearIndicatorText: {
+    fontFamily: GameFonts.hud, fontSize: 11, color: '#1a1008' },
 
-  skillBadge: { marginTop: 6, backgroundColor: '#e5d9c4', borderWidth: 2, borderColor: '#1a1008', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  skillBadgeActive: { backgroundColor: '#fef3c7', borderWidth: 3, borderColor: '#f5a623', paddingHorizontal: 16, paddingVertical: 10 },
+  skillBadge: { marginTop: 6, backgroundColor: '#fff9f0', borderWidth: 2, borderColor: '#1a1008', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  skillBadgeActive: { backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#f5a623', paddingHorizontal: 16, paddingVertical: 10 },
   skillBadgeUsed: { backgroundColor: '#d0c8ba' },
-  skillBadgeText: { fontSize: 11, fontWeight: '900', color: '#1a1008', textTransform: 'uppercase' },
-  skillBadgeTextActive: { fontSize: 13 },
+  skillBadgeText: {
+    fontFamily: GameFonts.brawl, fontSize: 11, color: '#1a1008', textTransform: 'uppercase' },
+  skillBadgeTextActive: {
+    fontFamily: GameFonts.brawl, fontSize: 13 },
   skillBadgeTextUsed: { color: '#7a6a55' },
   skillActionImage: { width: 18, height: 18 },
   statusBadgeRow: {
     marginTop: 6,
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#fff', borderWidth: 2, borderColor: '#1a1008', borderRadius: 8,
+    backgroundColor: '#fff9f0', borderWidth: 2, borderColor: '#1a1008', borderRadius: 8,
     paddingHorizontal: 8, paddingVertical: 4,
   },
   statusBadgeImage: { width: 16, height: 16 },
-  statusBadgeLabel: { fontSize: 12, fontWeight: '900', color: '#1a1008' },
+  statusBadgeLabel: {
+    fontFamily: GameFonts.hud, fontSize: 12, color: '#1a1008' },
 
   questionPanel: {
     height: 340,
     justifyContent: 'center',
-    backgroundColor: '#fff', borderTopWidth: 4, borderColor: '#1a1008',
-    paddingTop: 20, paddingBottom: 20, paddingHorizontal: 25, borderTopLeftRadius: 30, borderTopRightRadius: 30, alignItems: 'center',
+    backgroundColor: '#fff9f0', borderTopWidth: 4, borderColor: '#1a1008',
+    paddingTop: 20, paddingBottom: 20, paddingHorizontal: 25, borderRadius: 0, alignItems: 'center',
   },
-  equation: { fontSize: 32, fontWeight: '900', color: '#1a1008', marginVertical: 10, textAlign: 'center' },
-  equationMedium: { fontSize: 40, marginVertical: 15 },
-  equationLarge: { fontSize: 44, marginVertical: 15 },
+  equation: {
+    fontFamily: GameFonts.impact, fontSize: 34, color: '#ffffff', marginVertical: 10, textAlign: 'center' },
+  equationMedium: {
+    fontFamily: GameFonts.impact, fontSize: 40, marginVertical: 15 },
+  equationLarge: {
+    fontFamily: GameFonts.impact, fontSize: 44, marginVertical: 15 },
   optionsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, width: '100%', marginTop: 10 },
   optionWrapper: { width: '45%', position: 'relative' },
-  optionShadow: { position: 'absolute', top: 5, left: 5, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
-  optionButton: { backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#1a1008', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', minHeight: 60 },
+  optionShadow: { position: 'absolute', top: 5, left: 5, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 0 },
+  optionButton: { backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#1a1008', borderRadius: 0, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', minHeight: 60 },
   optionButtonMedium: { paddingVertical: 14, minHeight: 64 },
   optionButtonLarge: { paddingVertical: 15, minHeight: 66 },
   optionCorrect: { backgroundColor: '#22c55e', borderColor: '#14532d' },
   optionWrong: { backgroundColor: '#e8302a', borderColor: '#7f1d1d' },
   optionDimmed: { opacity: 0.5 },
-  optionText: { fontSize: 20, fontWeight: '900', color: '#1a1008', textAlign: 'center' },
-  optionTextMedium: { fontSize: 24 },
-  optionTextLarge: { fontSize: 26 },
+  optionText: {
+    fontFamily: GameFonts.brawl, fontSize: 20, color: '#ffffff', textAlign: 'center' },
+  optionTextMedium: {
+    fontFamily: GameFonts.brawl, fontSize: 24 },
+  optionTextLarge: {
+    fontFamily: GameFonts.brawl, fontSize: 26 },
   optionTextOnColor: { color: '#fff' },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(26, 16, 8, 0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   menuWrapper: { width: '100%', maxWidth: 350, position: 'relative' },
   menuShadow: { position: 'absolute', top: 8, left: 8, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 16 },
   menuContent: { backgroundColor: '#fff', borderWidth: 4, borderColor: '#1a1008', borderRadius: 16, padding: 30, alignItems: 'center' },
-  menuTitle: { fontSize: 40, fontWeight: '900', color: '#e8302a', marginBottom: 30, letterSpacing: 2 },
+  menuTitle: {
+    fontFamily: GameFonts.brawl, fontSize: 30, color: '#e8302a', marginBottom: 30, letterSpacing: 2 },
 
   victoryContent: { backgroundColor: '#1a6cf5', borderWidth: 4, borderColor: '#1a1008', borderRadius: 16, padding: 30, alignItems: 'center' },
-  victoryTitle: { fontSize: 48, fontWeight: '900', color: '#f5a623', textShadowColor: '#1a1008', textShadowOffset: { width: 3, height: 3 }, textShadowRadius: 0, marginBottom: 10, letterSpacing: 2 },
-  victorySubtitle: { fontSize: 20, fontWeight: '900', color: '#fff', marginBottom: 20, textTransform: 'uppercase', letterSpacing: 1 },
+  victoryTitle: {
+    fontFamily: GameFonts.brawl, fontSize: 34, color: '#f5a623', textShadowColor: '#1a1008', textShadowOffset: { width: 3, height: 3 }, textShadowRadius: 0, marginBottom: 10, letterSpacing: 2 },
+  victorySubtitle: {
+    fontFamily: GameFonts.brawl, fontSize: 20, color: '#fff', marginBottom: 20, textTransform: 'uppercase', letterSpacing: 1 },
 
   defeatContent: { backgroundColor: '#e8302a', borderWidth: 4, borderColor: '#1a1008', borderRadius: 16, padding: 30, alignItems: 'center' },
-  defeatTitle: { fontSize: 48, fontWeight: '900', color: '#f5a623', textShadowColor: '#1a1008', textShadowOffset: { width: 3, height: 3 }, textShadowRadius: 0, marginBottom: 10, letterSpacing: 2 },
-  defeatSubtitle: { fontSize: 20, fontWeight: '900', color: '#fff', marginBottom: 30, textTransform: 'uppercase', letterSpacing: 1 },
+  defeatTitle: {
+    fontFamily: GameFonts.brawl, fontSize: 34, color: '#f5a623', textShadowColor: '#1a1008', textShadowOffset: { width: 3, height: 3 }, textShadowRadius: 0, marginBottom: 10, letterSpacing: 2 },
+  defeatSubtitle: {
+    fontFamily: GameFonts.brawl, fontSize: 20, color: '#fff', marginBottom: 30, textTransform: 'uppercase', letterSpacing: 1 },
 
   btnWrapper: { width: '100%', position: 'relative', marginBottom: 15 },
   btnShadow: { position: 'absolute', top: 4, left: 4, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
   btnPrimary: { backgroundColor: '#22c55e', borderWidth: 3, borderColor: '#1a1008', borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
-  btnPrimaryText: { color: '#fff', fontSize: 18, fontWeight: '900', textTransform: 'uppercase' },
+  btnPrimaryText: {
+    fontFamily: GameFonts.brawl, color: '#fff', fontSize: 18, textTransform: 'uppercase' },
   btnSecondary: { backgroundColor: '#f5a623', borderWidth: 3, borderColor: '#1a1008', borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
-  btnSecondaryText: { color: '#1a1008', fontSize: 18, fontWeight: '900', textTransform: 'uppercase' },
+  btnSecondaryText: {
+    fontFamily: GameFonts.brawl, color: '#1a1008', fontSize: 18, textTransform: 'uppercase' },
 
   // Turn Notification Styles (moved to end)
   turnNotificationWrapper: { width: '100%', maxWidth: 350, position: 'relative' },
@@ -725,20 +789,22 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   turnNotificationTitle: {
-    fontSize: 36,
+    fontFamily: GameFonts.brawl,
+    fontSize: 32,
     fontWeight: '900',
     color: '#1a1008',
     textShadowColor: '#f5a623',
     textShadowOffset: { width: 2, height: 2 },
     textShadowRadius: 0,
     marginBottom: 10,
-    letterSpacing: 3
+    letterSpacing: 2
   },
   turnNotificationSubtitle: {
-    fontSize: 24,
+    fontFamily: GameFonts.brawl,
+    fontSize: 20,
     fontWeight: '900',
     color: '#1a1008',
     textTransform: 'uppercase',
-    letterSpacing: 2
+    letterSpacing: 1.5
   },
 });

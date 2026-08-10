@@ -1,9 +1,10 @@
 // app/pre-battle.tsx
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, ViewStyle, Image } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import NeoButton from '../components/NeoButton';
 import TouchableOpacity from '../components/TouchableOpacity';
+import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
 
 const GEARS = [
@@ -11,7 +12,7 @@ const GEARS = [
   { id: 'g2', name: 'Study Notes', stat: '+1 Heart', icon: '📓', cost: 100 },
   { id: 'g3', name: 'Math Ruler', stat: '+4s / Q', icon: '📏', cost: 200 },
   { id: 'g4', name: 'Pocket Calc', stat: '+2 Hearts', icon: '📱', cost: 350 },
-  { id: 'g5', name: 'Golden Protractor', stat: '2x XP Boost', icon: '📐', cost: 600 },
+  { id: 'g5', name: 'Golden Protractor', stat: '+3 Hearts & +5s/Q', icon: '📐', cost: 600 },
 ];
 
 const SKILLS = [
@@ -22,18 +23,19 @@ const SKILLS = [
 ];
 
 const CHARACTERS = [
-  { id: 'c0', name: 'Algebro', icon: '🧮', image: require('../assets/images/avatar/algebroavatar.png'), cost: 0 },
-  { id: 'c1', name: 'Ada Lovelace', icon: '👩‍💻', image: require('../assets/images/avatar/lovelaceavatar.png'), cost: 150 },
-  { id: 'c2', name: 'Isaac Newton', icon: '🍎', image: require('../assets/images/avatar/newtonavatar.png'), cost: 300 },
-  { id: 'c3', name: 'Nikola Tesla', icon: '⚡', image: require('../assets/images/avatar/teslaavatar.png'), cost: 500 },
-  { id: 'c4', name: 'Marie Curie', icon: '☢️', image: require('../assets/images/avatar/curieavatar.png'), cost: 750 },
+  { id: 'c0', name: 'Algebro', stat: 'Balanced', icon: '🧮', image: require('../assets/images/avatar/algebroavatar.png'), cost: 0 },
+  { id: 'c1', name: 'Ada Lovelace', stat: '+3s / Q', icon: '👩‍💻', image: require('../assets/images/avatar/lovelaceavatar.png'), cost: 150 },
+  { id: 'c2', name: 'Isaac Newton', stat: '+1 Heart', icon: '🍎', image: require('../assets/images/avatar/newtonavatar.png'), cost: 300 },
+  { id: 'c3', name: 'Nikola Tesla', stat: '+2 HP & +3s', icon: '⚡', image: require('../assets/images/avatar/teslaavatar.png'), cost: 500 },
+  { id: 'c4', name: 'Marie Curie', stat: '+2 HP & Shield', icon: '☢️', image: require('../assets/images/avatar/curieavatar.png'), cost: 750 },
 ];
 
 export default function PreBattleScreen() {
   const router = useRouter();
-  const { level, questions, timePerQuestion: timeParam } = useLocalSearchParams();
+  const { level, questions, timePerQuestion: timeParam, difficulty: difficultyParam } = useLocalSearchParams();
   const timePerQuestion = Number(timeParam) || 30;
   const currentLevel = Number(level) || 1;
+  const difficulty = difficultyParam ? String(difficultyParam) : undefined;
 
   const inventory = useGameStore((state) => state.inventory);
   const coins = useGameStore((state) => state.coins);
@@ -109,6 +111,18 @@ export default function PreBattleScreen() {
             <Text style={styles.infoValue}>3 Hearts</Text>
           </View>
         </BrutalistCard>
+
+        {/* 1b. DIFFICULTY (Level 7 only) */}
+        {currentLevel === 7 && difficulty && (
+          <BrutalistCard style={styles.infoBox}>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>🎯  DIFFICULTY</Text>
+              <Text style={[styles.infoValue, {
+                color: difficulty === 'easy' ? '#22c55e' : difficulty === 'hard' ? '#e8302a' : '#f5a623'
+              }]}>{difficulty.toUpperCase()}</Text>
+            </View>
+          </BrutalistCard>
+        )}
 
         {/* 2. CHOOSE GEAR */}
         <Text style={styles.sectionHeader}>EQUIP GEAR (CHOOSE 1)</Text>
@@ -201,7 +215,11 @@ export default function PreBattleScreen() {
                   <Text style={[styles.itemName, !isUnlocked && styles.lockedText]}>
                     {!isUnlocked ? `🪙 ${char.cost}` : char.name}
                   </Text>
-                  {!isUnlocked && <Text style={styles.shopPromptText}>BUY IN SHOP</Text>}
+                  {isUnlocked ? (
+                    <Text style={styles.itemStat}>{char.stat}</Text>
+                  ) : (
+                    <Text style={styles.shopPromptText}>BUY IN SHOP</Text>
+                  )}
                 </TouchableOpacity>
               );
             })}
@@ -276,6 +294,7 @@ export default function PreBattleScreen() {
                   characterName: activeCharacter?.name,
                   characterIcon: activeCharacter?.icon,
                   characterId: activeCharacter?.id,
+                  ...(difficulty ? { difficulty } : {}),
                 },
               });
             }}
@@ -325,8 +344,8 @@ const styles = StyleSheet.create({
     borderColor: '#1a1008',
   },
   backShortcutText: {
+    fontFamily: GameFonts.brawl,
     color: '#ffffff',
-    fontWeight: '900',
     fontSize: 12,
     letterSpacing: 0.5,
   },
@@ -354,9 +373,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   fixedShopCoins: {
+    fontFamily: GameFonts.arcade,
     color: '#1a1008',
-    fontSize: 14,
-    fontWeight: '900',
+    fontSize: 13,
   },
   fixedShopDivider: {
     width: 2,
@@ -364,15 +383,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1008',
   },
   fixedShopText: {
+    fontFamily: GameFonts.brawl,
     color: '#1a1008',
-    fontSize: 13,
-    fontWeight: '900',
+    fontSize: 12,
     letterSpacing: 0.5,
   },
   bgSymbol: {
+    fontFamily: GameFonts.impact,
     position: 'absolute',
     fontSize: 60,
-    fontWeight: '900',
     color: '#e5d9c4',
     opacity: 0.3,
     zIndex: 0,
@@ -385,24 +404,24 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   title: {
-    fontSize: 48,
-    fontWeight: '900',
+    fontFamily: GameFonts.brawl,
+    fontSize: 34,
     color: '#1a1008',
     marginBottom: 4,
     textTransform: 'uppercase',
     letterSpacing: 2,
   },
   subtitle: {
-    fontSize: 16,
-    fontWeight: '900',
+    fontFamily: GameFonts.brawl,
+    fontSize: 15,
     color: '#f5a623',
     marginBottom: 24,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   sectionHeader: {
-    fontSize: 15,
-    fontWeight: '900',
+    fontFamily: GameFonts.brawl,
+    fontSize: 14,
     color: '#1a1008',
     alignSelf: 'flex-start',
     textTransform: 'uppercase',
@@ -440,13 +459,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   infoLabel: {
-    fontSize: 14,
-    fontWeight: '900',
+    fontFamily: GameFonts.hud,
+    fontSize: 13,
     color: '#7a6a55',
   },
   infoValue: {
-    fontSize: 16,
-    fontWeight: '900',
+    fontFamily: GameFonts.brawl,
+    fontSize: 15,
     color: '#1a1008',
   },
   gearScrollWrapper: {
@@ -490,18 +509,19 @@ const styles = StyleSheet.create({
     borderColor: '#94a3b8',
   },
   itemIcon: {
+    fontFamily: GameFonts.brawl,
     fontSize: 32,
   },
   itemName: {
-    fontSize: 12,
-    fontWeight: '900',
+    fontFamily: GameFonts.brawl,
+    fontSize: 11,
     color: '#1a1008',
     textAlign: 'center',
     marginTop: 6,
   },
   itemStat: {
+    fontFamily: GameFonts.hud,
     fontSize: 10,
-    fontWeight: '800',
     color: '#f5a623',
     textAlign: 'center',
   },
@@ -509,8 +529,8 @@ const styles = StyleSheet.create({
     color: '#64748b',
   },
   shopPromptText: {
+    fontFamily: GameFonts.hud,
     fontSize: 9,
-    fontWeight: '900',
     color: '#3b82f6',
     marginTop: 2,
   },
@@ -547,19 +567,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#cbd5e1',
   },
   skillIcon: {
+    fontFamily: GameFonts.brawl,
     fontSize: 20,
   },
   skillTextContainer: {
     flex: 1,
   },
   skillName: {
+    fontFamily: GameFonts.brawl,
     fontSize: 14,
-    fontWeight: '900',
     color: '#1a1008',
   },
   skillDesc: {
+    fontFamily: GameFonts.hud,
     fontSize: 12,
-    fontWeight: '700',
     color: '#7a6a55',
   },
   radioCircle: {
@@ -604,9 +625,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   btnPrimaryText: {
+    fontFamily: GameFonts.brawl,
     color: '#ffffff',
     fontSize: 18,
-    fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
@@ -619,9 +640,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   btnSecondaryText: {
+    fontFamily: GameFonts.brawl,
     color: '#ffffff',
     fontSize: 18,
-    fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },

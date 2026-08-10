@@ -2,23 +2,27 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ImageBackground, Modal, StyleSheet, Text, View } from 'react-native';
 import AttackProjectile from '../components/AttackProjectile';
 import ReviewModal from '../components/ReviewModal';
 import Sprite from '../components/sprite';
 import TouchableOpacity from '../components/TouchableOpacity';
+import { getLevelTheme } from '../constants/levelThemes';
+import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
 import { generateQuestion, Question } from '../scripts/mathGenerator';
 import { soundService } from '../services/soundService';
 
 export default function BattleScreen() {
-  const { level, questions, timePerQuestion: timeParam, skillName, skillIcon, gearName, gearIcon, gearStat, characterId: paramCharId } = useLocalSearchParams();
+  const { level, questions, timePerQuestion: timeParam, skillName, skillIcon, gearName, gearIcon, gearStat, characterId: paramCharId, difficulty: paramDifficulty } = useLocalSearchParams();
   const router = useRouter();
   const { recordLevelProgress, updateStats, coins, equippedCharacter } = useGameStore();
   const selectedCharId = String(paramCharId || equippedCharacter || 'c0');
+  const selectedDifficulty = (paramDifficulty ? String(paramDifficulty) : 'medium') as 'easy' | 'medium' | 'hard';
 
   const totalQuestions = Number(questions) || 10;
   const currentLevel = Number(level) || 1;
+  const levelTheme = getLevelTheme(currentLevel);
   const isExtraLarge = currentLevel <= 2;
   const isMedium = currentLevel === 3;
 
@@ -47,8 +51,31 @@ export default function BattleScreen() {
   const activeGearStat = gearStat ? String(gearStat) : "";
   const activeGearIcon = gearIcon ? String(gearIcon) : "";
 
-  const bonusHearts = activeGearStat === '+1 Heart' ? 1 : activeGearStat === '+2 Hearts' ? 2 : 0;
-  const bonusTime = activeGearStat === '+2s / Q' ? 2 : activeGearStat === '+4s / Q' ? 4 : 0;
+  // Gear bonus calculations
+  const gearBonusHearts =
+    activeGearStat === '+1 Heart' ? 1 :
+      activeGearStat === '+2 Hearts' ? 2 :
+        activeGearStat.includes('+3 Hearts') ? 3 : 0;
+
+  const gearBonusTime =
+    activeGearStat === '+2s / Q' ? 2 :
+      activeGearStat === '+4s / Q' ? 4 :
+        activeGearStat.includes('+5s') ? 5 : 0;
+
+  // Character passive bonus calculations
+  const charBonusHearts =
+    selectedCharId === 'c2' ? 1 : // Isaac Newton: +1 Heart
+      selectedCharId === 'c3' ? 2 : // Nikola Tesla: +2 Hearts
+        selectedCharId === 'c4' ? 2 : 0; // Marie Curie: +2 Hearts
+
+  const charBonusTime =
+    selectedCharId === 'c1' ? 3 : // Ada Lovelace: +3s / Q
+      selectedCharId === 'c3' ? 3 : 0; // Nikola Tesla: +3s / Q
+
+  const charStartShield = selectedCharId === 'c4'; // Marie Curie starts with active Shield!
+
+  const bonusHearts = gearBonusHearts + charBonusHearts;
+  const bonusTime = gearBonusTime + charBonusTime;
   const xpMultiplier = activeGearStat === '2x XP Boost' ? 2 : 1;
 
   const maxHearts = 3 + bonusHearts;
@@ -77,7 +104,7 @@ export default function BattleScreen() {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
   const [skillUsed, setSkillUsed] = useState(false);
-  const [hasShield, setHasShield] = useState(false);
+  const [hasShield, setHasShield] = useState(charStartShield);
   const [hasDoubleStrike, setHasDoubleStrike] = useState(false);
 
   const [attackActive, setAttackActive] = useState(false);
@@ -121,9 +148,11 @@ export default function BattleScreen() {
   }, [isWon, showVictory, showDefeat, attackActive, attacker, isImpactPhase, isAnswering, selectedOption, currentQ]);
 
   const [questionIndex, setQuestionIndex] = useState(0);
+  const isBossQuestion = currentLevel === 7 && questionIndex >= totalQuestions - 5;
+  const currentEnemyId = isBossQuestion ? 'villain2' : (levelTheme.enemyId || (currentLevel === 4 ? 'knight' : (currentLevel === 3 ? 'slime' : (currentLevel === 2 ? 'villain2' : 'villain1'))));
 
   useEffect(() => {
-    const q = generateQuestion(currentLevel, 0, totalQuestions);
+    const q = generateQuestion(currentLevel, 0, totalQuestions, selectedDifficulty);
     setCurrentQ(q);
     if (currentLevel === 7) {
       setTimer(getTimeForLevel(q.sourceLevel));
@@ -263,7 +292,7 @@ export default function BattleScreen() {
   const resetForNextQuestion = () => {
     const nextIndex = questionIndex + 1;
     setQuestionIndex(nextIndex);
-    const nextQ = generateQuestion(currentLevel, nextIndex, totalQuestions);
+    const nextQ = generateQuestion(currentLevel, nextIndex, totalQuestions, selectedDifficulty);
     const nextTime = currentLevel === 7
       ? getTimeForLevel(nextQ.sourceLevel)
       : initialTime;
@@ -276,6 +305,7 @@ export default function BattleScreen() {
   const getOptionStyle = (opt: string) => {
     const baseStyle = [
       styles.optionButton,
+      { backgroundColor: levelTheme.buttonBg, borderColor: levelTheme.buttonBorder },
       isMedium && styles.optionButtonMedium,
       isExtraLarge && styles.optionButtonLarge
     ];
@@ -311,95 +341,137 @@ export default function BattleScreen() {
     return '❤️'.repeat(safeHP) + '🖤'.repeat(lostHearts);
   };
 
+  const restartBattle = () => {
+    setShowDefeat(false);
+    setShowVictory(false);
+    setIsWon(false);
+    soundService.stopSound('defeat');
+    soundService.stopSound('victory');
+
+    setPlayerHP(maxHearts);
+    setEnemyHP(totalQuestions);
+    setCorrectAnswersCount(0);
+    setQuestionIndex(0);
+    setSkillUsed(false);
+    setHasShield(charStartShield);
+    setHasDoubleStrike(false);
+    setAttackActive(false);
+    setIsImpactPhase(false);
+    setSelectedOption(null);
+    setIsAnswering(false);
+    reviewShown.current = false;
+
+    const firstQ = generateQuestion(currentLevel, 0, totalQuestions, selectedDifficulty);
+    setCurrentQ(firstQ);
+    const firstTime = currentLevel === 7
+      ? getTimeForLevel(firstQ.sourceLevel)
+      : initialTime;
+    setTimer(firstTime);
+  };
+
   return (
     <View style={styles.container}>
 
-      {/* 1. TOP BAR */}
+      {/* 1. TOP BAR (HEADER & PAUSE BUTTON OUTSIDE MAP BG) */}
       <View style={styles.topBar}>
         <Text style={styles.levelTitle} numberOfLines={1} adjustsFontSizeToFit>
           Level {currentLevel}: {levelTitle.toUpperCase()}
         </Text>
         <TouchableOpacity style={styles.pauseBtn} onPress={() => setIsPaused(true)}>
-          <Feather name="pause" size={18} color="#ffffff" />
+          <Feather name="pause" size={14} color="#1a1008" />
           <Text style={styles.pauseLabel}>PAUSE</Text>
         </TouchableOpacity>
       </View>
 
-      {/* 1b. TIMER + Q COUNTER BAR */}
-      <View style={styles.subBar}>
-        <Text style={[styles.hpHearts, { alignSelf: 'flex-end' }]}>{renderHearts()}</Text>
-        <View style={styles.timerBlock}>
-          <Text style={[styles.timer, timer <= 5 && styles.timerDanger]}>{timer}s</Text>
+      {/* MAP BACKGROUND COVERING SUB-BAR HUD (HEARTS, TIMER, Q COUNTER) AND ARENA */}
+      <ImageBackground
+        source={levelTheme.bgImage || undefined}
+        style={[styles.mapArea, { backgroundColor: levelTheme.stageBgColor }]}
+        resizeMode="cover"
+      >
+        {/* 1b. TIMER + Q COUNTER BAR (Floating directly over background environment) */}
+        <View style={styles.subBar}>
+          <Text style={styles.hpHearts}>{renderHearts()}</Text>
+
+          <Text style={[styles.timer, timer <= 5 && styles.timerDanger]}>⏱️ {timer}s</Text>
+
+          <Text style={styles.questionCounter}>Q:{totalQuestions - enemyHP + 1}/{totalQuestions}</Text>
         </View>
-        <Text style={styles.questionCounter}>Q:{totalQuestions - enemyHP + 1}/{totalQuestions}</Text>
-      </View>
 
-      {/* 2. ARENA AREA */}
-      <View style={styles.arena}>
+        {/* 2. ARENA AREA */}
+        <View style={styles.arena}>
+          <AttackProjectile
+            active={attackActive}
+            attacker={attacker}
+            characterId={selectedCharId}
+            enemyId={currentEnemyId}
+            hasDoubleStrike={hasDoubleStrike}
+            hasShield={hasShield}
+            onImpact={handleProjectileImpact}
+            onComplete={handleProjectileComplete}
+          />
 
-        <AttackProjectile
-          active={attackActive}
-          attacker={attacker}
-          characterId={selectedCharId}
-          hasDoubleStrike={hasDoubleStrike}
-          hasShield={hasShield}
-          onImpact={handleProjectileImpact}
-          onComplete={handleProjectileComplete}
-        />
+          {/* Player Side */}
+          <View style={styles.characterSlot}>
+            <View style={styles.statusBadgeArea}>
+              {hasShield && (
+                <View style={styles.statusBadgeRow}>
+                  <Image source={require('../assets/images/sprites/hero_win.png')} style={styles.statusBadgeImage} resizeMode="contain" />
+                  <Text style={styles.statusBadgeLabel}>SHIELDED</Text>
+                </View>
+              )}
+              {hasDoubleStrike && (
+                <View style={styles.statusBadgeRow}>
+                  <Image source={require('../assets/images/sprites/hero_attack.png')} style={styles.statusBadgeImage} resizeMode="contain" />
+                  <Text style={styles.statusBadgeLabel}>2X DMG</Text>
+                </View>
+              )}
+            </View>
 
-        {/* Player Side */}
-        <View style={styles.characterSlot}>
-          <View style={styles.statusBadgeArea}>
-            {hasShield && (
-              <View style={styles.statusBadgeRow}>
-                <Image source={require('../assets/images/sprites/hero_win.png')} style={styles.statusBadgeImage} resizeMode="contain" />
-                <Text style={styles.statusBadgeLabel}>SHIELDED</Text>
-              </View>
-            )}
-            {hasDoubleStrike && (
-              <View style={styles.statusBadgeRow}>
-                <Image source={require('../assets/images/sprites/hero_attack.png')} style={styles.statusBadgeImage} resizeMode="contain" />
-                <Text style={styles.statusBadgeLabel}>2X DMG</Text>
-              </View>
-            )}
+            <Sprite action={playerAction} characterId={selectedCharId} />
+
+            <View style={styles.bottomUIArea}>
+              {activeGearStat ? (
+                <View style={[styles.gearIndicator, { backgroundColor: levelTheme.buttonBg, borderColor: levelTheme.buttonBorder }]}>
+                  <Text style={styles.gearIndicatorText}>{activeGearIcon} {activeGearStat}</Text>
+                </View>
+              ) : null}
+
+              <TouchableOpacity
+                style={styles.skillBadgeContainer}
+                activeOpacity={0.8}
+                disabled={skillUsed || activeSkillName === "Basic Attack"}
+                onPress={activateSkill}
+              >
+                <View style={[styles.skillBadge, skillUsed && styles.skillBadgeUsed, !skillUsed && { backgroundColor: levelTheme.buttonBg, borderColor: levelTheme.buttonBorder }]}>
+                  <Text style={[styles.skillBadgeText, skillUsed && styles.skillBadgeTextUsed]}>
+                    {activeSkillIcon} {activeSkillName} {skillUsed ? "(USED)" : ""}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          <Sprite action={playerAction} characterId={selectedCharId} />
-
-          <View style={styles.bottomUIArea}>
-            {activeGearStat ? (
-              <View style={styles.gearIndicator}>
-                <Text style={styles.gearIndicatorText}>{activeGearIcon} {activeGearStat}</Text>
-              </View>
-            ) : null}
-
-            <TouchableOpacity
-              style={styles.skillBadgeContainer}
-              activeOpacity={0.8}
-              disabled={skillUsed || activeSkillName === "Basic Attack"}
-              onPress={activateSkill}
-            >
-              <View style={[styles.skillBadge, skillUsed && styles.skillBadgeUsed]}>
-                <Text style={[styles.skillBadgeText, skillUsed && styles.skillBadgeTextUsed]}>
-                  {activeSkillIcon} {activeSkillName} {skillUsed ? "(USED)" : ""}
-                </Text>
-              </View>
-            </TouchableOpacity>
+          {/* Enemy Side */}
+          <View style={styles.characterSlot}>
+            <View style={styles.statusBadgeArea}>
+              {isBossQuestion && (
+                <View style={[styles.statusBadgeRow, { backgroundColor: '#e8302a', borderColor: '#1a1008' }]}>
+                  <Text style={{ fontSize: 14 }}>👑</Text>
+                  <Text style={[styles.statusBadgeLabel, { color: '#ffffff' }]}>BOSS</Text>
+                </View>
+              )}
+            </View>
+            <Sprite action={enemyAction} isEnemy enemyId={currentEnemyId} />
+            <View style={styles.bottomUIArea} />
           </View>
-        </View>
 
-        {/* Enemy Side */}
-        <View style={styles.characterSlot}>
-          <View style={styles.statusBadgeArea} />
-          <Sprite action={enemyAction} isEnemy enemyId={currentLevel === 2 ? 'villain2' : 'villain1'} />
-          <View style={styles.bottomUIArea} />
         </View>
-
-      </View>
+      </ImageBackground>
 
       {/* 3. QUESTION PANEL */}
       {currentQ && (
-        <View style={styles.questionPanel}>
+        <View style={[styles.questionPanel, { backgroundColor: levelTheme.panelBg, borderColor: levelTheme.buttonBorder }]}>
           {currentQ.hint ? (
             <Text style={[styles.hintText, isMedium && styles.hintTextMedium, isExtraLarge && styles.hintTextLarge]}>{currentQ.hint}</Text>
           ) : null}
@@ -571,20 +643,24 @@ export default function BattleScreen() {
                 </Text>
               </View>
               <Text style={styles.defeatSubtitle}>You ran out of hearts!</Text>
-              <View style={styles.btnWrapper}>
-                <View style={styles.btnShadow} />
-                <TouchableOpacity style={styles.btnSecondary} onPress={() => {
-                  setShowDefeat(false);
-                  soundService.stopSound('defeat');
-                  if (!reviewShown.current) {
-                    reviewShown.current = true;
-                    setShowReview(true);
-                  } else {
+              <View style={{ width: '100%', gap: 12 }}>
+                <View style={styles.btnWrapper}>
+                  <View style={styles.btnShadow} />
+                  <TouchableOpacity style={styles.btnPrimary} onPress={restartBattle}>
+                    <Text style={styles.btnPrimaryText}>Try Again</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.btnWrapper}>
+                  <View style={styles.btnShadow} />
+                  <TouchableOpacity style={styles.btnSecondary} onPress={() => {
+                    setShowDefeat(false);
+                    soundService.stopSound('defeat');
                     router.replace('/map');
-                  }
-                }}>
-                  <Text style={styles.btnSecondaryText}>Try Again</Text>
-                </TouchableOpacity>
+                  }}>
+                    <Text style={styles.btnSecondaryText}>Back to Menu</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
@@ -609,6 +685,10 @@ export default function BattleScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff9f0' },
 
+  mapArea: {
+    flex: 1,
+    position: 'relative',
+  },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -619,37 +699,43 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1008',
   },
   levelTitle: {
+    fontFamily: GameFonts.brawl,
     flex: 1,
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 20,
     color: '#ffffff',
     textTransform: 'uppercase',
     fontStyle: 'italic',
     letterSpacing: 1,
     marginRight: 10,
-    textShadowColor: '#000',
-    textShadowOffset: { width: 1, height: 1 },
+    textShadowColor: '#1a1008',
+    textShadowOffset: { width: 2, height: 2 },
     textShadowRadius: 0,
   },
   questionCounter: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#1a1008',
-    fontStyle: 'italic',
+    fontFamily: GameFonts.arcade,
+    fontSize: 16,
+    color: '#f5a623',
+    textShadowColor: '#1a1008',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 0,
   },
   pauseBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#1a1008',
-    borderWidth: 2.5,
-    borderColor: '#f5a623',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    gap: 4,
+    backgroundColor: '#fff9f0',
+    borderWidth: 2,
+    borderColor: '#1a1008',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  pauseIcon: { fontSize: 16, fontWeight: '900', color: '#ffffff' },
-  pauseLabel: { fontSize: 16, fontWeight: '900', color: '#ffffff', textTransform: 'uppercase', letterSpacing: 1.5 },
+  pauseIcon: {
+    fontFamily: GameFonts.brawl, fontSize: 12, color: '#1a1008'
+  },
+  pauseLabel: {
+    fontFamily: GameFonts.brawl, fontSize: 12, color: '#1a1008', textTransform: 'uppercase', letterSpacing: 0.5
+  },
   pauseTogglesRow: {
     flexDirection: 'row',
     gap: 24,
@@ -691,16 +777,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#fff9f0',
+    paddingVertical: 8,
+    backgroundColor: 'transparent',
   },
   timerBlock: { alignItems: 'center' },
-  hpHearts: { fontSize: 20 },
+  hpHearts: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 20,
+    textShadowColor: '#1a1008',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 0,
+  },
   topRight: {},
   levelLabel: {},
-  enemyHpText: { fontSize: 16, fontWeight: '900', color: '#f5a623' },
-  timer: { fontSize: 28, fontWeight: '900', color: '#1a1008' },
+  enemyHpText: {
+    fontFamily: GameFonts.arcade, fontSize: 14, color: '#f5a623'
+  },
+  timer: {
+    fontFamily: GameFonts.arcade,
+    fontSize: 20,
+    color: '#ffffff',
+    textShadowColor: '#1a1008',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 0,
+  },
   timerDanger: { color: '#e8302a' },
+
 
   arena: {
     flex: 1,
@@ -726,24 +828,29 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   statusText: {
-    backgroundColor: '#fff', color: '#1a1008', fontWeight: '900', fontSize: 12,
+    fontFamily: GameFonts.hud,
+    backgroundColor: '#fff9f0', color: '#1a1008', fontSize: 12,
     paddingHorizontal: 8, paddingVertical: 4,
     borderWidth: 2, borderColor: '#1a1008', borderRadius: 8, overflow: 'hidden'
   },
   statusBadgeRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#fff', borderWidth: 2, borderColor: '#1a1008', borderRadius: 8,
+    backgroundColor: '#fff9f0', borderWidth: 2, borderColor: '#1a1008', borderRadius: 8,
     paddingHorizontal: 8, paddingVertical: 4,
   },
   statusBadgeImage: { width: 18, height: 18 },
-  statusBadgeLabel: { fontSize: 12, fontWeight: '900', color: '#1a1008' },
+  statusBadgeLabel: {
+    fontFamily: GameFonts.hud, fontSize: 12, color: '#1a1008'
+  },
 
   gearIndicator: {
     marginTop: 8,
-    backgroundColor: '#e5d9c4', borderWidth: 2, borderColor: '#1a1008',
+    backgroundColor: '#fff9f0', borderWidth: 2, borderColor: '#1a1008',
     borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
   },
-  gearIndicatorText: { fontSize: 12, fontWeight: '900', color: '#1a1008' },
+  gearIndicatorText: {
+    fontFamily: GameFonts.hud, fontSize: 12, color: '#1a1008'
+  },
   skillBadgeContainer: {
     marginTop: 10,
     position: 'relative',
@@ -754,40 +861,61 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1008', borderRadius: 8,
   },
   skillBadge: {
-    backgroundColor: '#fef3c7', borderWidth: 3, borderColor: '#1a1008',
+    backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#1a1008',
     borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
     flexDirection: 'row', alignItems: 'center', gap: 8,
   },
   skillBadgeUsed: { backgroundColor: '#e5d9c4' },
-  skillBadgeText: { fontSize: 14, fontWeight: '900', color: '#1a1008', textTransform: 'uppercase' },
+  skillBadgeText: {
+    fontFamily: GameFonts.brawl, fontSize: 14, color: '#1a1008', textTransform: 'uppercase'
+  },
   skillBadgeTextUsed: { color: '#7a6a55' },
   skillActionImage: { width: 24, height: 24 },
   skillActionImageUsed: { opacity: 0.7 },
 
   questionPanel: {
-    height: 340,
-    justifyContent: 'center',
-    backgroundColor: '#fff', borderTopWidth: 4, borderColor: '#1a1008',
-    paddingTop: 20, paddingBottom: 20, paddingHorizontal: 25, borderTopLeftRadius: 30, borderTopRightRadius: 30, alignItems: 'center',
+    minHeight: 270,
+    maxHeight: 350,
+    justifyContent: 'space-between',
+    backgroundColor: '#fff9f0', borderTopWidth: 4, borderColor: '#1a1008',
+    paddingTop: 12, paddingBottom: 16, paddingHorizontal: 16, borderRadius: 0, alignItems: 'center',
   },
-  equation: { fontSize: 32, fontWeight: '900', color: '#1a1008', marginVertical: 10, textAlign: 'center' },
-  equationMedium: { fontSize: 40, marginVertical: 15 },
-  equationLarge: { fontSize: 44, marginVertical: 15 },
-  hintText: { fontSize: 14, fontWeight: '700', color: '#7a6a55', marginBottom: 4, textAlign: 'center', fontStyle: 'italic' },
-  hintTextMedium: { fontSize: 15, marginBottom: 6 },
-  hintTextLarge: { fontSize: 16, marginBottom: 6 },
-  optionsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, width: '100%', marginTop: 10 },
-  optionWrapper: { width: '45%', position: 'relative' },
-  optionShadow: { position: 'absolute', top: 5, left: 5, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
-  optionButton: { backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#1a1008', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', minHeight: 60 },
-  optionButtonMedium: { paddingVertical: 14, minHeight: 64 },
-  optionButtonLarge: { paddingVertical: 15, minHeight: 66 },
+  equation: {
+    fontFamily: GameFonts.impact, fontSize: 24, color: '#ffffff', marginVertical: 4, textAlign: 'center'
+  },
+  equationMedium: {
+    fontFamily: GameFonts.impact, fontSize: 26, marginVertical: 6
+  },
+  equationLarge: {
+    fontFamily: GameFonts.impact, fontSize: 28, marginVertical: 8
+  },
+  hintText: {
+    fontFamily: GameFonts.hud, fontSize: 12, color: '#ffffff', marginBottom: 2, textAlign: 'center', fontStyle: 'italic'
+  },
+  hintTextMedium: {
+    fontFamily: GameFonts.hud, fontSize: 13, marginBottom: 4
+  },
+  hintTextLarge: {
+    fontFamily: GameFonts.hud, fontSize: 14, marginBottom: 4
+  },
+  optionsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, width: '100%', marginTop: 6 },
+  optionWrapper: { width: '47%', position: 'relative' },
+  optionShadow: { position: 'absolute', top: 3, left: 3, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 8 },
+  optionButton: { backgroundColor: '#fff9f0', borderWidth: 2.5, borderColor: '#1a1008', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center', minHeight: 50 },
+  optionButtonMedium: { paddingVertical: 10, minHeight: 54 },
+  optionButtonLarge: { paddingVertical: 10, minHeight: 56 },
   optionCorrect: { backgroundColor: '#22c55e', borderColor: '#14532d' },
   optionWrong: { backgroundColor: '#e8302a', borderColor: '#7f1d1d' },
   optionDimmed: { opacity: 0.5 },
-  optionText: { fontSize: 20, fontWeight: '900', color: '#1a1008', textAlign: 'center' },
-  optionTextMedium: { fontSize: 24 },
-  optionTextLarge: { fontSize: 26 },
+  optionText: {
+    fontFamily: GameFonts.brawl, fontSize: 16, color: '#ffffff', textAlign: 'center'
+  },
+  optionTextMedium: {
+    fontFamily: GameFonts.brawl, fontSize: 18
+  },
+  optionTextLarge: {
+    fontFamily: GameFonts.brawl, fontSize: 20
+  },
   optionTextCorrect: { color: '#fff' },
   optionTextWrong: { color: '#fff' },
 
@@ -795,34 +923,60 @@ const styles = StyleSheet.create({
   menuWrapper: { width: '100%', maxWidth: 350, position: 'relative' },
   menuShadow: { position: 'absolute', top: 8, left: 8, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 16 },
   menuContent: { backgroundColor: '#fff', borderWidth: 4, borderColor: '#1a1008', borderRadius: 16, padding: 30, alignItems: 'center' },
-  menuTitle: { fontSize: 40, fontWeight: '900', color: '#e8302a', marginBottom: 30, letterSpacing: 2 },
+  menuTitle: {
+    fontFamily: GameFonts.brawl, fontSize: 30, color: '#e8302a', marginBottom: 30, letterSpacing: 2
+  },
 
   victoryContent: { backgroundColor: '#1a6cf5', borderWidth: 4, borderColor: '#1a1008', borderRadius: 16, padding: 30, alignItems: 'center' },
-  victoryTitle: { fontSize: 48, fontWeight: '900', color: '#f5a623', textShadowColor: '#1a1008', textShadowOffset: { width: 3, height: 3 }, textShadowRadius: 0, marginBottom: 10, letterSpacing: 2 },
+  victoryTitle: {
+    fontFamily: GameFonts.brawl, fontSize: 34, color: '#f5a623', textShadowColor: '#1a1008', textShadowOffset: { width: 3, height: 3 }, textShadowRadius: 0, marginBottom: 10, letterSpacing: 2
+  },
   starsContainer: { backgroundColor: '#fff', borderWidth: 3, borderColor: '#1a1008', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 20, marginBottom: 15 },
-  victoryStars: { fontSize: 28, fontWeight: '900', color: '#1a1008', letterSpacing: 2 },
-  victorySubtitle: { fontSize: 20, fontWeight: '900', color: '#fff', marginBottom: 20, textTransform: 'uppercase', letterSpacing: 1 },
+  victoryStars: {
+    fontFamily: GameFonts.brawl, fontSize: 28, color: '#1a1008', letterSpacing: 2
+  },
+  victorySubtitle: {
+    fontFamily: GameFonts.brawl, fontSize: 20, color: '#fff', marginBottom: 20, textTransform: 'uppercase', letterSpacing: 1
+  },
 
   defeatContent: { backgroundColor: '#e8302a', borderWidth: 4, borderColor: '#1a1008', borderRadius: 16, padding: 30, alignItems: 'center' },
-  defeatTitle: { fontSize: 48, fontWeight: '900', color: '#f5a623', textShadowColor: '#1a1008', textShadowOffset: { width: 3, height: 3 }, textShadowRadius: 0, marginBottom: 10, letterSpacing: 2 },
-  defeatSubtitle: { fontSize: 20, fontWeight: '900', color: '#fff', marginBottom: 30, textTransform: 'uppercase', letterSpacing: 1 },
+  defeatTitle: {
+    fontFamily: GameFonts.brawl, fontSize: 34, color: '#f5a623', textShadowColor: '#1a1008', textShadowOffset: { width: 3, height: 3 }, textShadowRadius: 0, marginBottom: 10, letterSpacing: 2
+  },
+  defeatSubtitle: {
+    fontFamily: GameFonts.brawl, fontSize: 20, color: '#fff', marginBottom: 30, textTransform: 'uppercase', letterSpacing: 1
+  },
 
   unlockContent: { backgroundColor: '#fff', borderWidth: 4, borderColor: '#1a1008', borderRadius: 16, padding: 24, alignItems: 'center' },
-  unlockTitle: { fontSize: 32, fontWeight: '900', color: '#1a1008', marginBottom: 16, letterSpacing: 1 },
+  unlockTitle: {
+    fontFamily: GameFonts.brawl, fontSize: 24, color: '#1a1008', marginBottom: 16, letterSpacing: 1
+  },
   unlockList: { width: '100%', maxHeight: 260, marginBottom: 20 },
   unlockRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff9f0', borderWidth: 2, borderColor: '#1a1008', borderLeftWidth: 6, borderRadius: 10, padding: 12, marginBottom: 10, gap: 12 },
-  unlockIcon: { fontSize: 32 },
+  unlockIcon: {
+    fontFamily: GameFonts.brawl, fontSize: 32
+  },
   unlockInfo: { flex: 1 },
   unlockNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
-  unlockName: { fontSize: 15, fontWeight: '900', color: '#1a1008' },
+  unlockName: {
+    fontFamily: GameFonts.brawl, fontSize: 15, color: '#1a1008'
+  },
   unlockBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  unlockBadgeText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
-  unlockDetail: { fontSize: 12, fontWeight: '700', color: '#7a6a55' },
+  unlockBadgeText: {
+    fontFamily: GameFonts.hud, fontSize: 10, letterSpacing: 0.5
+  },
+  unlockDetail: {
+    fontFamily: GameFonts.hud, fontSize: 12, color: '#7a6a55'
+  },
 
   btnWrapper: { width: '100%', position: 'relative', marginBottom: 15 },
   btnShadow: { position: 'absolute', top: 4, left: 4, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
   btnPrimary: { backgroundColor: '#22c55e', borderWidth: 3, borderColor: '#1a1008', borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
-  btnPrimaryText: { color: '#fff', fontSize: 18, fontWeight: '900', textTransform: 'uppercase' },
+  btnPrimaryText: {
+    fontFamily: GameFonts.brawl, color: '#fff', fontSize: 18, textTransform: 'uppercase'
+  },
   btnSecondary: { backgroundColor: '#f5a623', borderWidth: 3, borderColor: '#1a1008', borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
-  btnSecondaryText: { color: '#1a1008', fontSize: 18, fontWeight: '900', textTransform: 'uppercase' },
+  btnSecondaryText: {
+    fontFamily: GameFonts.brawl, color: '#1a1008', fontSize: 18, textTransform: 'uppercase'
+  },
 });

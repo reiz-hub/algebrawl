@@ -1,17 +1,18 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, View, ScrollView } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
+import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
-import { lookupByUsername, lookupByIngameName } from '../services/supabaseSync';
+import { lookupByIngameName, lookupByUsername } from '../services/supabaseSync';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { userId, username, setUsername, ingameName, setIngameName } = useGameStore();
-  
+
   const [usernameInput, setUsernameInput] = useState(username || '');
   const [ingameNameInput, setIngameNameInput] = useState(ingameName || '');
-  
+
   const [usernameSaved, setUsernameSaved] = useState(false);
   const [ingameSaved, setIngameSaved] = useState(false);
 
@@ -22,7 +23,7 @@ export default function ProfileScreen() {
       Alert.alert('Invalid', 'Username must be 3-20 characters.');
       return;
     }
-    
+
     const existing = await lookupByUsername(trimmed);
     if (existing && existing.userId !== userId) {
       Alert.alert('Taken', 'This username is already taken by another user.');
@@ -40,7 +41,7 @@ export default function ProfileScreen() {
       Alert.alert('Invalid', 'In-game name must be 3-20 characters.');
       return;
     }
-    
+
     const existing = await lookupByIngameName(trimmed);
     if (existing && existing.userId !== userId) {
       Alert.alert('Taken', 'This in-game name is already taken by another user.');
@@ -195,9 +196,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  backBtnText: { fontSize: 24, fontWeight: '900', color: '#1a1008' },
+  backBtnText: {
+    fontFamily: GameFonts.brawl, fontSize: 22, fontWeight: '900', color: '#1a1008'
+  },
   title: {
-    fontSize: 28,
+    fontFamily: GameFonts.brawl,
+    fontSize: 22,
     color: '#1a1008',
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -222,7 +226,8 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   label: {
-    fontSize: 14,
+    fontFamily: GameFonts.brawl,
+    fontSize: 13,
     fontWeight: '900',
     color: '#7a6a55',
     textTransform: 'uppercase',
@@ -244,6 +249,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   hint: {
+    fontFamily: GameFonts.hud,
     fontSize: 13,
     fontWeight: '600',
     color: '#7a6a55',
@@ -251,13 +257,14 @@ const styles = StyleSheet.create({
   },
   inputRow: { marginTop: 12 },
   input: {
+    fontFamily: GameFonts.hud,
     backgroundColor: '#fff9f0',
     borderWidth: 3,
     borderColor: '#1a1008',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
     color: '#1a1008',
   },
@@ -287,6 +294,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#22c55e',
   },
   saveBtnText: {
+    fontFamily: GameFonts.brawl,
     color: '#fff',
     fontSize: 16,
     fontWeight: '900',
@@ -298,11 +306,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   loginLinkText: {
+    fontFamily: GameFonts.hud,
     fontSize: 15,
     fontWeight: '700',
     color: '#7a6a55',
   },
   loginLinkBold: {
+    fontFamily: GameFonts.brawl,
     color: '#1a6cf5',
     fontWeight: '900',
   },

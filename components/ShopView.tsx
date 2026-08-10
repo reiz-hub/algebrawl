@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SHOP_ITEMS } from '../constants/shopItems';
+import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
 import { ItemCategory, ItemRarity, ShopItem } from '../types/shop';
 import NeoButton from './NeoButton';
@@ -105,25 +106,23 @@ export default function ShopView() {
           {/* Item Stats Badges */}
           {item.stats && (
             <View style={styles.statsContainer}>
+              {item.stats.extraHearts ? (
+                <Text style={styles.statBadge}>❤️ +{item.stats.extraHearts} HEART{item.stats.extraHearts > 1 ? 'S' : ''}</Text>
+              ) : null}
+              {item.stats.extraTimeSeconds ? (
+                <Text style={styles.statBadge}>⏳ +{item.stats.extraTimeSeconds}s / Q</Text>
+              ) : null}
+              {item.stats.startShield ? (
+                <Text style={styles.statBadge}>🛡️ FREE SHIELD</Text>
+              ) : null}
               {item.stats.attackBonus ? (
                 <Text style={styles.statBadge}>⚔️ +{item.stats.attackBonus} ATK</Text>
               ) : null}
               {item.stats.defenseBonus ? (
                 <Text style={styles.statBadge}>🛡️ +{item.stats.defenseBonus} DEF</Text>
               ) : null}
-              {item.stats.cooldownReduction ? (
-                <Text style={styles.statBadge}>⚡ -{item.stats.cooldownReduction}% CD</Text>
-              ) : null}
-              {item.stats.extraTimeSeconds ? (
-                <Text style={styles.statBadge}>⏳ +{item.stats.extraTimeSeconds}s / Q</Text>
-              ) : null}
-              {item.stats.scoreBonusPercent ? (
-                <Text style={styles.statBadge}>🎯 +{item.stats.scoreBonusPercent}% SCORE</Text>
-              ) : null}
               {item.stats.xpMultiplier ? (
-                <Text style={styles.statBadge}>
-                  ⭐ {item.stats.xpMultiplier}x XP BOOST
-                </Text>
+                <Text style={styles.statBadge}>⭐ {item.stats.xpMultiplier}x XP BOOST</Text>
               ) : null}
             </View>
           )}
@@ -271,22 +270,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff9f0',
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     paddingTop: 16,
+    position: 'relative',
   },
   bgSymbol: {
+    fontFamily: GameFonts.impact,
     position: 'absolute',
     fontSize: 60,
-    fontWeight: '900',
     color: '#e5d9c4',
-    opacity: 0.35,
+    opacity: 0.3,
     zIndex: 0,
   },
   cardWrapper: {
-    width: '100%',
-    marginBottom: 16,
     position: 'relative',
-    zIndex: 5,
+    marginBottom: 16,
+    zIndex: 1,
   },
   cardShadow: {
     position: 'absolute',
@@ -304,57 +303,217 @@ const styles = StyleSheet.create({
     borderColor: '#1a1008',
     padding: 16,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    gap: 14,
+    marginBottom: 12,
+  },
+  cardHeaderRight: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 4,
+  },
+  itemAvatarImage: {
+    width: 44,
+    height: 44,
+  },
+  itemIcon: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 32,
+  },
+  itemImageWrapper: {
+    position: 'relative',
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    borderWidth: 2.5,
+    borderColor: '#1a1008',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemImage: {
+    width: 48,
+    height: 48,
+  },
+  itemDetails: {
+    flex: 1,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
+  rarityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1.5,
+  },
+  rarityText: {
+    fontFamily: GameFonts.hud,
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  categoryTag: {
+    fontFamily: GameFonts.hud,
+    fontSize: 10,
+    color: '#7a6a55',
+    letterSpacing: 1,
+  },
+  itemName: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 18,
+    color: '#1a1008',
+    marginBottom: 4,
+  },
+  itemDescription: {
+    fontFamily: GameFonts.hud,
+    fontSize: 13,
+    color: '#7a6a55',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14,
+  },
+  statBadge: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 12,
+    color: '#1a1008',
+    backgroundColor: '#fff9f0',
+    borderWidth: 2,
+    borderColor: '#1a1008',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    overflow: 'hidden',
+  },
+  cardFooter: {
+    marginTop: 4,
+  },
+  buyBtn: {
+    backgroundColor: '#22c55e',
+    borderWidth: 3,
+    borderColor: '#1a1008',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  buyBtnShadow: {
+    backgroundColor: '#1a1008',
+    borderRadius: 12,
+  },
+  buyBtnText: {
+    fontFamily: GameFonts.brawl,
+    color: '#ffffff',
+    fontSize: 15,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  equipBtn: {
+    backgroundColor: '#1a6cf5',
+    borderWidth: 3,
+    borderColor: '#1a1008',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  equipBtnShadow: {
+    backgroundColor: '#1a1008',
+    borderRadius: 12,
+  },
+  equipBtnText: {
+    fontFamily: GameFonts.brawl,
+    color: '#ffffff',
+    fontSize: 15,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  equippedBadgeBtn: {
+    backgroundColor: '#f5a623',
+    borderWidth: 3,
+    borderColor: '#1a1008',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  equippedBadgeText: {
+    fontFamily: GameFonts.brawl,
+    color: '#1a1008',
+    fontSize: 15,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  unaffordableBadge: {
+    backgroundColor: '#e2e8f0',
+    borderWidth: 3,
+    borderColor: '#94a3b8',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  unaffordableText: {
+    fontFamily: GameFonts.brawl,
+    color: '#64748b',
+    fontSize: 14,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   balanceCardContent: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
     borderWidth: 3,
     borderColor: '#1a1008',
-    padding: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   balanceInfo: {
-    flexDirection: 'column',
+    gap: 2,
   },
   balanceLabel: {
-    fontSize: 11,
-    fontWeight: '900',
+    fontFamily: GameFonts.hud,
+    fontSize: 10,
     color: '#7a6a55',
     letterSpacing: 1,
-    marginBottom: 2,
   },
   coinBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
   coinIcon: {
     fontSize: 24,
-    marginRight: 6,
   },
   coinText: {
-    fontSize: 26,
-    fontWeight: '900',
+    fontFamily: GameFonts.arcade,
+    fontSize: 18,
     color: '#1a1008',
   },
   addCoinBtn: {
     backgroundColor: '#f5a623',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: '#1a1008',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   addCoinText: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 13,
     color: '#1a1008',
-    fontWeight: '900',
-    fontSize: 14,
   },
   tabsWrapper: {
-    width: '100%',
-    marginBottom: 16,
     position: 'relative',
-    zIndex: 5,
+    marginBottom: 16,
+    zIndex: 1,
   },
   tabsShadow: {
     position: 'absolute',
@@ -376,219 +535,79 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
     alignItems: 'center',
-    borderRadius: 8,
+    justifyContent: 'center',
   },
   activeTab: {
-    backgroundColor: '#f5a623',
-    borderWidth: 2,
-    borderColor: '#1a1008',
+    backgroundColor: '#1a6cf5',
   },
   tabText: {
-    fontSize: 12,
-    fontWeight: '900',
+    fontFamily: GameFonts.brawl,
+    fontSize: 11,
     color: '#7a6a55',
+    letterSpacing: 0.5,
   },
   activeTabText: {
-    color: '#1a1008',
+    color: '#ffffff',
   },
   listContent: {
-    paddingBottom: 32,
-    zIndex: 5,
+    paddingBottom: 40,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  itemIcon: {
-    fontSize: 36,
-  },
-  itemAvatarImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#1a1008',
-  },
-  cardHeaderRight: {
-    alignItems: 'flex-end',
-  },
-  rarityBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 2,
-    marginBottom: 4,
-  },
-  rarityText: {
-    fontSize: 10,
-    fontWeight: '900',
-  },
-  categoryTag: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: '#7a6a55',
-  },
-  itemName: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#1a1008',
-    marginBottom: 4,
-  },
-  itemDescription: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#7a6a55',
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 14,
-  },
-  statBadge: {
-    backgroundColor: '#fff9f0',
-    color: '#1a1008',
-    fontSize: 12,
-    fontWeight: '900',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#1a1008',
-    overflow: 'hidden',
-  },
-  cardFooter: {
-    marginTop: 4,
-  },
-  equippedBadgeBtn: {
-    backgroundColor: '#22c55e',
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 3,
-    borderColor: '#1a1008',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  equippedBadgeText: {
-    color: '#ffffff',
-    fontWeight: '900',
-    fontSize: 15,
-    letterSpacing: 1,
-  },
-  unaffordableBadge: {
-    backgroundColor: '#e2e8f0',
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#94a3b8',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unaffordableText: {
-    color: '#64748b',
-    fontWeight: '900',
-    fontSize: 13,
-  },
-  buyBtn: {
-    backgroundColor: '#f5a623',
-    borderWidth: 3,
-    borderColor: '#1a1008',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  buyBtnShadow: {
-    backgroundColor: '#1a1008',
-    borderRadius: 12,
-  },
-  buyBtnText: {
-    color: '#1a1008',
-    fontWeight: '900',
-    fontSize: 16,
-    letterSpacing: 0.5,
-  },
-  equipBtn: {
-    backgroundColor: '#1a6cf5',
-    borderWidth: 3,
-    borderColor: '#1a1008',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  equipBtnShadow: {
-    backgroundColor: '#1a1008',
-    borderRadius: 12,
-  },
-  equipBtnText: {
-    color: '#ffffff',
-    fontWeight: '900',
-    fontSize: 16,
-    letterSpacing: 0.5,
-  },
-
-  // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(26,16,8,0.7)',
+    backgroundColor: 'rgba(26, 16, 8, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    paddingHorizontal: 24,
   },
   modalContent: {
-    width: '100%',
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
+    borderRadius: 16,
+    borderWidth: 3,
+    borderColor: '#1a1008',
     padding: 24,
     alignItems: 'center',
-    borderWidth: 4,
-    borderColor: '#1a1008',
+    maxWidth: 340,
+    width: '100%',
   },
   modalSuccess: {
-    borderLeftWidth: 8,
-    borderLeftColor: '#22c55e',
+    backgroundColor: '#ffffff',
   },
   modalError: {
-    borderLeftWidth: 8,
-    borderLeftColor: '#ef4444',
+    backgroundColor: '#fff5f5',
   },
   modalTitle: {
-    fontSize: 22,
-    fontWeight: '900',
+    fontFamily: GameFonts.brawl,
+    fontSize: 16,
     color: '#1a1008',
     marginBottom: 8,
     textAlign: 'center',
   },
   modalMessage: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontFamily: GameFonts.hud,
+    fontSize: 14,
     color: '#7a6a55',
     textAlign: 'center',
     marginBottom: 20,
-    lineHeight: 22,
   },
   modalBtn: {
     backgroundColor: '#1a6cf5',
     borderWidth: 3,
     borderColor: '#1a1008',
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',
-    width: '100%',
   },
   modalBtnShadow: {
     backgroundColor: '#1a1008',
     borderRadius: 12,
   },
   modalBtnText: {
+    fontFamily: GameFonts.brawl,
     color: '#ffffff',
-    fontWeight: '900',
-    fontSize: 16,
+    fontSize: 14,
+    letterSpacing: 1,
   },
 });

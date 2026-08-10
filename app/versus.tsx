@@ -1,8 +1,9 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import TouchableOpacity from '../components/TouchableOpacity';
 import NeoButton from '../components/NeoButton';
+import TouchableOpacity from '../components/TouchableOpacity';
+import { GameFonts } from '../constants/theme';
 
 const GEARS = [
   { id: 'g1', name: 'No. 2 Pencil', stat: '+2s / Q', icon: '✏️' },
@@ -116,19 +117,19 @@ export default function VersusScreen() {
         {renderSelector('Skill', SKILLS, p2Skill, setP2Skill)}
       </View>
 
-      <NeoButton 
-        wrapperStyle={{ marginTop: 8 }} 
-        shadowStyle={{ position: 'absolute', top: 5, left: 5, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 }} 
-        style={styles.primaryBtn as any} 
+      <NeoButton
+        wrapperStyle={{ marginTop: 8 }}
+        shadowStyle={{ position: 'absolute', top: 5, left: 5, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 }}
+        style={styles.primaryBtn as any}
         onPress={startVersus}
       >
         <Text style={styles.primaryBtnText}>Start Versus!</Text>
       </NeoButton>
 
-      <NeoButton 
-        wrapperStyle={{ marginTop: 10 }} 
-        shadowStyle={{ position: 'absolute', top: 5, left: 5, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 }} 
-        style={styles.secondaryBtn as any} 
+      <NeoButton
+        wrapperStyle={{ marginTop: 10 }}
+        shadowStyle={{ position: 'absolute', top: 5, left: 5, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 }}
+        style={styles.secondaryBtn as any}
         onPress={() => router.replace('/')}
       >
         <Text style={styles.secondaryBtnText}>Cancel</Text>
@@ -145,17 +146,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff9f0',
   },
   title: {
-    fontSize: 42,
-    fontWeight: '900',
+    fontFamily: GameFonts.brawl,
+    fontSize: 32,
     color: '#1a1008',
     textAlign: 'center',
+    letterSpacing: 1,
   },
   subtitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontFamily: GameFonts.brawl,
+    fontSize: 13,
     color: '#7a6a55',
     textAlign: 'center',
     marginBottom: 20,
+    letterSpacing: 0.5,
   },
   card: {
     backgroundColor: '#fff',
@@ -166,12 +169,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   playerTitle: {
-    fontSize: 18,
-    fontWeight: '900',
+    fontFamily: GameFonts.brawl,
+    fontSize: 16,
     color: '#1a1008',
     marginBottom: 10,
+    letterSpacing: 0.5,
   },
   input: {
+    fontFamily: GameFonts.hud,
     borderWidth: 2,
     borderColor: '#1a1008',
     borderRadius: 10,
@@ -187,10 +192,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   selectorLabel: {
-    fontSize: 14,
-    fontWeight: '900',
+    fontFamily: GameFonts.brawl,
+    fontSize: 12,
     color: '#1a1008',
     marginBottom: 6,
+    letterSpacing: 0.5,
   },
   chip: {
     borderWidth: 2,
@@ -206,8 +212,8 @@ const styles = StyleSheet.create({
     borderColor: '#1a6cf5',
   },
   chipText: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontFamily: GameFonts.brawl,
+    fontSize: 11,
     color: '#1a1008',
   },
   primaryBtn: {
@@ -219,10 +225,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   primaryBtnText: {
-    fontSize: 20,
-    fontWeight: '900',
+    fontFamily: GameFonts.brawl,
+    fontSize: 18,
     color: '#fff',
     textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   secondaryBtn: {
     backgroundColor: '#f5a623',
@@ -233,9 +240,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryBtnText: {
-    fontSize: 18,
-    fontWeight: '900',
+    fontFamily: GameFonts.brawl,
+    fontSize: 16,
     color: '#1a1008',
     textTransform: 'uppercase',
+    letterSpacing: 1,
   },
 });

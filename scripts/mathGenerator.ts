@@ -88,8 +88,9 @@ const scaledRand = (min: number, range: number, progress: number, maxBoost: numb
  * @param level - The current game level (1-7)
  * @param questionIndex - The index of the current question within the level (0-based)
  * @param totalQuestions - Total number of questions in the level. If omitted, uses phase definitions.
+ * @param difficulty - Optional difficulty for Level 7 ('easy' | 'medium' | 'hard')
  */
-export const generateQuestion = (level: number, questionIndex: number = 0, totalQuestions?: number): Question => {
+export const generateQuestion = (level: number, questionIndex: number = 0, totalQuestions?: number, difficulty?: 'easy' | 'medium' | 'hard'): Question => {
   const levelLimits = [10, 20, 20, 30, 30, 50, 100];
   const maxQs = totalQuestions ?? levelLimits[level - 1] ?? 10;
   // Progress within this level: 0 = first question (easiest), 1 = last question (hardest)
@@ -98,10 +99,26 @@ export const generateQuestion = (level: number, questionIndex: number = 0, total
   const numChoices = level <= 3 ? 4 : 6;
   let currentLevel = level;
 
-  // Level 7: Adaptive Random (Mix of Levels 1-6) — bias toward harder levels as progress increases
+  // Level 7: Adaptive Random (Mix of Levels 1-6) — biased by difficulty and progress
   if (currentLevel >= 7) {
-    const minLevel = Math.max(1, Math.floor(progress * 4) + 1); // progresses from 1→5
-    const maxLevel = 6;
+    const diff = difficulty || 'medium';
+    let minLevel: number;
+    let maxLevel: number;
+
+    if (diff === 'easy') {
+      // Easy: mostly levels 1-3, occasionally 4 as progress increases
+      minLevel = 1;
+      maxLevel = Math.min(3 + Math.floor(progress * 1.5), 4); // caps at 4
+    } else if (diff === 'hard') {
+      // Hard: starts at level 2, quickly ramps to 4-6
+      minLevel = Math.max(2, Math.floor(progress * 3) + 2); // 2→5
+      maxLevel = 6;
+    } else {
+      // Medium (default): current behavior — progresses from 1→5, max 6
+      minLevel = Math.max(1, Math.floor(progress * 4) + 1);
+      maxLevel = 6;
+    }
+
     currentLevel = Math.floor(Math.random() * (maxLevel - minLevel + 1)) + minLevel;
   }
 

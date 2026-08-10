@@ -7,14 +7,14 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "node": "20.19.4",
+      "node": "22.14.0",
       "env": {
         "APP_VARIANT": "development"
       }
     },
     "preview": {
       "distribution": "internal",
-      "node": "20.19.4",
+      "node": "22.14.0",
       "android": {
         "buildType": "apk"
       },
@@ -24,7 +24,7 @@
     },
     "production": {
       "autoIncrement": true,
-      "node": "20.19.4",
+      "node": "22.14.0",
       "env": {
         "APP_VARIANT": "production"
       }
@@ -32,7 +32,7 @@
     "production-apk": {
       "autoIncrement": true,
       "distribution": "internal",
-      "node": "20.19.4",
+      "node": "22.14.0",
       "android": {
         "buildType": "apk"
       },

@@ -7,7 +7,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: 'No. 2 Pencil',
     category: 'gear',
     cost: 0,
-    description: 'Starter writing tool. Adds +2 seconds per question timer.',
+    description: 'Starter writing tool. Adds +2 seconds to every question timer.',
     rarity: 'common',
     icon: '✏️',
     stats: {
@@ -23,7 +23,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     rarity: 'common',
     icon: '📓',
     stats: {
-      defenseBonus: 5,
+      extraHearts: 1,
     },
   },
   {
@@ -31,7 +31,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: 'Math Ruler',
     category: 'gear',
     cost: 200,
-    description: 'Precision measuring tool. Adds +4 seconds per question timer.',
+    description: 'Precision measuring tool. Adds +4 seconds to every question timer.',
     rarity: 'rare',
     icon: '📏',
     stats: {
@@ -47,7 +47,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     rarity: 'rare',
     icon: '📱',
     stats: {
-      defenseBonus: 10,
+      extraHearts: 2,
     },
   },
   {
@@ -55,11 +55,12 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: 'Golden Protractor',
     category: 'gear',
     cost: 600,
-    description: 'Legendary geometry tool. Grants 2x XP boost on victories.',
+    description: 'Legendary geometry tool. Grants +3 bonus hearts and +5 seconds to every question timer.',
     rarity: 'legendary',
     icon: '📐',
     stats: {
-      xpMultiplier: 2.0,
+      extraHearts: 3,
+      extraTimeSeconds: 5,
     },
   },
 
@@ -81,7 +82,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: 'Focus',
     category: 'skill',
     cost: 150,
-    description: 'Concentrates your mind to add +5s to the current question timer.',
+    description: 'Concentrates your mind to add +5s to the current question timer (1x per battle).',
     rarity: 'rare',
     icon: '⏱️',
     stats: {
@@ -93,11 +94,11 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: 'Shield',
     category: 'skill',
     cost: 250,
-    description: 'Protective mathematical barrier that blocks 1 wrong answer hit.',
+    description: 'Protective mathematical barrier that blocks 1 wrong answer hit (1x per battle).',
     rarity: 'rare',
     icon: '🛡️',
     stats: {
-      defenseBonus: 15,
+      startShield: true,
     },
   },
   {
@@ -105,7 +106,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: 'Double Strike',
     category: 'skill',
     cost: 400,
-    description: 'Empowers your next correct answer to deal 2x damage.',
+    description: 'Empowers your next correct answer to deal 2x damage (1x per battle).',
     rarity: 'epic',
     icon: '🔥',
     stats: {
@@ -119,25 +120,23 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: 'Algebro',
     category: 'character',
     cost: 0,
-    description: 'The default math warrior. Always ready for algebraic battle.',
+    description: 'The default math warrior. Balanced gameplay with standard 3 Hearts.',
     rarity: 'common',
     icon: '🧮',
     image: require('../assets/images/avatar/algebroavatar.png'),
-    stats: {
-      defenseBonus: 5,
-    },
+    stats: {},
   },
   {
     id: 'c1',
     name: 'Ada Lovelace',
     category: 'character',
     cost: 150,
-    description: 'The first computer programmer. Boosts your logical thinking in battle.',
+    description: 'First computer programmer. Passive: Grants +3 seconds to every question timer.',
     rarity: 'rare',
     icon: '👩‍💻',
     image: require('../assets/images/avatar/lovelaceavatar.png'),
     stats: {
-      defenseBonus: 10,
+      extraTimeSeconds: 3,
     },
   },
   {
@@ -145,12 +144,12 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: 'Isaac Newton',
     category: 'character',
     cost: 300,
-    description: 'Father of calculus and gravity. Adds mathematical precision to your attacks.',
+    description: 'Father of calculus & gravity. Passive: Grants +1 bonus starting heart.',
     rarity: 'rare',
     icon: '🍎',
     image: require('../assets/images/avatar/newtonavatar.png'),
     stats: {
-      defenseBonus: 15,
+      extraHearts: 1,
     },
   },
   {
@@ -158,12 +157,13 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: 'Nikola Tesla',
     category: 'character',
     cost: 500,
-    description: 'Master of electricity and invention. Electrifies your problem-solving skills.',
+    description: 'Master of electricity. Passive: Grants +2 bonus hearts & +3s timer per question.',
     rarity: 'epic',
     icon: '⚡',
     image: require('../assets/images/avatar/teslaavatar.png'),
     stats: {
-      defenseBonus: 20,
+      extraHearts: 2,
+      extraTimeSeconds: 3,
     },
   },
   {
@@ -171,12 +171,13 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: 'Marie Curie',
     category: 'character',
     cost: 750,
-    description: 'Pioneer of radioactivity. Her brilliance radiates supreme defense in battle.',
+    description: 'Radioactive pioneer. Passive: Grants +2 bonus hearts & starts every battle with a free Shield!',
     rarity: 'legendary',
     icon: '☢️',
     image: require('../assets/images/avatar/curieavatar.png'),
     stats: {
-      defenseBonus: 30,
+      extraHearts: 2,
+      startShield: true,
     },
   },
 ];

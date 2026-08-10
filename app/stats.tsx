@@ -6,12 +6,13 @@ import {
   ActivityIndicator, Animated, Image, Modal, ScrollView,
   StyleSheet, Text, TextInput, View, ViewStyle
 } from 'react-native';
-import TouchableOpacity from '../components/TouchableOpacity';
 import ErrorModal from '../components/ErrorModal';
 import NeoButton from '../components/NeoButton';
+import TouchableOpacity from '../components/TouchableOpacity';
+import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
 import { supabase } from '../services/supabase';
-import { fetchFromSupabase, syncToSupabase, lookupByUsername, lookupByIngameName, lookupByEmail } from '../services/supabaseSync';
+import { fetchFromSupabase, lookupByEmail, lookupByIngameName, lookupByUsername, syncToSupabase } from '../services/supabaseSync';
 
 /* ── Neo-Brutalist Success Popup ── */
 interface SuccessPopupProps {
@@ -154,7 +155,7 @@ export default function PlayerStatsScreen() {
     const prefixes = ['Math', 'Alge', 'Calc', 'Number', 'Prime', 'Sigma', 'Geo'];
     const suffixes = ['Wiz', 'Bro', 'Ninja', 'King', 'Master', 'Star'];
     const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
-    const suggestions = Array.from({length: 3}, () => `${pick(prefixes)}${pick(suffixes)}${Math.floor(Math.random() * 99)}`);
+    const suggestions = Array.from({ length: 3 }, () => `${pick(prefixes)}${pick(suffixes)}${Math.floor(Math.random() * 99)}`);
     setNameSuggestions(suggestions);
   };
 
@@ -213,7 +214,7 @@ export default function PlayerStatsScreen() {
       setErrorConfig({ visible: true, title: 'Invalid Password', message: 'Password must be at least 6 characters.' });
       return;
     }
-    
+
     setLoading(true);
     const online = await checkNetwork();
     if (!online) {
@@ -467,7 +468,7 @@ export default function PlayerStatsScreen() {
             if (authEmail) {
               targetEmail = authEmail;
               // Backfill email in public.users so future logins work directly
-              supabase.from('users').update({ email: authEmail }).eq('id', found.userId).then(() => {});
+              supabase.from('users').update({ email: authEmail }).eq('id', found.userId).then(() => { });
             } else {
               setErrorConfig({ visible: true, title: 'Login Failed', message: 'Could not resolve email for that username. Please try logging in with your email.' });
               setLoading(false);
@@ -548,7 +549,7 @@ export default function PlayerStatsScreen() {
 
   const confirmLogout = async () => {
     setShowLogoutConfirm(false);
-    try { await supabase.auth.signOut(); } catch (_) {}
+    try { await supabase.auth.signOut(); } catch (_) { }
     await logout();
     resetForm();
     showPopup('', 'Logged Out', 'Logged out successfully. Starting fresh as Guest User.');
@@ -776,8 +777,8 @@ export default function PlayerStatsScreen() {
               <TouchableOpacity style={ms.cancelBtn} onPress={() => setShowEditIngameModal(false)} disabled={loading}>
                 <Text style={ms.cancelBtnText}>CANCEL</Text>
               </TouchableOpacity>
-              <NeoButton 
-                wrapperStyle={{ flex: 1 }} 
+              <NeoButton
+                wrapperStyle={{ flex: 1 }}
                 shadowStyle={ms.submitShadow}
                 style={[ms.submitBtn, loading && ms.submitBtnDisabled] as ViewStyle[]}
                 disabled={loading}
@@ -883,14 +884,14 @@ export default function PlayerStatsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+
         {/* PLAYER CARD */}
         <View style={styles.card}>
           <View style={styles.cardShadow} />
           <View style={styles.cardInner}>
             <View style={styles.avatarRow}>
-              <TouchableOpacity 
-                style={styles.avatarBox} 
+              <TouchableOpacity
+                style={styles.avatarBox}
                 onPress={() => setShowAvatarModal(true)}
                 activeOpacity={0.8}
               >
@@ -907,7 +908,7 @@ export default function PlayerStatsScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <Text style={styles.playerName}>{displayName}</Text>
                   {isLoggedIn && (
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       onPress={() => { setEditIngameName(ingameName || username || ''); setShowEditIngameModal(true); }}
                       style={{ padding: 2, transform: [{ translateY: 1 }] }}
                     >
@@ -932,9 +933,9 @@ export default function PlayerStatsScreen() {
                 <View style={styles.statusDot} />
                 <Text style={styles.loggedInText}>Signed in as <Text style={styles.loggedInName}>{username}</Text></Text>
               </View>
-              <NeoButton 
-                shadowStyle={{ position: 'absolute', top: 3, left: 3, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 10 }} 
-                style={styles.logoutBtn as ViewStyle} 
+              <NeoButton
+                shadowStyle={{ position: 'absolute', top: 3, left: 3, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 10 }}
+                style={styles.logoutBtn as ViewStyle}
                 onPress={handleLogout}
               >
                 <Text style={styles.logoutBtnText}>LOGOUT</Text>
@@ -947,18 +948,18 @@ export default function PlayerStatsScreen() {
             <View style={styles.authBannerInner}>
               <Text style={styles.authHint}>Save your progress across devices</Text>
               <View style={styles.authBtnRow}>
-                <NeoButton 
-                  wrapperStyle={styles.authBtnWrapper} 
-                  shadowStyle={styles.authBtnShadow} 
-                  style={styles.registerBtn as ViewStyle} 
+                <NeoButton
+                  wrapperStyle={styles.authBtnWrapper}
+                  shadowStyle={styles.authBtnShadow}
+                  style={styles.registerBtn as ViewStyle}
                   onPress={() => setShowRegister(true)}
                 >
                   <Text style={styles.authBtnText}>REGISTER</Text>
                 </NeoButton>
-                <NeoButton 
-                  wrapperStyle={styles.authBtnWrapper} 
-                  shadowStyle={[styles.authBtnShadow, { backgroundColor: '#1a1008' }]} 
-                  style={styles.loginBtn as ViewStyle} 
+                <NeoButton
+                  wrapperStyle={styles.authBtnWrapper}
+                  shadowStyle={[styles.authBtnShadow, { backgroundColor: '#1a1008' }]}
+                  style={styles.loginBtn as ViewStyle}
                   onPress={() => setShowLogin(true)}
                 >
                   <Text style={styles.authBtnText}>LOGIN</Text>
@@ -970,26 +971,26 @@ export default function PlayerStatsScreen() {
 
         {/* EQUIPMENT & SKILLS */}
         <View style={styles.row}>
-            <View style={{flex: 1}}>
-                <Text style={styles.sectionHeader}>EQUIPMENT</Text>
-                <View style={styles.gearRow}>
-                    {GEARS.filter((gear) => inventory.includes(gear.id) || gear.id === 'g1').map((gear) => (
-                      <View key={gear.id} style={styles.iconBox}>
-                        <Text style={styles.gearIcon}>{gear.icon}</Text>
-                      </View>
-                    ))}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sectionHeader}>EQUIPMENT</Text>
+            <View style={styles.gearRow}>
+              {GEARS.filter((gear) => inventory.includes(gear.id) || gear.id === 'g1').map((gear) => (
+                <View key={gear.id} style={styles.iconBox}>
+                  <Text style={styles.gearIcon}>{gear.icon}</Text>
                 </View>
+              ))}
             </View>
-            <View style={{flex: 1}}>
-                <Text style={styles.sectionHeader}>SKILLS</Text>
-                <View style={styles.gearRow}>
-                    {SKILLS.filter((skill) => inventory.includes(skill.id) || skill.id === 's1').map((skill) => (
-                      <View key={skill.id} style={styles.iconBox}>
-                        <Text style={styles.gearIcon}>{skill.icon}</Text>
-                      </View>
-                    ))}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sectionHeader}>SKILLS</Text>
+            <View style={styles.gearRow}>
+              {SKILLS.filter((skill) => inventory.includes(skill.id) || skill.id === 's1').map((skill) => (
+                <View key={skill.id} style={styles.iconBox}>
+                  <Text style={styles.gearIcon}>{skill.icon}</Text>
                 </View>
+              ))}
             </View>
+          </View>
         </View>
 
         {/* CHARACTERS */}
@@ -1066,12 +1067,12 @@ export default function PlayerStatsScreen() {
         {achievements.map((ach) => (
           <View key={ach.id} style={[styles.achRow, !ach.done && { opacity: 0.5 }]}>
             <Text style={styles.achNum}>{ach.id}</Text>
-            <View style={styles.achIconBox}><Text style={{fontSize: 24}}>{ach.icon}</Text></View>
-            <View style={{flex: 1, marginLeft: 10}}>
+            <View style={styles.achIconBox}><Text style={{ fontSize: 24 }}>{ach.icon}</Text></View>
+            <View style={{ flex: 1, marginLeft: 10 }}>
               <Text style={styles.achTitle}>{ach.title}</Text>
               <Text style={styles.achDesc}>{ach.desc}</Text>
             </View>
-            <Text style={{fontSize: 18}}>{ach.done ? '✅' : '🔒'}</Text>
+            <Text style={{ fontSize: 18 }}>{ach.done ? '✅' : '🔒'}</Text>
           </View>
         ))}
       </ScrollView>
@@ -1137,21 +1138,21 @@ const ms = StyleSheet.create({
   card: { position: 'relative' },
   cardShadow: { position: 'absolute', top: 6, left: 6, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 16 },
   cardInner: { backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#1a1008', borderRadius: 16, padding: 24 },
-  title: { fontSize: 24, fontWeight: '900', color: '#1a1008', textAlign: 'center', marginBottom: 20, letterSpacing: 1 },
-  label: { fontSize: 12, fontWeight: '900', color: '#7a6a55', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, marginTop: 4 },
-  input: { backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#1a1008', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, fontWeight: '900', color: '#1a1008', marginBottom: 12 },
+  title: { fontFamily: GameFonts.brawl, fontSize: 20, color: '#1a1008', textAlign: 'center', marginBottom: 20, letterSpacing: 1 },
+  label: { fontFamily: GameFonts.brawl, fontSize: 11, color: '#7a6a55', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, marginTop: 4 },
+  input: { fontFamily: GameFonts.hud, backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#1a1008', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, fontWeight: '900', color: '#1a1008', marginBottom: 12 },
   btnRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
   cancelBtn: { flex: 1, backgroundColor: '#e5d9c4', borderWidth: 3, borderColor: '#1a1008', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-  cancelBtnText: { fontSize: 14, fontWeight: '900', color: '#1a1008' },
+  cancelBtnText: { fontFamily: GameFonts.brawl, fontSize: 13, color: '#1a1008' },
   submitShadow: { position: 'absolute', top: 3, left: 3, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 10 },
   submitBtn: { backgroundColor: '#e8302a', borderWidth: 3, borderColor: '#1a1008', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
   submitBtnDisabled: { backgroundColor: '#7a6a55' },
-  submitBtnText: { fontSize: 14, fontWeight: '900', color: '#fff', letterSpacing: 1 },
+  submitBtnText: { fontFamily: GameFonts.brawl, fontSize: 13, color: '#fff', letterSpacing: 1 },
   suggestBtn: { backgroundColor: '#f5a623', borderWidth: 3, borderColor: '#1a1008', borderRadius: 10, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' },
-  suggestBtnText: { fontSize: 12, fontWeight: '900', color: '#1a1008' },
+  suggestBtnText: { fontFamily: GameFonts.brawl, fontSize: 11, color: '#1a1008' },
   chipsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
   chip: { backgroundColor: '#e5d9c4', borderWidth: 2, borderColor: '#1a1008', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4 },
-  chipText: { fontSize: 11, fontWeight: '700', color: '#1a1008' },
+  chipText: { fontFamily: GameFonts.brawl, fontSize: 10, color: '#1a1008' },
 });
 
 /* ── Page styles ── */
@@ -1159,11 +1160,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff9f0' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 10, zIndex: 10 },
   backBtn: { width: 45, height: 45, borderRadius: 23, backgroundColor: '#fff', borderWidth: 3, borderColor: '#1a1008', justifyContent: 'center', alignItems: 'center' },
-  backBtnText: { fontSize: 20, fontWeight: '900' },
-  title: { fontSize: 28, fontWeight: '900', color: '#1a1008', textTransform: 'uppercase', letterSpacing: 1 },
+  backBtnText: { fontFamily: GameFonts.brawl, fontSize: 20, color: '#1a1008' },
+  title: { fontFamily: GameFonts.brawl, fontSize: 22, color: '#1a1008', textTransform: 'uppercase', letterSpacing: 1 },
   scrollContent: { padding: 20 },
-  sectionHeader: { fontSize: 16, fontWeight: '900', color: '#1a1008', marginTop: 20, marginBottom: 10, textTransform: 'uppercase' },
-  
+  sectionHeader: { fontFamily: GameFonts.brawl, fontSize: 14, color: '#1a1008', marginTop: 20, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
+
   card: { marginBottom: 15 },
   cardShadow: { position: 'absolute', top: 4, left: 4, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
   cardInner: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#1a1008', borderRadius: 12, padding: 15 },
@@ -1172,30 +1173,30 @@ const styles = StyleSheet.create({
   avatarEditBadge: { position: 'absolute', bottom: -4, right: -4, backgroundColor: '#f5a623', borderRadius: 12, width: 22, height: 22, borderWidth: 2, borderColor: '#1a1008', justifyContent: 'center', alignItems: 'center' },
   avatarImage: { width: 64, height: 64 },
   profileInfo: { flex: 1, justifyContent: 'center' },
-  playerName: { fontSize: 20, fontWeight: '900' },
+  playerName: { fontFamily: GameFonts.brawl, fontSize: 16, color: '#1a1008' },
   rankBadge: { backgroundColor: '#ffb347', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 2, borderColor: '#1a1008', alignSelf: 'flex-start', marginTop: 2 },
-  rankText: { color: '#1a1008', fontSize: 9, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
+  rankText: { fontFamily: GameFonts.brawl, color: '#1a1008', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 },
 
   /* Auth banner below player card */
   authBanner: { marginBottom: 15, position: 'relative' },
   authBannerShadow: { position: 'absolute', top: 4, left: 4, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
   authBannerInner: { backgroundColor: '#fffbf2', borderWidth: 2, borderColor: '#1a1008', borderRadius: 12, padding: 14 },
-  authHint: { fontSize: 12, fontWeight: '800', color: '#7a6a55', textAlign: 'center', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
+  authHint: { fontFamily: GameFonts.hud, fontSize: 12, fontWeight: '800', color: '#7a6a55', textAlign: 'center', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   authBtnRow: { flexDirection: 'row', gap: 12 },
   authBtnWrapper: { flex: 1, position: 'relative' },
   authBtnShadow: { position: 'absolute', top: 3, left: 3, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 10 },
   registerBtn: { backgroundColor: '#22c55e', borderWidth: 2.5, borderColor: '#1a1008', borderRadius: 10, paddingVertical: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 },
   loginBtn: { backgroundColor: '#1a6cf5', borderWidth: 2.5, borderColor: '#1a1008', borderRadius: 10, paddingVertical: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 },
   authBtnIcon: { fontSize: 16 },
-  authBtnText: { fontSize: 13, fontWeight: '900', color: '#fff', letterSpacing: 1 },
+  authBtnText: { fontFamily: GameFonts.brawl, fontSize: 12, color: '#fff', letterSpacing: 1 },
   loggedInRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, justifyContent: 'center', gap: 8 },
   statusDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#22c55e', borderWidth: 1.5, borderColor: '#1a1008' },
-  loggedInText: { fontSize: 13, fontWeight: '700', color: '#7a6a55' },
-  loggedInName: { fontWeight: '900', color: '#1a1008' },
+  loggedInText: { fontFamily: GameFonts.hud, fontSize: 13, color: '#7a6a55' },
+  loggedInName: { fontFamily: GameFonts.brawl, color: '#1a1008' },
   logoutBtn: { backgroundColor: '#e8302a', borderWidth: 2.5, borderColor: '#1a1008', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
-  logoutBtnText: { fontSize: 13, fontWeight: '900', color: '#fff', letterSpacing: 1 },
-  
-  statLabel: { fontSize: 12, fontWeight: '900', color: '#7a6a55' },
+  logoutBtnText: { fontFamily: GameFonts.brawl, fontSize: 12, color: '#fff', letterSpacing: 1 },
+
+  statLabel: { fontFamily: GameFonts.brawl, fontSize: 11, color: '#7a6a55' },
   xpBarOuter: { height: 12, backgroundColor: '#e5d9c4', borderRadius: 6, borderWidth: 2, borderColor: '#1a1008', marginTop: 4, overflow: 'hidden' },
   xpBarInner: { height: '100%', backgroundColor: '#22c55e' },
 
@@ -1207,22 +1208,22 @@ const styles = StyleSheet.create({
   battleStatsCard: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#1a1008', borderRadius: 12, padding: 15 },
   battleGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 20, justifyContent: 'space-between' },
   gridItem: { width: '47%' },
-  gridLabel: { fontSize: 12, fontWeight: '900', color: '#7a6a55', marginBottom: 4 },
-  gridValue: { fontSize: 24, fontWeight: '900', color: '#1a1008' },
+  gridLabel: { fontFamily: GameFonts.brawl, fontSize: 10, color: '#7a6a55', marginBottom: 4 },
+  gridValue: { fontFamily: GameFonts.impact, fontSize: 22, color: '#1a1008' },
 
   progressCard: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#1a1008', borderRadius: 12, padding: 15 },
   levelProgressRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 6 },
-  levelNameText: { width: 80, fontSize: 12, fontWeight: '900', color: '#1a1008' },
+  levelNameText: { fontFamily: GameFonts.brawl, width: 85, fontSize: 10, color: '#1a1008' },
   levelBarOuter: { flex: 1, height: 10, backgroundColor: '#e5d9c4', borderRadius: 5, borderWidth: 1.5, borderColor: '#1a1008', marginHorizontal: 10, overflow: 'hidden' },
   levelBarInner: { height: '100%', backgroundColor: '#22c55e' },
   levelBarPerfect: { backgroundColor: '#f5a623' },
-  scoreText: { width: 52, fontSize: 12, fontWeight: '900', textAlign: 'right', color: '#22c55e' },
+  scoreText: { fontFamily: GameFonts.brawl, width: 52, fontSize: 10, textAlign: 'right', color: '#22c55e' },
   scoreTextPerfect: { color: '#f5a623' },
-  scoreTextLocked: { color: '#7a6a55', fontWeight: '400' },
+  scoreTextLocked: { color: '#7a6a55' },
 
   achRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderWidth: 2, borderColor: '#1a1008', borderRadius: 12, padding: 12, marginBottom: 10 },
-  achNum: { width: 25, fontSize: 16, fontWeight: '900', color: '#f5a623' },
+  achNum: { fontFamily: GameFonts.brawl, width: 25, fontSize: 12, color: '#f5a623' },
   achIconBox: { width: 40, alignItems: 'center' },
-  achTitle: { fontSize: 14, fontWeight: '900' },
-  achDesc: { fontSize: 11, color: '#7a6a55' },
+  achTitle: { fontFamily: GameFonts.brawl, fontSize: 12, color: '#1a1008' },
+  achDesc: { fontFamily: GameFonts.hud, fontSize: 11, color: '#7a6a55' },
 });

@@ -1,8 +1,9 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { ImageBackground, Modal, Pressable, ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import NeoButton from '../components/NeoButton';
+import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
 
 const LEVELS = [
@@ -11,6 +12,7 @@ const LEVELS = [
     title: 'Variables & Expressions',
     questions: 10,
     timePerQuestion: 30,
+    mapButtonImage: require('../assets/images/map_button/lvl1_mapbutton.png'),
     overview: 'Master the basics of algebra by evaluating algebraic expressions and combining like terms.',
     strategies: [
       {
@@ -32,6 +34,7 @@ const LEVELS = [
     title: 'Equations & Inequalities',
     questions: 20,
     timePerQuestion: 30,
+    mapButtonImage: require('../assets/images/mapbg/orc_bg.png'),
     overview: 'Isolate variables to determine their exact values or operational ranges.',
     strategies: [
       {
@@ -53,6 +56,7 @@ const LEVELS = [
     title: 'Polynomials',
     questions: 20,
     timePerQuestion: 60,
+    mapButtonImage: require('../assets/images/mapbg/slime_bg.png'),
     overview: 'Execute addition, subtraction, and multiplication across multi-term expressions.',
     strategies: [
       {
@@ -74,6 +78,7 @@ const LEVELS = [
     title: 'Factoring',
     questions: 30,
     timePerQuestion: 60,
+    mapButtonImage: require('../assets/images/mapbg/knight_bg.png'),
     overview: 'Reverse polynomial multiplication by deconstructing complex expressions into their foundational factors.',
     strategies: [
       {
@@ -131,9 +136,9 @@ const LEVELS = [
   {
     id: 7,
     title: 'Random Mode',
-    questions: 100,
+    questions: 105,
     timePerQuestion: 25,
-    overview: 'An ultimate, randomized endurance test spanning all previous algebraic concepts.',
+    overview: 'An ultimate, randomized endurance test spanning all previous algebraic concepts. Choose your difficulty and face the Boss!',
     strategies: [
       {
         title: 'Concept Diagnosis',
@@ -151,6 +156,7 @@ export default function MapScreen() {
   const router = useRouter();
   const [selectedLevel, setSelectedLevel] = useState<typeof LEVELS[number] | null>(null);
   const [isInstructionVisible, setIsInstructionVisible] = useState(false);
+  const [isDifficultyVisible, setIsDifficultyVisible] = useState(false);
 
   const { unlockedLevel, levelStars } = useGameStore();
 
@@ -200,31 +206,19 @@ export default function MapScreen() {
 
           const staggerAlignment = (index % 2 === 0) ? { alignSelf: 'flex-start' as const } : { alignSelf: 'flex-end' as const };
 
-          return (
-            <NeoButton
-              key={level.id}
-              wrapperStyle={[styles.cardWrapper, staggerAlignment]}
-              shadowStyle={styles.cardShadow}
-              style={[styles.cardContent, isLocked && styles.lockedCard] as ViewStyle[]}
-              disabled={isLocked}
-              onPress={() => router.push({
-                pathname: '/pre-battle',
-                params: {
-                  level: level.id,
-                  questions: level.questions,
-                  timePerQuestion: level.timePerQuestion
-                }
-              })}
-            >
+          const hasBg = !!level.mapButtonImage && !isLocked;
+
+          const cardChildren = (
+            <>
               <View style={styles.cardHeader}>
-                <View style={[styles.badge, isLocked && styles.lockedBadge]}>
-                  <Text style={styles.badgeText}>{level.id}</Text>
+                <View style={[styles.badge, isLocked && styles.lockedBadge, hasBg && styles.badgeNoBg]}>
+                  <Text style={[styles.badgeText, hasBg && styles.badgeTextOnBg]}>{level.id}</Text>
                 </View>
               </View>
 
               <View style={styles.cardBody}>
                 <Text
-                  style={[styles.titleText, isLocked && styles.lockedText]}
+                  style={[styles.titleText, isLocked && styles.lockedText, hasBg && styles.textOnBg]}
                   numberOfLines={2}
                   adjustsFontSizeToFit
                 >
@@ -241,7 +235,9 @@ export default function MapScreen() {
                   </View>
                   <Text style={[
                     styles.scoreText,
+                    hasBg && styles.textOnBg,
                     !hasScore && !isLocked && styles.emptyScore,
+                    !hasScore && hasBg && styles.emptyScoreOnBg,
                     isPerfect && styles.perfectScore,
                     isLocked && styles.lockedScore,
                   ]}>
@@ -258,6 +254,46 @@ export default function MapScreen() {
               >
                 <Text style={styles.helpButtonText}>?</Text>
               </NeoButton>
+            </>
+          );
+
+          return (
+            <NeoButton
+              key={level.id}
+              wrapperStyle={[styles.cardWrapper, staggerAlignment]}
+              shadowStyle={styles.cardShadow}
+              style={[
+                styles.cardContent,
+                level.mapButtonImage && styles.cardContentWithBg,
+                isLocked && styles.lockedCard,
+              ] as ViewStyle[]}
+              disabled={isLocked}
+              onPress={() => {
+                if (level.id === 7) {
+                  setIsDifficultyVisible(true);
+                } else {
+                  router.push({
+                    pathname: '/pre-battle',
+                    params: {
+                      level: level.id,
+                      questions: level.questions,
+                      timePerQuestion: level.timePerQuestion
+                    }
+                  });
+                }
+              }}
+            >
+              {level.mapButtonImage ? (
+                <ImageBackground
+                  source={level.mapButtonImage}
+                  style={styles.cardBgFill}
+                  resizeMode="stretch"
+                >
+                  {cardChildren}
+                </ImageBackground>
+              ) : (
+                cardChildren
+              )}
             </NeoButton>
           );
         })}
@@ -325,6 +361,64 @@ export default function MapScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* DIFFICULTY SELECTION MODAL (Level 7) */}
+      <Modal
+        visible={isDifficultyVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsDifficultyVisible(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setIsDifficultyVisible(false)}>
+          <Pressable style={styles.difficultyModalCard} onPress={() => { }}>
+            <Text style={styles.modalTitle}>CHOOSE DIFFICULTY</Text>
+            <Text style={styles.difficultySubtitle}>Random Mode — Level 7</Text>
+
+            {[
+              { key: 'easy' as const, label: 'EASY', questions: 35, desc: '30 Questions + Boss', color: '#22c55e', icon: '🌿' },
+              { key: 'medium' as const, label: 'MEDIUM', questions: 65, desc: '60 Questions + Boss', color: '#f5a623', icon: '🔥' },
+              { key: 'hard' as const, label: 'HARD', questions: 105, desc: '100 Questions + Boss', color: '#e8302a', icon: '💀' },
+            ].map((diff) => (
+              <NeoButton
+                key={diff.key}
+                style={[styles.difficultyBtn, { backgroundColor: diff.color }] as ViewStyle[]}
+                shadowStyle={{ backgroundColor: '#1a1008', borderRadius: 12, position: 'absolute', top: 4, left: 4, width: '100%', height: '100%' }}
+                wrapperStyle={{ alignSelf: 'stretch', marginBottom: 12 }}
+                onPress={() => {
+                  setIsDifficultyVisible(false);
+                  router.push({
+                    pathname: '/pre-battle',
+                    params: {
+                      level: 7,
+                      questions: diff.questions,
+                      timePerQuestion: 25,
+                      difficulty: diff.key,
+                    }
+                  });
+                }}
+              >
+                <View style={styles.difficultyBtnInner}>
+                  <Text style={styles.difficultyBtnIcon}>{diff.icon}</Text>
+                  <View style={styles.difficultyBtnText}>
+                    <Text style={styles.difficultyBtnLabel}>{diff.label}</Text>
+                    <Text style={styles.difficultyBtnDesc}>{diff.desc}</Text>
+                  </View>
+                  <Text style={styles.difficultyBtnQs}>{diff.questions}Q</Text>
+                </View>
+              </NeoButton>
+            ))}
+
+            <NeoButton
+              style={styles.modalButton as ViewStyle}
+              shadowStyle={{ backgroundColor: '#1a1008', borderRadius: 12, position: 'absolute', top: 3, left: 3, width: '100%', height: '100%' }}
+              wrapperStyle={{ alignSelf: 'stretch', marginTop: 4 }}
+              onPress={() => setIsDifficultyVisible(false)}
+            >
+              <Text style={styles.modalButtonText}>CANCEL</Text>
+            </NeoButton>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -332,9 +426,9 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: '#fff9f0', position: 'relative' },
   bgSymbol: {
+    fontFamily: GameFonts.jungle,
     position: 'absolute',
     fontSize: 60,
-    fontWeight: '900',
     color: '#e5d9c4',
     opacity: 0.3,
     zIndex: 0
@@ -358,11 +452,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  backBtnText: { fontSize: 24, fontWeight: '900', color: '#1a1008' },
+  backBtnText: {
+    fontFamily: GameFonts.brawl, fontSize: 22, color: '#1a1008'
+  },
   header: {
-    fontSize: 28,
+    fontFamily: GameFonts.brawl,
+    fontSize: 22,
     color: '#1a1008',
-    fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 1
   },
@@ -386,6 +482,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     position: 'relative',
+    overflow: 'hidden',
+  },
+  cardContentWithBg: {
+    padding: 0,
+  },
+  cardBgFill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    position: 'relative',
   },
   lockedCard: { backgroundColor: '#f0eade', opacity: 0.8 },
   cardHeader: { marginRight: 16, alignItems: 'center', justifyContent: 'center' },
@@ -400,9 +507,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   lockedBadge: { backgroundColor: '#7a6a55' },
-  badgeText: { fontSize: 24, fontWeight: '900', color: '#fff' },
+  badgeNoBg: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+  },
+  badgeText: {
+    fontFamily: GameFonts.arcade, fontSize: 18, color: '#fff'
+  },
+  badgeTextOnBg: {
+    fontSize: 28,
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 4,
+  },
   cardBody: { flex: 1, justifyContent: 'center' },
-  titleText: { fontSize: 15, fontWeight: '900', color: '#1a1008', marginBottom: 8, lineHeight: 18 },
+  titleText: {
+    fontFamily: GameFonts.brawl, fontSize: 15, color: '#1a1008', marginBottom: 8, lineHeight: 18
+  },
+
+  textOnBg: {
+    color: '#ffffff',
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  },
   lockedText: { color: '#7a6a55' },
   progressRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 },
   progressBarOuter: {
@@ -418,8 +546,8 @@ const styles = StyleSheet.create({
   progressBarInner: { height: '100%', backgroundColor: '#22c55e' },
   progressBarPerfect: { backgroundColor: '#f5a623' },
   scoreText: {
-    fontSize: 15,
-    fontWeight: '900',
+    fontFamily: GameFonts.arcade,
+    fontSize: 12,
     color: '#22c55e',
     minWidth: 52,
     textAlign: 'right',
@@ -428,12 +556,18 @@ const styles = StyleSheet.create({
     color: '#7a6a55',
     opacity: 0.5,
   },
+  emptyScoreOnBg: {
+    color: '#ffffff',
+    opacity: 0.7,
+  },
+
   perfectScore: {
     color: '#f5a623',
   },
   lockedScore: {
+    fontFamily: GameFonts.arcade,
     color: '#7a6a55',
-    fontSize: 16,
+    fontSize: 12,
   },
   helpButtonWrapper: {
     position: 'absolute',
@@ -454,9 +588,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   helpButtonText: {
+    fontFamily: GameFonts.brawl,
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '900',
+    fontSize: 14,
     lineHeight: 17,
   },
   modalOverlay: {
@@ -479,8 +613,8 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '900',
+    fontFamily: GameFonts.brawl,
+    fontSize: 16,
     color: '#1a1008',
     textTransform: 'uppercase',
     marginBottom: 10,
@@ -509,15 +643,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalInfoLabel: {
+    fontFamily: GameFonts.hud,
     fontSize: 10,
-    fontWeight: '900',
     color: '#7a6a55',
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   modalInfoValue: {
+    fontFamily: GameFonts.brawl,
     fontSize: 14,
-    fontWeight: '900',
     color: '#1a1008',
   },
   modalInfoDivider: {
@@ -527,8 +661,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   sectionSubHeader: {
+    fontFamily: GameFonts.brawl,
     fontSize: 12,
-    fontWeight: '900',
     color: '#1a6cf5',
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -536,9 +670,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   modalOverviewText: {
+    fontFamily: GameFonts.hud,
     fontSize: 14,
     color: '#1a1008',
-    fontWeight: '700',
     lineHeight: 20,
     marginBottom: 12,
   },
@@ -548,8 +682,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   strategyBullet: {
+    fontFamily: GameFonts.brawl,
     fontSize: 16,
-    fontWeight: '900',
     color: '#1a6cf5',
     marginRight: 6,
     lineHeight: 18,
@@ -558,15 +692,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   strategyTitle: {
+    fontFamily: GameFonts.brawl,
     fontSize: 13,
-    fontWeight: '900',
     color: '#1a1008',
     marginBottom: 2,
   },
   strategyDesc: {
+    fontFamily: GameFonts.hud,
     fontSize: 13,
     color: '#7a6a55',
-    fontWeight: '700',
     lineHeight: 18,
   },
   modalButton: {
@@ -580,10 +714,71 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalButtonText: {
+    fontFamily: GameFonts.brawl,
     color: '#fff',
     fontSize: 14,
-    fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  difficultyModalCard: {
+    width: '90%',
+    maxWidth: 420,
+    backgroundColor: '#fff9f0',
+    borderWidth: 3,
+    borderColor: '#1a1008',
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 16,
+  },
+  difficultySubtitle: {
+    fontFamily: GameFonts.hud,
+    fontSize: 12,
+    color: '#7a6a55',
+    marginBottom: 16,
+    letterSpacing: 0.5,
+  },
+  difficultyBtn: {
+    borderWidth: 3,
+    borderColor: '#1a1008',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  difficultyBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  difficultyBtnIcon: {
+    fontSize: 24,
+  },
+  difficultyBtnText: {
+    flex: 1,
+  },
+  difficultyBtnLabel: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 16,
+    color: '#fff',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  difficultyBtnDesc: {
+    fontFamily: GameFonts.hud,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.85)',
+  },
+  difficultyBtnQs: {
+    fontFamily: GameFonts.arcade,
+    fontSize: 12,
+    color: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
 });

@@ -1,11 +1,13 @@
 // components/AttackProjectile.tsx
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, StyleSheet, Text, View } from 'react-native';
+import { GameFonts } from '../constants/theme';
 
 export interface AttackProjectileProps {
   active: boolean;
   attacker: 'player' | 'enemy';
   characterId?: string;
+  enemyId?: string;
   hasDoubleStrike?: boolean;
   hasShield?: boolean;
   onImpact?: () => void;
@@ -24,22 +26,31 @@ export interface PowerConfig {
 
 const POWER_CONFIGS: Record<string, PowerConfig> = {
   c0: {
-    name: 'Algebraic Fireball',
-    image: require('../assets/projectiles/fireball.png'),
+    name: 'Algebraic Punch',
+    image: require('../assets/projectiles/punch.png'),
     mainColor: '#f97316',
     glowColor: '#ff4500',
     particles: ['+', '-', 'x', '/', 'x²', '√y'],
     impactColor: '#ea580c',
-    symbol: 'MATH',
+    symbol: 'PUNCH',
   },
   char_algebro: {
-    name: 'Algebraic Fireball',
-    image: require('../assets/projectiles/fireball.png'),
+    name: 'Algebraic Punch',
+    image: require('../assets/projectiles/punch.png'),
     mainColor: '#f97316',
     glowColor: '#ff4500',
     particles: ['+', '-', 'x', '/', 'x²', '√y'],
     impactColor: '#ea580c',
-    symbol: 'MATH',
+    symbol: 'PUNCH',
+  },
+  punch: {
+    name: 'Algebraic Punch',
+    image: require('../assets/projectiles/punch.png'),
+    mainColor: '#f97316',
+    glowColor: '#ff4500',
+    particles: ['+', '-', 'x', '/', 'x²', '√y'],
+    impactColor: '#ea580c',
+    symbol: 'PUNCH',
   },
   c1: {
     name: 'Logic Matrix Frost',
@@ -86,12 +97,76 @@ const POWER_CONFIGS: Record<string, PowerConfig> = {
     impactColor: '#991b1b',
     symbol: 'VOID',
   },
+  villain2: {
+    name: 'Orcish Heavy Slash',
+    image: require('../assets/projectiles/orc_slash.png'),
+    mainColor: '#e8302a',
+    glowColor: '#dc2626',
+    particles: ['*', '+', 'x', '!'],
+    impactColor: '#991b1b',
+    symbol: 'SLASH',
+  },
+  orc: {
+    name: 'Orcish Heavy Slash',
+    image: require('../assets/projectiles/orc_slash.png'),
+    mainColor: '#e8302a',
+    glowColor: '#dc2626',
+    particles: ['*', '+', 'x', '!'],
+    impactColor: '#991b1b',
+    symbol: 'SLASH',
+  },
+  orc_slash: {
+    name: 'Orcish Heavy Slash',
+    image: require('../assets/projectiles/orc_slash.png'),
+    mainColor: '#e8302a',
+    glowColor: '#dc2626',
+    particles: ['*', '+', 'x', '!'],
+    impactColor: '#991b1b',
+    symbol: 'SLASH',
+  },
+  slime: {
+    name: 'Toxic Slime Spit',
+    image: require('../assets/projectiles/spit.png'),
+    mainColor: '#22c55e',
+    glowColor: '#4ade80',
+    particles: ['+', '-', 'x', '÷', 'x²', '√y'],
+    impactColor: '#15803d',
+    symbol: 'SPIT',
+  },
+  spit: {
+    name: 'Toxic Slime Spit',
+    image: require('../assets/projectiles/spit.png'),
+    mainColor: '#22c55e',
+    glowColor: '#4ade80',
+    particles: ['+', '-', 'x', '÷', 'x²', '√y'],
+    impactColor: '#15803d',
+    symbol: 'SPIT',
+  },
+  knight: {
+    name: 'Knight Blade Slash',
+    image: require('../assets/projectiles/slash.png'),
+    mainColor: '#38bdf8',
+    glowColor: '#60a5fa',
+    particles: ['⚔️', '⚡', '⚔️', '⚡'],
+    impactColor: '#0284c7',
+    symbol: 'SLASH',
+  },
+  slash: {
+    name: 'Knight Blade Slash',
+    image: require('../assets/projectiles/slash.png'),
+    mainColor: '#38bdf8',
+    glowColor: '#60a5fa',
+    particles: ['⚔️', '⚡', '⚔️', '⚡'],
+    impactColor: '#0284c7',
+    symbol: 'SLASH',
+  },
 };
 
 export default function AttackProjectile({
   active,
   attacker,
   characterId = 'c0',
+  enemyId,
   hasDoubleStrike = false,
   hasShield = false,
   onImpact,
@@ -109,7 +184,7 @@ export default function AttackProjectile({
   const powerConfig =
     attacker === 'player'
       ? POWER_CONFIGS[characterId] || POWER_CONFIGS.c0
-      : POWER_CONFIGS.enemy;
+      : (enemyId && POWER_CONFIGS[enemyId]) || POWER_CONFIGS.enemy;
 
   useEffect(() => {
     if (!active) {
@@ -208,7 +283,7 @@ export default function AttackProjectile({
       pointerEvents="none"
       onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
     >
-      {/* 1. FLYING PROJECTILE (STRAIGHT FLIGHT, NO ROTATION) */}
+      {/* 1. FLYING PROJECTILE (STRAIGHT FLIGHT, NO GLOW BACKGROUND) */}
       {!showImpact && (
         <Animated.View
           style={[
@@ -222,17 +297,6 @@ export default function AttackProjectile({
             },
           ]}
         >
-          {/* Main Power Glow Background */}
-          <View
-            style={[
-              styles.powerGlow,
-              {
-                backgroundColor: powerConfig.glowColor,
-                shadowColor: powerConfig.mainColor,
-              },
-            ]}
-          />
-
           {/* Projectile Sprite Image */}
           <Image
             source={powerConfig.image}
@@ -371,21 +435,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 100,
   },
-  powerGlow: {
-    position: 'absolute',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    opacity: 0.6,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 15,
-  },
   projectileImage: {
     width: 54,
     height: 54,
   },
   specialOverlayText: {
+    fontFamily: GameFonts.brawl,
     position: 'absolute',
     fontSize: 24,
   },
@@ -400,6 +455,7 @@ const styles = StyleSheet.create({
     borderColor: '#fef08a',
   },
   doubleStrikeIcon: {
+    fontFamily: GameFonts.brawl,
     color: '#fff',
     fontSize: 10,
     fontWeight: '900',
@@ -410,7 +466,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   floatingParticleText: {
-    fontSize: 16,
+    fontFamily: GameFonts.arcade,
+    fontSize: 14,
     fontWeight: '900',
     textShadowColor: '#000',
     textShadowOffset: { width: 1, height: 1 },
@@ -433,6 +490,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
   },
   burstParticle: {
+    fontFamily: GameFonts.brawl,
     position: 'absolute',
     fontSize: 18,
   },
@@ -451,8 +509,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   damagePopupText: {
+    fontFamily: GameFonts.arcade,
     color: '#ffffff',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -470,9 +529,11 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   shieldDeflectIcon: {
+    fontFamily: GameFonts.brawl,
     fontSize: 18,
   },
   shieldDeflectText: {
+    fontFamily: GameFonts.brawl,
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '900',

@@ -1,6 +1,7 @@
 // components/DeactivatedModal.tsx
 import React, { useEffect, useRef } from 'react';
 import { Animated, Modal, StyleSheet, Text, View } from 'react-native';
+import { GameFonts } from '../constants/theme';
 import TouchableOpacity from './TouchableOpacity';
 
 interface DeactivatedModalProps {
@@ -79,13 +80,13 @@ export default function DeactivatedModal({ visible, onLogout }: DeactivatedModal
 
             {/* Alert badge */}
             <View style={styles.alertBadge}>
-              <Text style={styles.alertIcon}>⚠️</Text>
+              <Text style={styles.alertIcon}>🔒</Text>
               <Text style={styles.alertText}>
-                You will be logged out and your local session will be reset.
+                You will be logged out until your account status changes.
               </Text>
             </View>
 
-            {/* Button */}
+            {/* Logout button */}
             <View style={styles.btnWrapper}>
               <View style={styles.btnShadow} />
               <TouchableOpacity
@@ -93,7 +94,7 @@ export default function DeactivatedModal({ visible, onLogout }: DeactivatedModal
                 activeOpacity={0.8}
                 onPress={onLogout}
               >
-                <Text style={styles.logoutBtnText}>UNDERSTOOD</Text>
+                <Text style={styles.logoutBtnText}>LOG OUT</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -106,7 +107,7 @@ export default function DeactivatedModal({ visible, onLogout }: DeactivatedModal
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(26, 16, 8, 0.7)',
+    backgroundColor: 'rgba(26, 16, 8, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -145,11 +146,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   iconText: {
+    fontFamily: GameFonts.brawl,
     fontSize: 32,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '900',
+    fontFamily: GameFonts.brawl,
+    fontSize: 18,
     color: '#e8302a',
     textAlign: 'center',
     letterSpacing: 1,
@@ -163,16 +165,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   message: {
+    fontFamily: GameFonts.hud,
     fontSize: 16,
-    fontWeight: '700',
     color: '#1a1008',
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 8,
   },
   subMessage: {
+    fontFamily: GameFonts.hud,
     fontSize: 14,
-    fontWeight: '600',
     color: '#7a6a55',
     textAlign: 'center',
     lineHeight: 20,
@@ -191,12 +193,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   alertIcon: {
+    fontFamily: GameFonts.brawl,
     fontSize: 16,
   },
   alertText: {
+    fontFamily: GameFonts.hud,
     flex: 1,
     fontSize: 12,
-    fontWeight: '700',
     color: '#7a6a55',
     lineHeight: 16,
   },
@@ -222,9 +225,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoutBtnText: {
+    fontFamily: GameFonts.brawl,
     color: '#fff',
     fontSize: 16,
-    fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },

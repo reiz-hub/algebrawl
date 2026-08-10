@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
 import { Animated, ImageBackground, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import NeoButton from '../components/NeoButton';
+import { GameFonts } from '../constants/theme';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -42,10 +43,10 @@ export default function HomeScreen() {
 
       {/* Main Content */}
       <View style={styles.content}>
-        <Animated.Image 
-          source={require('../assets/images/logos/Logo1.png')} 
-          style={[styles.logoImage, { transform: [{ translateY: bounceAnim }] }]} 
-          resizeMode="contain" 
+        <Animated.Image
+          source={require('../assets/images/logos/Logo1.png')}
+          style={[styles.logoImage, { transform: [{ translateY: bounceAnim }] }]}
+          resizeMode="contain"
         />
 
         <View style={styles.buttonContainer}>
@@ -92,9 +93,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden'
   },
   bgSymbol: {
+    fontFamily: GameFonts.impact,
     position: 'absolute',
     fontSize: 50,
-    fontWeight: '900',
     color: '#e5d9c4',
     opacity: 0.6,
     zIndex: 0
@@ -140,9 +141,9 @@ const styles = StyleSheet.create({
     gap: 12
   },
   btnPrimaryText: {
+    fontFamily: GameFonts.brawl,
     color: '#fff',
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 20,
     textTransform: 'uppercase',
     letterSpacing: 1
   },
@@ -158,9 +159,9 @@ const styles = StyleSheet.create({
     gap: 12
   },
   btnVersusText: {
+    fontFamily: GameFonts.brawl,
     color: '#fff',
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 20,
     textTransform: 'uppercase',
     letterSpacing: 1
   },
@@ -176,9 +177,9 @@ const styles = StyleSheet.create({
     gap: 12
   },
   btnShopText: {
+    fontFamily: GameFonts.brawl,
     color: '#fff',
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 20,
     textTransform: 'uppercase',
     letterSpacing: 1
   },
@@ -194,19 +195,19 @@ const styles = StyleSheet.create({
     gap: 12
   },
   btnSecondaryText: {
+    fontFamily: GameFonts.brawl,
     color: '#1a1008',
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 20,
     textTransform: 'uppercase',
     letterSpacing: 1
   },
   versionText: {
+    fontFamily: GameFonts.arcade,
     position: 'absolute',
     bottom: 25,
     width: '100%',
     textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 10,
     color: '#7a6a55',
     letterSpacing: 1,
     textTransform: 'uppercase'

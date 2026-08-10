@@ -52,6 +52,7 @@ interface GameState {
   buyItem: (itemId: string) => PurchaseResult;
   equipItem: (itemId: string) => void;
   addCoins: (amount: number) => void;
+  unlockAllDev: () => void;
 }
 
 /**
@@ -503,6 +504,32 @@ export const useGameStore = create<GameState>((set, get) => ({
     const newCoins = Math.max(0, state.coins + amount);
     const newState = { ...state, coins: newCoins };
     set({ coins: newCoins });
+
+    persistLocally(newState);
+    syncToCloud(state.userId, newState);
+  },
+
+  unlockAllDev: () => {
+    const state = get();
+    const allItems = ['g1', 'g2', 'g3', 'g4', 'g5', 's1', 's2', 's3', 's4', 'c0', 'c1', 'c2', 'c3', 'c4', 'char_algebro'];
+    const newInventory = Array.from(new Set([...state.inventory, ...allItems]));
+    const newState = {
+      ...state,
+      unlockedLevel: 7,
+      coins: Math.max(state.coins, 9999),
+      inventory: newInventory,
+      levelStars: {
+        ...state.levelStars,
+        1: 10,
+        2: 20,
+        3: 20,
+        4: 30,
+        5: 30,
+        6: 50,
+        7: 105,
+      },
+    };
+    set(newState);
 
     persistLocally(newState);
     syncToCloud(state.userId, newState);

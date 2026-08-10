@@ -51,3 +51,52 @@ export const Fonts = Platform.select({
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
   },
 });
+
+export const GameFonts = {
+  /** Classic Algebrawls Adventure Title Font */
+  jungle: 'JungleAdventurer',
+  /** Retro 8-bit Arcade Gaming Font */
+  arcade: 'PressStart2P',
+  /** Epic Dark Fantasy RPG Boss & Realm Title Font */
+  epic: 'CinzelDecorativeBold',
+  /** Heavy Action Brawling Font */
+  brawl: 'Bungee',
+  /** Modern Combat Math Equation Font */
+  impact: 'RussoOne',
+  /** Tactical Cyber HUD & Player Stats Font */
+  hud: 'ChakraPetchBold',
+};
+
+export const GameFontStyles = {
+  titleEpic: {
+    fontFamily: GameFonts.epic,
+    fontSize: 28,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 1.5,
+  },
+  titleBrawl: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 26,
+    textTransform: 'uppercase' as const,
+  },
+  mathEquation: {
+    fontFamily: GameFonts.impact,
+    fontSize: 34,
+    letterSpacing: 1,
+  },
+  actionButton: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 18,
+    textTransform: 'uppercase' as const,
+  },
+  arcadeBadge: {
+    fontFamily: GameFonts.arcade,
+    fontSize: 14,
+  },
+  hudLabel: {
+    fontFamily: GameFonts.hud,
+    fontSize: 14,
+    letterSpacing: 0.5,
+  },
+};
+

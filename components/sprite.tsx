@@ -80,9 +80,34 @@ const villain2Sprites: Record<ActionState, any> = {
   stand: require('../assets/images/sprites/villain2_idle.png'),
 };
 
+const slimeSprites: Record<ActionState, any> = {
+  attack: require('../assets/images/sprites/slime_attack.png'),
+  defeat: require('../assets/images/sprites/slime_defeat.png'),
+  hit: require('../assets/images/sprites/slime_hit.png'),
+  idle: require('../assets/images/sprites/slime_idle.png'),
+  win: require('../assets/images/sprites/slime_win.png'),
+  stand: require('../assets/images/sprites/slime_idle.png'),
+};
+
+const knightSprites: Record<ActionState, any> = {
+  attack: require('../assets/images/sprites/knight_attack.png'),
+  defeat: require('../assets/images/sprites/knight_defeat.png'),
+  hit: require('../assets/images/sprites/knight_hit.png'),
+  idle: require('../assets/images/sprites/knight_idle.png'),
+  win: require('../assets/images/sprites/knight_win.png'),
+  stand: require('../assets/images/sprites/knight_idle.png'),
+};
+
+const enemySpritesMap: Record<string, Record<ActionState, any>> = {
+  villain1: villainSprites,
+  villain2: villain2Sprites,
+  slime: slimeSprites,
+  knight: knightSprites,
+};
+
 export default function Sprite({ action, isEnemy = false, characterId, enemyId }: SpriteProps) {
   const heroSet = (characterId && characterSprites[characterId]) || characterSprites.c0;
-  const enemySet = enemyId === 'villain2' ? villain2Sprites : villainSprites;
+  const enemySet = (enemyId && enemySpritesMap[enemyId]) || (enemyId === 'villain2' ? villain2Sprites : villainSprites);
   const sprites = isEnemy ? enemySet : heroSet;
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
@@ -108,12 +133,18 @@ export default function Sprite({ action, isEnemy = false, characterId, enemyId }
     ],
   };
 
+  const isSlimeAttack = enemyId === 'slime' && action === 'attack';
+  const spriteImageStyle = [
+    styles.spriteImage,
+    isSlimeAttack && styles.slimeAttackImage,
+  ];
+
   return (
     <View style={styles.spriteContainer}>
       <Animated.View style={animatedStyle}>
         <Image
           source={sprites[action]}
-          style={styles.spriteImage}
+          style={spriteImageStyle}
           resizeMode="contain"
         />
       </Animated.View>
@@ -131,6 +162,10 @@ const styles = StyleSheet.create({
   },
   spriteImage: {
     width: 120,
+    height: 140,
+  },
+  slimeAttackImage: {
+    width: 172,
     height: 140,
   },
 });

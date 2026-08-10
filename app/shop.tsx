@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import ShopView from '../components/ShopView';
 import TouchableOpacity from '../components/TouchableOpacity';
+import { GameFonts } from '../constants/theme';
 
 export default function ShopScreen() {
   const router = useRouter();
@@ -50,17 +51,18 @@ const styles = StyleSheet.create({
     borderColor: '#ffffff',
   },
   backBtnText: {
+    fontFamily: GameFonts.brawl,
     color: '#1a1008',
     fontWeight: '900',
     fontSize: 13,
     letterSpacing: 0.5,
   },
   headerTitle: {
+    fontFamily: GameFonts.brawl,
     color: '#ffffff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
     letterSpacing: 1.5,
-    fontStyle: 'italic',
     textTransform: 'uppercase',
   },
 });

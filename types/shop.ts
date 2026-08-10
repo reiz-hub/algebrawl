@@ -9,6 +9,8 @@ export interface ItemStats {
   cooldownReduction?: number;
   extraTimeSeconds?: number;
   scoreBonusPercent?: number;
+  extraHearts?: number;
+  startShield?: boolean;
 }
 
 export interface ShopItem {

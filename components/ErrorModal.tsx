@@ -1,6 +1,7 @@
 // components/ErrorModal.tsx
 import React, { useEffect, useRef } from 'react';
 import { Animated, Modal, StyleSheet, Text, View } from 'react-native';
+import { GameFonts } from '../constants/theme';
 import TouchableOpacity from './TouchableOpacity';
 
 interface ErrorModalProps {
@@ -138,11 +139,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   iconText: {
+    fontFamily: GameFonts.brawl,
     fontSize: 32,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '900',
+    fontFamily: GameFonts.brawl,
+    fontSize: 18,
     color: '#e8302a',
     textAlign: 'center',
     letterSpacing: 1,
@@ -157,16 +159,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   message: {
+    fontFamily: GameFonts.hud,
     fontSize: 16,
-    fontWeight: '700',
     color: '#1a1008',
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 20,
   },
   subMessage: {
+    fontFamily: GameFonts.hud,
     fontSize: 14,
-    fontWeight: '600',
     color: '#7a6a55',
     textAlign: 'center',
     lineHeight: 20,
@@ -194,9 +196,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dismissBtnText: {
+    fontFamily: GameFonts.brawl,
     color: '#1a1008',
     fontSize: 16,
-    fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },

@@ -148,6 +148,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff9f0', overflow: 'hidden' },
   bgSymbol: {
+    fontFamily: 'JungleAdventurer',
     position: 'absolute',
     fontSize: 60,
     fontWeight: '900',
@@ -162,6 +163,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   title: {
+    fontFamily: 'JungleAdventurer',
     fontSize: 48,
     fontWeight: '900',
     color: '#1a1008',
@@ -170,6 +172,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
+    fontFamily: 'JungleAdventurer',
     fontSize: 16,
     fontWeight: '700',
     color: '#7a6a55',
@@ -194,6 +197,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   label: {
+    fontFamily: 'JungleAdventurer',
     fontSize: 14,
     fontWeight: '900',
     color: '#7a6a55',
@@ -202,6 +206,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   input: {
+    fontFamily: 'JungleAdventurer',
     backgroundColor: '#fff9f0',
     borderWidth: 3,
     borderColor: '#1a1008',
@@ -235,6 +240,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#7a6a55',
   },
   loginBtnText: {
+    fontFamily: 'JungleAdventurer',
     color: '#fff',
     fontSize: 18,
     fontWeight: '900',
@@ -250,6 +256,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backBtnText: {
+    fontFamily: 'JungleAdventurer',
     color: '#1a1008',
     fontSize: 18,
     fontWeight: '900',
@@ -257,6 +264,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   footerHint: {
+    fontFamily: 'JungleAdventurer',
     fontSize: 13,
     fontWeight: '600',
     color: '#7a6a55',

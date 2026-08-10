@@ -61,7 +61,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     "expo-image",
-    "expo-font",
+    [
+      "expo-font",
+      {
+        "fonts": [
+          "./assets/fonts/JungleAdventurer.ttf",
+          "./assets/fonts/PressStart2P.ttf",
+          "./assets/fonts/CinzelDecorativeBold.ttf",
+          "./assets/fonts/Bungee.ttf",
+          "./assets/fonts/RussoOne.ttf",
+          "./assets/fonts/ChakraPetchBold.ttf"
+        ]
+      }
+    ],
     "expo-web-browser",
   ],
   experiments: {
