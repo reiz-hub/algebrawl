@@ -120,7 +120,10 @@ export const LEVEL_THEMES: Record<number, LevelTheme> = {
   5: {
     level: 5,
     name: 'Desert Ruins',
-    bgImage: null,             // Distinct level 5 background (image pending)
+    bgImage: require('../assets/images/mapbg/mummy_bg.png'),
+    mapButtonImage: require('../assets/images/mapbg/mummy_bg.png'),
+    enemyId: 'mummy',
+    projectileId: 'mummy_projectile',
     stageBgColor: '#2e2110',   // Deep Desert Bronze Stage Background
     panelBg: '#382914',       // Bronze Sand Amber Question Panel
     buttonBg: '#4f391c',      // Sand Bronze Option Buttons
@@ -136,7 +139,10 @@ export const LEVEL_THEMES: Record<number, LevelTheme> = {
   6: {
     level: 6,
     name: 'Void Sanctum',
-    bgImage: null,             // Distinct level 6 background (image pending)
+    bgImage: require('../assets/images/mapbg/golem_bg.jpg'),
+    mapButtonImage: require('../assets/images/mapbg/golem_bg.jpg'),
+    enemyId: 'golem',
+    projectileId: 'thorns',
     stageBgColor: '#160f2e',   // Deep Void Indigo Stage Background
     panelBg: '#1c1438',       // Deep Void Indigo Question Panel
     buttonBg: '#281b52',      // Void Purple Option Buttons
@@ -152,7 +158,10 @@ export const LEVEL_THEMES: Record<number, LevelTheme> = {
   7: {
     level: 7,
     name: 'Chaos Arena',
-    bgImage: null,             // Distinct level 7 background (image pending)
+    bgImage: require('../assets/images/mapbg/inferno_bg.jpg'),
+    mapButtonImage: require('../assets/images/mapbg/inferno_bg.jpg'),
+    enemyId: 'easy_dragon',
+    projectileId: 'easy_flame',
     stageBgColor: '#1a0a0a',   // Deep Crimson-Black Stage Background
     panelBg: '#2d0f0f',       // Dark Crimson Question Panel
     buttonBg: '#3d1515',      // Crimson-Gold Option Buttons
@@ -167,7 +176,15 @@ export const LEVEL_THEMES: Record<number, LevelTheme> = {
   },
 };
 
-export function getLevelTheme(levelNumber: number): LevelTheme {
-  return LEVEL_THEMES[levelNumber] || DEFAULT_LEVEL_THEME;
+export function getLevelTheme(levelNumber: number, difficulty?: string): LevelTheme {
+  const base = LEVEL_THEMES[levelNumber] || DEFAULT_LEVEL_THEME;
+  if (levelNumber === 7 && difficulty === 'medium') {
+    return {
+      ...base,
+      enemyId: 'medium_dragon',
+      projectileId: 'medium_flame',
+    };
+  }
+  return base;
 }
 

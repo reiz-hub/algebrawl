@@ -4,11 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, ImageBackground, Modal, StyleSheet, Text, View } from 'react-native';
 import ReviewModal from '../components/ReviewModal';
 import Sprite from '../components/sprite';
+import AttackProjectile from '../components/AttackProjectile';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { generateQuestion, Question } from '../scripts/mathGenerator';
 import { soundService } from '../services/soundService';
 import { getLevelTheme } from '../constants/levelThemes';
 import { GameFonts } from '../constants/theme';
+import { getCharacterDetails } from '../constants/characterSkills';
 
 export default function VersusBattleScreen() {
   const params = useLocalSearchParams();
@@ -16,6 +18,11 @@ export default function VersusBattleScreen() {
 
   const p1Name = String(params.p1Name ?? 'Player 1');
   const p2Name = String(params.p2Name ?? 'Player 2');
+
+  const p1Character = String(params.p1Character ?? 'c0');
+  const p2Character = String(params.p2Character ?? 'c1');
+  const p1CharInfo = getCharacterDetails(p1Character);
+  const p2CharInfo = getCharacterDetails(p2Character);
 
   const p1SkillName = String(params.p1SkillName ?? 'Basic Attack');
   const p2SkillName = String(params.p2SkillName ?? 'Basic Attack');
@@ -61,6 +68,12 @@ export default function VersusBattleScreen() {
   const [isAnswering, setIsAnswering] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
+  // Projectile & Sprite Action state
+  const [attackActive, setAttackActive] = useState(false);
+  const [attacker, setAttacker] = useState<'player' | 'enemy'>('player');
+  const [p1Action, setP1Action] = useState<'idle' | 'attack' | 'hit' | 'win' | 'defeat' | null>(null);
+  const [p2Action, setP2Action] = useState<'idle' | 'attack' | 'hit' | 'win' | 'defeat' | null>(null);
+
   const [p1SkillCooldown, setP1SkillCooldown] = useState(0);
   const [p2SkillCooldown, setP2SkillCooldown] = useState(0);
   const [p1Shield, setP1Shield] = useState(false);
@@ -82,17 +95,11 @@ export default function VersusBattleScreen() {
 
   const activeName = turn === 1 ? p1Name : p2Name;
   const activeSkillName = turn === 1 ? p1SkillName : p2SkillName;
-  const activeSkillIcon = turn === 1 ? p1SkillIcon : p2SkillIcon;
-  const activeGearStat = turn === 1 ? p1GearStat : p2GearStat;
-  const activeGearIcon = turn === 1 ? p1GearIcon : p2GearIcon;
-  const activeInitialTime = turn === 1 ? p1InitialTime : p2InitialTime;
   const activeSkillCooldown = turn === 1 ? p1SkillCooldown : p2SkillCooldown;
-  const activeHasShield = turn === 1 ? p1Shield : p2Shield;
-  const activeHasDouble = turn === 1 ? p1Double : p2Double;
 
   useEffect(() => {
     setCurrentQ(generateQuestion(currentLevel));
-  }, []);
+  }, [currentLevel]);
 
   useEffect(() => {
     if (showVictory) {
@@ -101,19 +108,18 @@ export default function VersusBattleScreen() {
   }, [showVictory]);
 
   useEffect(() => {
-    if (isPaused || showVictory || isAnswering || !currentQ) return;
+    if (isPaused || showVictory || isAnswering || attackActive || !currentQ) return;
 
     if (timer === 0) {
       handleTimeOut();
       return;
     }
 
-    const countdown = setTimeout(() => {
+    const interval = setInterval(() => {
       setTimer((prev) => prev - 1);
     }, 1000);
 
-    return () => clearTimeout(countdown);
-  }, [timer, isPaused, showVictory, isAnswering, currentQ]);
+  }, [timer, isPaused, showVictory, isAnswering, attackActive, currentQ]);
 
   const renderHearts = (hp: number, max: number) => {
     const safeHP = Math.max(0, hp);
@@ -148,13 +154,11 @@ export default function VersusBattleScreen() {
   };
 
   const nextTurn = () => {
-    // Show notification first, then switch
     const next = turn === 1 ? 2 : 1;
     const nextName = next === 1 ? p1Name : p2Name;
     setNextPlayerName(nextName);
     setShowTurnNotification(true);
 
-    // Auto-dismiss after 2s and switch turn
     setTimeout(() => {
       setShowTurnNotification(false);
 
@@ -174,7 +178,6 @@ export default function VersusBattleScreen() {
         setRound((r) => r + 1);
       }
 
-      // Optional: End after totalQuestions, higher hearts wins
       if (round >= totalQuestions && next === 1) {
         const p1Alive = p1HP;
         const p2Alive = p2HP;
@@ -189,45 +192,102 @@ export default function VersusBattleScreen() {
   };
 
   const handleTimeOut = () => {
+    if (isAnswering || attackActive) return;
     setIsAnswering(true);
     setSelectedOption('TIMEOUT');
-    soundService.playSound('break');
-    setTimeout(() => {
-      applyWrongAnswer();
-    }, 1000);
+    
+    if (turn === 1) {
+      setP2Action('attack');
+      setP1Action(null);
+      setAttacker('enemy');
+    } else {
+      setP1Action('attack');
+      setP2Action(null);
+      setAttacker('player');
+    }
+    setAttackActive(true);
   };
 
   const handleOptionPress = (opt: string) => {
-    if (isAnswering || !currentQ) return;
+    if (isAnswering || !currentQ || attackActive) return;
     setIsAnswering(true);
     setSelectedOption(opt);
 
     const isCorrect = opt === currentQ.correctAnswer;
-    if (isCorrect) {
-      soundService.playSound('hit');
+    if (turn === 1) {
+      if (isCorrect) {
+        // Player 1 attacks Player 2
+        setP1Action('attack');
+        setP2Action(null);
+        setAttacker('player');
+      } else {
+        // Wrong answer: Player 2 counterattacks Player 1
+        setP2Action('attack');
+        setP1Action(null);
+        setAttacker('enemy');
+      }
     } else {
-      soundService.playSound('break');
+      if (isCorrect) {
+        // Player 2 attacks Player 1
+        setP2Action('attack');
+        setP1Action(null);
+        setAttacker('enemy');
+      } else {
+        // Wrong answer: Player 1 counterattacks Player 2
+        setP1Action('attack');
+        setP2Action(null);
+        setAttacker('player');
+      }
     }
-    setTimeout(() => {
-      if (isCorrect) applyCorrectAnswer();
-      else applyWrongAnswer();
-    }, 1000);
+    setAttackActive(true);
+  };
+
+  const handleProjectileImpact = () => {
+    if (attacker === 'player') {
+      // Player 2 is hit by Player 1
+      setP2Action('hit');
+      if (turn === 1) {
+        // Player 1 answered correctly -> Player 2 is hit!
+        soundService.playSound('hit');
+      } else {
+        // Player 2 answered wrongly -> Player 2 is hit by counterattack
+        soundService.playSound('heartbreak');
+      }
+    } else {
+      // Player 1 is hit by Player 2
+      setP1Action('hit');
+      if (turn === 2) {
+        // Player 2 answered correctly -> Player 1 is hit!
+        soundService.playSound('hit');
+      } else {
+        // Player 1 answered wrongly -> Player 1 is hit by counterattack
+        soundService.playSound('heartbreak');
+      }
+    }
+  };
+
+  const handleProjectileComplete = () => {
+    setAttackActive(false);
+    setP1Action(null);
+    setP2Action(null);
+    if (selectedOption && currentQ && selectedOption === currentQ.correctAnswer) {
+      applyCorrectAnswer();
+    } else {
+      applyWrongAnswer();
+    }
   };
 
   const applyCorrectAnswer = () => {
-    // TURN-BASED Q&A RULE: Correct answer passes turn to opponent (no damage)
     nextTurn();
   };
 
   const applyWrongAnswer = () => {
-    // TURN-BASED Q&A RULE: Wrong answer loses 1 heart, passes turn
     if (turn === 1) {
       if (p1Shield) {
         setP1Shield(false);
       } else {
         const newHP = p1HP - 1;
         setP1HP(newHP);
-        soundService.playSound('heartbreak');
         if (newHP <= 0) {
           setWinner(p2Name);
           setShowVictory(true);
@@ -240,7 +300,6 @@ export default function VersusBattleScreen() {
       } else {
         const newHP = p2HP - 1;
         setP2HP(newHP);
-        soundService.playSound('heartbreak');
         if (newHP <= 0) {
           setWinner(p1Name);
           setShowVictory(true);
@@ -254,47 +313,15 @@ export default function VersusBattleScreen() {
 
   const p1SpriteAction = useMemo(() => {
     if (showVictory) return winner === p1Name ? 'win' : 'defeat';
-    if (turn === 1 && isAnswering && selectedOption) {
-      return currentQ && selectedOption === currentQ.correctAnswer ? 'attack' : 'hit';
-    }
+    if (p1Action) return p1Action;
     return 'idle';
-  }, [showVictory, winner, p1Name, turn, isAnswering, selectedOption, currentQ]);
+  }, [showVictory, winner, p1Name, p1Action]);
 
   const p2SpriteAction = useMemo(() => {
     if (showVictory) return winner === p2Name ? 'win' : 'defeat';
-    if (turn === 2 && isAnswering && selectedOption) {
-      return currentQ && selectedOption === currentQ.correctAnswer ? 'attack' : 'hit';
-    }
+    if (p2Action) return p2Action;
     return 'idle';
-  }, [showVictory, winner, p2Name, turn, isAnswering, selectedOption, currentQ]);
-
-  const p1ActionImage = useMemo(() => {
-    if (winner && showVictory) {
-      return winner === p1Name
-        ? require('../assets/images/sprites/hero_win.png')
-        : require('../assets/images/sprites/hero_defeat.png');
-    }
-    if (turn === 1 && isAnswering && selectedOption && currentQ) {
-      return selectedOption === currentQ.correctAnswer
-        ? require('../assets/images/sprites/hero_attack.png')
-        : require('../assets/images/sprites/hero_hit.png');
-    }
-    return require('../assets/images/sprites/hero_win.png');
-  }, [winner, showVictory, p1Name, turn, isAnswering, selectedOption, currentQ]);
-
-  const p2ActionImage = useMemo(() => {
-    if (winner && showVictory) {
-      return winner === p2Name
-        ? require('../assets/images/sprites/hero_win.png')
-        : require('../assets/images/sprites/hero_defeat.png');
-    }
-    if (turn === 2 && isAnswering && selectedOption && currentQ) {
-      return selectedOption === currentQ.correctAnswer
-        ? require('../assets/images/sprites/hero_attack.png')
-        : require('../assets/images/sprites/hero_hit.png');
-    }
-    return require('../assets/images/sprites/hero_win.png');
-  }, [winner, showVictory, p2Name, turn, isAnswering, selectedOption, currentQ]);
+  }, [showVictory, winner, p2Name, p2Action]);
 
   return (
     <View style={styles.container}>
@@ -325,10 +352,21 @@ export default function VersusBattleScreen() {
         </View>
 
         <View style={styles.arena}>
+          <AttackProjectile
+            active={attackActive}
+            attacker={attacker}
+            characterId={p1Character}
+            enemyId={p2Character}
+            hasDoubleStrike={turn === 1 ? p1Double : p2Double}
+            hasShield={turn === 1 ? p2Shield : p1Shield}
+            onImpact={handleProjectileImpact}
+            onComplete={handleProjectileComplete}
+          />
+
         {/* Player 1 - left side */}
         <View style={styles.playerColumn}>
-          <Sprite action={p1SpriteAction as any} />
-          <Text style={styles.playerName}>{p1Name}</Text>
+          <Sprite action={p1SpriteAction as any} characterId={p1Character} />
+          <Text style={styles.playerName}>{p1CharInfo.icon} {p1Name}</Text>
           {p1Shield && (
             <View style={styles.statusBadgeRow}>
               <Image source={require('../assets/images/sprites/hero_win.png')} style={styles.statusBadgeImage} resizeMode="contain" />
@@ -366,8 +404,8 @@ export default function VersusBattleScreen() {
 
         {/* Player 2 - right side */}
         <View style={styles.playerColumnRight}>
-          <Sprite action={p2SpriteAction as any} isEnemy />
-          <Text style={styles.playerName}>{p2Name}</Text>
+          <Sprite action={p2SpriteAction as any} isEnemy characterId={p2Character} />
+          <Text style={styles.playerName}>{p2CharInfo.icon} {p2Name}</Text>
           {p2Shield && (
             <View style={styles.statusBadgeRow}>
               <Image source={require('../assets/images/sprites/hero_win.png')} style={styles.statusBadgeImage} resizeMode="contain" />
@@ -663,7 +701,7 @@ const styles = StyleSheet.create({
     textShadowColor: '#1a1008', textShadowOffset: { width: 1.5, height: 1.5 }, textShadowRadius: 0,
   },
 
-  arena: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 16, paddingTop: 10 },
+  arena: { flex: 1, position: 'relative', overflow: 'hidden', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 16, paddingTop: 10 },
   playerColumn: { alignItems: 'flex-start', flex: 1 },
   playerColumnRight: { alignItems: 'flex-end', flex: 1 },
   playerName: {

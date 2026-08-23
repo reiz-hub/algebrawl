@@ -653,7 +653,7 @@ export default function PlayerStatsScreen() {
             <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 12 }}>
               <TouchableOpacity onPress={handleResendOtp} disabled={loading}>
                 <Text style={{ fontSize: 12, fontWeight: '900', color: '#f5a623', textDecorationLine: 'underline' }}>
-                  Didn't receive code? Resend OTP
+                  Didn&apos;t receive code? Resend OTP
                 </Text>
               </TouchableOpacity>
             </View>

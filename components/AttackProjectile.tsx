@@ -97,6 +97,15 @@ const POWER_CONFIGS: Record<string, PowerConfig> = {
     impactColor: '#991b1b',
     symbol: 'VOID',
   },
+  villain1: {
+    name: 'Shadow Void Blast',
+    image: require('../assets/projectiles/void.png'),
+    mainColor: '#dc2626',
+    glowColor: '#9333ea',
+    particles: ['*', '+', 'x', '!'],
+    impactColor: '#991b1b',
+    symbol: 'VOID',
+  },
   villain2: {
     name: 'Orcish Heavy Slash',
     image: require('../assets/projectiles/orc_slash.png'),
@@ -147,7 +156,7 @@ const POWER_CONFIGS: Record<string, PowerConfig> = {
     image: require('../assets/projectiles/slash.png'),
     mainColor: '#38bdf8',
     glowColor: '#60a5fa',
-    particles: ['⚔️', '⚡', '⚔️', '⚡'],
+    particles: ['/', '\\', 'x', '+', '!', '='],
     impactColor: '#0284c7',
     symbol: 'SLASH',
   },
@@ -156,9 +165,90 @@ const POWER_CONFIGS: Record<string, PowerConfig> = {
     image: require('../assets/projectiles/slash.png'),
     mainColor: '#38bdf8',
     glowColor: '#60a5fa',
-    particles: ['⚔️', '⚡', '⚔️', '⚡'],
+    particles: ['/', '\\', 'x', '+', '!', '='],
     impactColor: '#0284c7',
     symbol: 'SLASH',
+  },
+  mummy: {
+    name: 'Ancient Mummy Curse',
+    image: require('../assets/projectiles/mummy_projectile.png'),
+    mainColor: '#f59e0b',
+    glowColor: '#d97706',
+    particles: ['x²', '√y', '+', '-', '÷', '='],
+    impactColor: '#b45309',
+    symbol: 'CURSE',
+  },
+  mummy_projectile: {
+    name: 'Ancient Mummy Curse',
+    image: require('../assets/projectiles/mummy_projectile.png'),
+    mainColor: '#f59e0b',
+    glowColor: '#d97706',
+    particles: ['x²', '√y', '+', '-', '÷', '='],
+    impactColor: '#b45309',
+    symbol: 'CURSE',
+  },
+  golem: {
+    name: 'Seismic Golem Thorns',
+    image: require('../assets/projectiles/thorns.png'),
+    mainColor: '#a855f7',
+    glowColor: '#7c3aed',
+    particles: ['F=ma', 'x²', 'Δt', '+', 'x', '='],
+    impactColor: '#581c87',
+    symbol: 'THORNS',
+  },
+  thorns: {
+    name: 'Seismic Golem Thorns',
+    image: require('../assets/projectiles/thorns.png'),
+    mainColor: '#a855f7',
+    glowColor: '#7c3aed',
+    particles: ['F=ma', 'x²', 'Δt', '+', 'x', '='],
+    impactColor: '#581c87',
+    symbol: 'THORNS',
+  },
+  easy_dragon: {
+    name: 'Inferno Dragon Flame',
+    image: require('../assets/projectiles/easy_flame.png'),
+    mainColor: '#f97316',
+    glowColor: '#dc2626',
+    particles: ['x²', 'x³', 'Δ', 'π', '+', 'x'],
+    impactColor: '#b91c1c',
+    symbol: 'FLAME',
+  },
+  dragon: {
+    name: 'Inferno Dragon Flame',
+    image: require('../assets/projectiles/easy_flame.png'),
+    mainColor: '#f97316',
+    glowColor: '#dc2626',
+    particles: ['x²', 'x³', 'Δ', 'π', '+', 'x'],
+    impactColor: '#b91c1c',
+    symbol: 'FLAME',
+  },
+  easy_flame: {
+    name: 'Inferno Dragon Flame',
+    image: require('../assets/projectiles/easy_flame.png'),
+    mainColor: '#f97316',
+    glowColor: '#dc2626',
+    particles: ['x²', 'x³', 'Δ', 'π', '+', 'x'],
+    impactColor: '#b91c1c',
+    symbol: 'FLAME',
+  },
+  medium_dragon: {
+    name: 'Inferno Dragon Flame',
+    image: require('../assets/projectiles/medium_flame.png'),
+    mainColor: '#f97316',
+    glowColor: '#dc2626',
+    particles: ['x²', 'x³', 'Δ', 'π', '+', 'x'],
+    impactColor: '#b91c1c',
+    symbol: 'FLAME',
+  },
+  medium_flame: {
+    name: 'Inferno Dragon Flame',
+    image: require('../assets/projectiles/medium_flame.png'),
+    mainColor: '#f97316',
+    glowColor: '#dc2626',
+    particles: ['x²', 'x³', 'Δ', 'π', '+', 'x'],
+    impactColor: '#b91c1c',
+    symbol: 'FLAME',
   },
 };
 
@@ -234,15 +324,15 @@ export default function AttackProjectile({
 
   if (!active && !isAnimating) return null;
 
-  const startX = attacker === 'player' ? 40 : containerWidth - 100;
-  const targetX = attacker === 'player' ? containerWidth - 100 : 40;
+  const startX = attacker === 'player' ? 30 : containerWidth - 110;
+  const targetX = attacker === 'player' ? containerWidth - 110 : 30;
 
   const projectileTranslateX = flightAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [startX, targetX],
   });
 
-  const baseScale = hasDoubleStrike && attacker === 'player' ? 1.6 : 1.1;
+  const baseScale = hasDoubleStrike && attacker === 'player' ? 1.65 : 1.2;
 
   const projectileScale = flightAnim.interpolate({
     inputRange: [0, 0.1, 0.9, 1],
@@ -275,15 +365,13 @@ export default function AttackProjectile({
     outputRange: [0, 1, 1, 0],
   });
 
-  const particleAngles = [0, 45, 90, 135, 180, 225, 270, 315];
-
   return (
     <View
       style={StyleSheet.absoluteFillObject}
       pointerEvents="none"
       onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
     >
-      {/* 1. FLYING PROJECTILE (STRAIGHT FLIGHT, NO GLOW BACKGROUND) */}
+      {/* 1. FLYING PROJECTILE (CLEAN SPRITE FLIGHT) */}
       {!showImpact && (
         <Animated.View
           style={[
@@ -310,35 +398,12 @@ export default function AttackProjectile({
               <Text style={styles.doubleStrikeIcon}>2X POWER</Text>
             </View>
           )}
-
-          {/* Floating Power Particles behind Projectile */}
-          <View style={styles.particlesContainer}>
-            {powerConfig.particles.slice(0, 3).map((symbol, idx) => (
-              <Animated.Text
-                key={idx}
-                style={[
-                  styles.floatingParticleText,
-                  {
-                    color: powerConfig.mainColor,
-                    transform: [
-                      {
-                        translateX: (idx - 1) * 14 * (attacker === 'player' ? -1 : 1),
-                      },
-                      { translateY: (idx % 2 === 0 ? 1 : -1) * 10 },
-                    ],
-                  },
-                ]}
-              >
-                {symbol}
-              </Animated.Text>
-            ))}
-          </View>
         </Animated.View>
       )}
 
       {/* 2. IMPACT BURST & DAMAGE POPUP */}
       {showImpact && (
-        <View style={[styles.impactContainer, { left: targetX - 30 }]}>
+        <View style={[styles.impactContainer, { left: targetX - 38 }]}>
           {/* Shield Forcefield Barrier Deflection */}
           {isBlocked ? (
             <Animated.View
@@ -367,54 +432,34 @@ export default function AttackProjectile({
                 ]}
               />
 
-              {/* Burst Particles */}
-              {particleAngles.map((angle, i) => {
-                const rad = (angle * Math.PI) / 180;
-                const distance = 40;
-                const pX = impactAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, Math.cos(rad) * distance],
-                });
-                const pY = impactAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, Math.sin(rad) * distance],
-                });
-                const pSymbol =
-                  powerConfig.particles[i % powerConfig.particles.length];
-
-                return (
-                  <Animated.Text
-                    key={i}
-                    style={[
-                      styles.burstParticle,
-                      {
-                        transform: [{ translateX: pX }, { translateY: pY }],
-                        opacity: impactRingOpacity,
-                      },
-                    ]}
-                  >
-                    {pSymbol}
-                  </Animated.Text>
-                );
-              })}
-
-              {/* Floating Combat Damage Popup */}
+              {/* Floating Combat Damage Text (Pure text, no box) */}
               <Animated.View
                 style={[
                   styles.damagePopup,
                   {
-                    backgroundColor: attacker === 'player' ? '#22c55e' : '#e8302a',
                     transform: [{ translateY: popupTranslateY }, { scale: popupScale }],
                     opacity: popupOpacity,
                   },
                 ]}
               >
-                <Text style={styles.damagePopupText}>
+                <Text
+                  style={[
+                    styles.damagePopupText,
+                    {
+                      color:
+                        attacker === 'player'
+                          ? hasDoubleStrike
+                            ? '#f59e0b'
+                            : '#22c55e'
+                          : '#e8302a',
+                    },
+                  ]}
+                >
                   {attacker === 'player'
                     ? hasDoubleStrike
-                      ? '2X CRIT HIT!'
-                      : 'HIT! -1 HP'
-                    : 'HIT! -1 HEART'}
+                      ? 'CRIT -2 HP'
+                      : '-1 HP'
+                    : '-1 HEART'}
                 </Text>
               </Animated.View>
             </>
@@ -428,16 +473,16 @@ export default function AttackProjectile({
 const styles = StyleSheet.create({
   projectileWrapper: {
     position: 'absolute',
-    top: '30%',
-    width: 60,
-    height: 60,
+    top: '42%',
+    width: 78,
+    height: 78,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 100,
   },
   projectileImage: {
-    width: 54,
-    height: 54,
+    width: 72,
+    height: 72,
   },
   specialOverlayText: {
     fontFamily: GameFonts.brawl,
@@ -460,61 +505,37 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '900',
   },
-  particlesContainer: {
-    position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  floatingParticleText: {
-    fontFamily: GameFonts.arcade,
-    fontSize: 14,
-    fontWeight: '900',
-    textShadowColor: '#000',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
   impactContainer: {
     position: 'absolute',
-    top: '30%',
-    width: 60,
-    height: 60,
+    top: '42%',
+    width: 78,
+    height: 78,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 101,
   },
   impactRing: {
     position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 3,
-  },
-  burstParticle: {
-    fontFamily: GameFonts.brawl,
-    position: 'absolute',
-    fontSize: 18,
   },
   damagePopup: {
     position: 'absolute',
-    top: -30,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#1a1008',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
+    top: -34,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   damagePopupText: {
-    fontFamily: GameFonts.arcade,
-    color: '#ffffff',
-    fontSize: 12,
+    fontFamily: GameFonts.brawl,
+    fontSize: 18,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    textShadowColor: '#1a1008',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 0,
   },
   shieldDeflectBarrier: {
     backgroundColor: '#0284c7',

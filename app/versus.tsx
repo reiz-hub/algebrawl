@@ -1,9 +1,18 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import NeoButton from '../components/NeoButton';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { GameFonts } from '../constants/theme';
+import { soundService } from '../services/soundService';
+
+const CHARACTERS = [
+  { id: 'c0', name: 'Algebro', icon: '🧮', avatar: require('../assets/images/avatar/algebroavatar.png') },
+  { id: 'c1', name: 'Ada Lovelace', icon: '👩‍💻', avatar: require('../assets/images/avatar/lovelaceavatar.png') },
+  { id: 'c2', name: 'Isaac Newton', icon: '🍎', avatar: require('../assets/images/avatar/newtonavatar.png') },
+  { id: 'c3', name: 'Nikola Tesla', icon: '⚡', avatar: require('../assets/images/avatar/teslaavatar.png') },
+  { id: 'c4', name: 'Marie Curie', icon: '☢️', avatar: require('../assets/images/avatar/curieavatar.png') },
+];
 
 const GEARS = [
   { id: 'g1', name: 'No. 2 Pencil', stat: '+2s / Q', icon: '✏️' },
@@ -26,6 +35,9 @@ export default function VersusScreen() {
   const [p1Name, setP1Name] = useState('Player 1');
   const [p2Name, setP2Name] = useState('Player 2');
 
+  const [p1Character, setP1Character] = useState('c0');
+  const [p2Character, setP2Character] = useState('c1');
+
   const [p1Gear, setP1Gear] = useState('g1');
   const [p2Gear, setP2Gear] = useState('g1');
   const [p1Skill, setP1Skill] = useState('s1');
@@ -35,6 +47,7 @@ export default function VersusScreen() {
   const getSkillById = (id: string) => SKILLS.find((s) => s.id === id);
 
   const startVersus = () => {
+    soundService.playSound('click');
     const p1GearData = getGearById(p1Gear);
     const p2GearData = getGearById(p2Gear);
     const p1SkillData = getSkillById(p1Skill);
@@ -47,6 +60,8 @@ export default function VersusScreen() {
         questions: '20',
         p1Name: p1Name.trim() || 'Player 1',
         p2Name: p2Name.trim() || 'Player 2',
+        p1Character,
+        p2Character,
         p1GearStat: p1GearData?.stat ?? '',
         p2GearStat: p2GearData?.stat ?? '',
         p1GearIcon: p1GearData?.icon ?? '',
@@ -58,6 +73,36 @@ export default function VersusScreen() {
       },
     });
   };
+
+  const renderCharacterSelector = (
+    label: string,
+    selectedId: string,
+    onSelect: (id: string) => void
+  ) => (
+    <View style={styles.selectorBlock}>
+      <Text style={styles.selectorLabel}>{label}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {CHARACTERS.map((char) => {
+          const selected = char.id === selectedId;
+          return (
+            <TouchableOpacity
+              key={char.id}
+              style={[styles.charCard, selected && styles.charCardSelected]}
+              onPress={() => {
+                soundService.playSound('click');
+                onSelect(char.id);
+              }}
+            >
+              <Image source={char.avatar} style={styles.charAvatar} resizeMode="contain" />
+              <Text style={[styles.charName, selected && styles.charNameSelected]} numberOfLines={1}>
+                {char.name}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
 
   const renderSelector = (
     label: string,
@@ -74,7 +119,10 @@ export default function VersusScreen() {
             <TouchableOpacity
               key={item.id}
               style={[styles.chip, selected && styles.chipSelected]}
-              onPress={() => onSelect(item.id)}
+              onPress={() => {
+                soundService.playSound('click');
+                onSelect(item.id);
+              }}
             >
               <Text style={styles.chipText}>
                 {item.icon} {item.name}
@@ -100,6 +148,7 @@ export default function VersusScreen() {
           placeholder="Player 1 Name"
           placeholderTextColor="#7a6a55"
         />
+        {renderCharacterSelector('Character', p1Character, setP1Character)}
         {renderSelector('Gear', GEARS, p1Gear, setP1Gear)}
         {renderSelector('Skill', SKILLS, p1Skill, setP1Skill)}
       </View>
@@ -113,6 +162,7 @@ export default function VersusScreen() {
           placeholder="Player 2 Name"
           placeholderTextColor="#7a6a55"
         />
+        {renderCharacterSelector('Character', p2Character, setP2Character)}
         {renderSelector('Gear', GEARS, p2Gear, setP2Gear)}
         {renderSelector('Skill', SKILLS, p2Skill, setP2Skill)}
       </View>
@@ -130,7 +180,10 @@ export default function VersusScreen() {
         wrapperStyle={{ marginTop: 10 }}
         shadowStyle={{ position: 'absolute', top: 5, left: 5, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 }}
         style={styles.secondaryBtn as any}
-        onPress={() => router.replace('/')}
+        onPress={() => {
+          soundService.playSound('click');
+          router.replace('/');
+        }}
       >
         <Text style={styles.secondaryBtnText}>Cancel</Text>
       </NeoButton>
@@ -197,6 +250,37 @@ const styles = StyleSheet.create({
     color: '#1a1008',
     marginBottom: 6,
     letterSpacing: 0.5,
+  },
+  charCard: {
+    backgroundColor: '#fff9f0',
+    borderWidth: 2,
+    borderColor: '#1a1008',
+    borderRadius: 10,
+    padding: 6,
+    paddingHorizontal: 8,
+    marginRight: 8,
+    alignItems: 'center',
+    width: 86,
+  },
+  charCardSelected: {
+    backgroundColor: '#fffae5',
+    borderColor: '#e8302a',
+    borderWidth: 2.5,
+  },
+  charAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    marginBottom: 4,
+  },
+  charName: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 10,
+    color: '#1a1008',
+    textAlign: 'center',
+  },
+  charNameSelected: {
+    color: '#e8302a',
   },
   chip: {
     borderWidth: 2,

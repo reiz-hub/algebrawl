@@ -100,6 +100,7 @@ const LEVELS = [
     title: 'Systems of Equations',
     questions: 30,
     timePerQuestion: 60,
+    mapButtonImage: require('../assets/images/mapbg/mummy_bg.png'),
     overview: 'Solve for two unknown variables simultaneously by locating their single point of intersection.',
     strategies: [
       {
@@ -117,6 +118,7 @@ const LEVELS = [
     title: 'Exponents & Roots',
     questions: 50,
     timePerQuestion: 60,
+    mapButtonImage: require('../assets/images/mapbg/golem_bg.jpg'),
     overview: 'Simplify advanced expressions by manipulating exponential bases and radicals.',
     strategies: [
       {
@@ -138,6 +140,7 @@ const LEVELS = [
     title: 'Random Mode',
     questions: 105,
     timePerQuestion: 25,
+    mapButtonImage: require('../assets/images/mapbg/inferno_bg.jpg'),
     overview: 'An ultimate, randomized endurance test spanning all previous algebraic concepts. Choose your difficulty and face the Boss!',
     strategies: [
       {

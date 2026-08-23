@@ -38,6 +38,11 @@ interface GameState {
   equippedCharacter: string;
   equippedGear: string | null;
 
+  // Multiplayer MMR
+  mmr: number;
+  onlineWins: number;
+  onlineLosses: number;
+
   // Actions
   loadLocalData: () => Promise<void>;
   recordLevelProgress: (levelId: number, score: number, didWin: boolean) => void;
@@ -47,6 +52,9 @@ interface GameState {
   loginWithData: (userId: string, data: UserData) => void;
   logout: () => Promise<void>;
   getUserId: () => string | null;
+
+  // Multiplayer Actions
+  updateMmr: (mmrChange: number, isWin: boolean) => void;
 
   // Shop & Inventory Actions
   buyItem: (itemId: string) => PurchaseResult;
@@ -72,6 +80,9 @@ const persistLocally = async (state: Partial<GameState>) => {
       inventory: state.inventory,
       equippedCharacter: state.equippedCharacter,
       equippedGear: state.equippedGear,
+      mmr: state.mmr,
+      onlineWins: state.onlineWins,
+      onlineLosses: state.onlineLosses,
     };
     await AsyncStorage.setItem(STORAGE_KEY_GAME_STATE, JSON.stringify(saveable));
   } catch (error) {
@@ -99,6 +110,9 @@ const syncToCloud = async (userId: string | null, state: Partial<GameState>) => 
     inventory: state.inventory ?? ['char_algebro'],
     equippedCharacter: state.equippedCharacter ?? 'char_algebro',
     equippedGear: state.equippedGear ?? null,
+    mmr: state.mmr ?? 1000,
+    onlineWins: state.onlineWins ?? 0,
+    onlineLosses: state.onlineLosses ?? 0,
   });
 };
 
@@ -124,6 +138,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   inventory: ['g1', 's1', 'c0', 'char_algebro'],
   equippedCharacter: 'c0',
   equippedGear: 'g1',
+
+  // Multiplayer MMR defaults
+  mmr: 1000,
+  onlineWins: 0,
+  onlineLosses: 0,
 
   /**
    * Initialize: load userId from AsyncStorage (or generate one),
@@ -199,6 +218,15 @@ export const useGameStore = create<GameState>((set, get) => ({
             cloudData.equippedGear !== undefined
               ? cloudData.equippedGear
               : localState?.equippedGear ?? null,
+          mmr: cloudData.mmr ?? localState?.mmr ?? 1000,
+          onlineWins: Math.max(
+            localState?.onlineWins ?? 0,
+            cloudData.onlineWins ?? 0
+          ),
+          onlineLosses: Math.max(
+            localState?.onlineLosses ?? 0,
+            cloudData.onlineLosses ?? 0
+          ),
         };
 
         // Merge levelStars — take best per level
@@ -237,6 +265,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         inventory: localState?.inventory ?? ['char_algebro'],
         equippedCharacter: localState?.equippedCharacter ?? 'char_algebro',
         equippedGear: localState?.equippedGear ?? null,
+        mmr: localState?.mmr ?? 1000,
+        onlineWins: localState?.onlineWins ?? 0,
+        onlineLosses: localState?.onlineLosses ?? 0,
       });
 
       // Persist the merged state back
@@ -345,6 +376,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       inventory: data.inventory ?? ['char_algebro'],
       equippedCharacter: data.equippedCharacter ?? 'char_algebro',
       equippedGear: data.equippedGear ?? null,
+      mmr: data.mmr ?? 1000,
+      onlineWins: data.onlineWins ?? 0,
+      onlineLosses: data.onlineLosses ?? 0,
     };
 
     set(newState);
@@ -376,6 +410,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       inventory: data.inventory ?? ['char_algebro'],
       equippedCharacter: data.equippedCharacter ?? 'char_algebro',
       equippedGear: data.equippedGear ?? null,
+      mmr: data.mmr ?? 1000,
+      onlineWins: data.onlineWins ?? 0,
+      onlineLosses: data.onlineLosses ?? 0,
     }).catch(() => { });
   },
 
@@ -407,6 +444,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         inventory: ['char_algebro'],
         equippedCharacter: 'char_algebro',
         equippedGear: null,
+        mmr: 1000,
+        onlineWins: 0,
+        onlineLosses: 0,
       };
 
       set(freshState);
@@ -417,6 +457,31 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   getUserId: () => get().userId,
+
+  // ── Multiplayer MMR Actions ───────────────────────────────
+
+  updateMmr: (mmrChange: number, isWin: boolean) => {
+    const state = get();
+    const newMmr = Math.max(0, state.mmr + mmrChange);
+    const newOnlineWins = isWin ? state.onlineWins + 1 : state.onlineWins;
+    const newOnlineLosses = isWin ? state.onlineLosses : state.onlineLosses + 1;
+
+    const newState = {
+      ...state,
+      mmr: newMmr,
+      onlineWins: newOnlineWins,
+      onlineLosses: newOnlineLosses,
+    };
+
+    set({
+      mmr: newMmr,
+      onlineWins: newOnlineWins,
+      onlineLosses: newOnlineLosses,
+    });
+
+    persistLocally(newState);
+    syncToCloud(state.userId, newState);
+  },
 
   // ── Purchase & Inventory Actions ──────────────────────────
 

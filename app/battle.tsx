@@ -7,7 +7,7 @@ import AttackProjectile from '../components/AttackProjectile';
 import ReviewModal from '../components/ReviewModal';
 import Sprite from '../components/sprite';
 import TouchableOpacity from '../components/TouchableOpacity';
-import { getLevelTheme } from '../constants/levelThemes';
+import { getLevelTheme, LEVEL_THEMES } from '../constants/levelThemes';
 import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
 import { generateQuestion, Question } from '../scripts/mathGenerator';
@@ -22,7 +22,7 @@ export default function BattleScreen() {
 
   const totalQuestions = Number(questions) || 10;
   const currentLevel = Number(level) || 1;
-  const levelTheme = getLevelTheme(currentLevel);
+  const levelTheme = getLevelTheme(currentLevel, selectedDifficulty);
   const isExtraLarge = currentLevel <= 2;
   const isMedium = currentLevel === 3;
 
@@ -149,7 +149,18 @@ export default function BattleScreen() {
 
   const [questionIndex, setQuestionIndex] = useState(0);
   const isBossQuestion = currentLevel === 7 && questionIndex >= totalQuestions - 5;
-  const currentEnemyId = isBossQuestion ? 'villain2' : (levelTheme.enemyId || (currentLevel === 4 ? 'knight' : (currentLevel === 3 ? 'slime' : (currentLevel === 2 ? 'villain2' : 'villain1'))));
+  const currentEnemyId = useMemo(() => {
+    if (currentLevel === 7) {
+      if (isBossQuestion) {
+        if (selectedDifficulty === 'medium') return 'medium_dragon';
+        if (selectedDifficulty === 'easy') return 'easy_dragon';
+        return 'medium_dragon';
+      }
+      const srcLevel = currentQ?.sourceLevel || 1;
+      return LEVEL_THEMES[srcLevel]?.enemyId || 'villain1';
+    }
+    return levelTheme.enemyId || 'villain1';
+  }, [currentLevel, isBossQuestion, selectedDifficulty, currentQ?.sourceLevel, levelTheme.enemyId]);
 
   useEffect(() => {
     const q = generateQuestion(currentLevel, 0, totalQuestions, selectedDifficulty);

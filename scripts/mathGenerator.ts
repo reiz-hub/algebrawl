@@ -8,6 +8,59 @@ export type Question = {
   sourceLevel: number;
 };
 
+// ─── Seeded RNG for Multiplayer ─────────────────────────────
+// Mulberry32: a fast, deterministic 32-bit PRNG.
+// Given the same seed, it always produces the same sequence of numbers.
+// This is used in online multiplayer so both players get identical questions.
+
+/**
+ * Create a seeded random number generator using the Mulberry32 algorithm.
+ * Returns a function that produces a new random number (0-1) each call.
+ */
+export function createSeededRng(seed: number): () => number {
+  let state = seed | 0;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Generate a batch of deterministic questions for online multiplayer.
+ * Both players call this with the same seed and get identical questions.
+ *
+ * @param seed - Shared random seed (stored in match_rooms.question_seed)
+ * @param count - Number of questions to generate
+ * @param topics - Optional array of level IDs (1-7) to generate questions from
+ * @returns Array of Questions in deterministic order
+ */
+export function generateSeededQuestions(seed: number, count: number, topics?: number[]): Question[] {
+  const rng = createSeededRng(seed);
+  const questions: Question[] = [];
+  const allowedTopics = topics && topics.length > 0 ? topics : [1, 2, 3, 4, 5, 6, 7];
+
+  for (let i = 0; i < count; i++) {
+    // Pick a topic from the allowed topics list using the seeded RNG
+    const topicIdx = Math.floor(rng() * allowedTopics.length);
+    const level = allowedTopics[topicIdx];
+    // Use a question index to get balanced difficulty questions
+    const questionIndex = Math.floor(rng() * 20) + 5;
+    // Generate the question (this uses Math.random internally,
+    // but we override it temporarily)
+    const originalRandom = Math.random;
+    Math.random = rng;
+    try {
+      questions.push(generateQuestion(level, questionIndex));
+    } finally {
+      Math.random = originalRandom;
+    }
+  }
+
+  return questions;
+}
+
 // Helper to shuffle an array (uses spread [...] to avoid mutating the original array)
 const shuffle = (array: string[]) => [...array].sort(() => Math.random() - 0.5);
 
@@ -22,7 +75,11 @@ const generateOptions = (answer: string, numChoices: number, isNumeric: boolean 
       const numAnswer = parseInt(answer, 10);
       let offset = Math.floor(Math.random() * 11) - 5;
       if (offset === 0) offset = 2;
-      distractor = (numAnswer + offset).toString();
+      let candidate = numAnswer + offset;
+      if (numAnswer > 0 && candidate <= 0) {
+        candidate = numAnswer + Math.abs(offset) + 1;
+      }
+      distractor = candidate.toString();
     } else {
       // For algebraic terms like "5x", randomize the coefficient
       const match = answer.match(/^(-?\d+)(.*)/);
@@ -310,37 +367,112 @@ export const generateQuestion = (level: number, questionIndex: number = 0, total
 
     case 5: {
       // Level 5: Systems of Equations
-      // PROGRESSIVE: Early = small sums with +/- → Late = larger numbers with product/quotient pairs
-      const op = progressOp(progress);
+      // PROGRESSIVE:
+      // - Phase 1 (0 to 0.35): Basic Linear Systems / Elimination (x+y=S, x-y=D or 2x+y=A, x+y=B)
+      // - Phase 2 (0.35 to 0.70): Substitution Systems (y=mx, x+y=A or y=x+k, 2x+y=A)
+      // - Phase 3 (0.70 to 1.0): Advanced Linear Systems with Coefficients (3x+y=A, x-y=B or 3x+2y=A, x+2y=B)
+      isNumeric = true;
 
-      const x = scaledRand(3, 5, progress, 12);  // 3-7 → 15-19
-      const y = scaledRand(1, 3, progress, 5);    // 1-3 → 6-8
+      if (progress < 0.35) {
+        // PHASE 1: Basic Elimination
+        const x = scaledRand(3, 4, progress, 5); // 3 to 7
+        const y = scaledRand(1, 3, progress, 4); // 1 to 5
+        const askForX = Math.random() > 0.35;
 
-      if (op === '+' || op === '-') {
-        // x+y=sum, x-y=diff  →  find x
-        const sum = x + y;
-        const diff = x - y;
-        equation = `x+y=${sum}, x−y=${diff}. x=?`;
-        hint = `Add both equations, then divide by 2`;
-      } else if (op === '*') {
-        // x×y=product, x+y=sum  →  find x
-        const product = x * y;
-        const sum = x + y;
-        equation = `x×y=${product}, x+y=${sum}. x=?`;
-        hint = `Find two numbers with that sum and product`;
+        if (Math.random() > 0.4) {
+          // Standard x+y and x-y
+          const sum = x + y;
+          const diff = x - y;
+          if (askForX) {
+            equation = `x + y = ${sum}, x − y = ${diff}. x = ?`;
+            answer = x.toString();
+            hint = `Add both equations to eliminate y: 2x = ${sum + diff}`;
+          } else {
+            equation = `x + y = ${sum}, x − y = ${diff}. y = ?`;
+            answer = y.toString();
+            hint = `Subtract the second equation from the first: 2y = ${sum - diff}`;
+          }
+        } else {
+          // 2x + y = A, x + y = B
+          const eq1 = 2 * x + y;
+          const eq2 = x + y;
+          if (askForX) {
+            equation = `2x + y = ${eq1}, x + y = ${eq2}. x = ?`;
+            answer = x.toString();
+            hint = `Subtract the second equation from the first: (2x − x) = ${eq1} − ${eq2}`;
+          } else {
+            equation = `2x + y = ${eq1}, x + y = ${eq2}. y = ?`;
+            answer = y.toString();
+            hint = `Find x first (${eq1} − ${eq2} = ${x}), then subtract from ${eq2}`;
+          }
+        }
+      } else if (progress < 0.70) {
+        // PHASE 2: Substitution Systems
+        if (Math.random() > 0.5) {
+          // y = m * x, a*x + b*y = C
+          const m = Math.floor(Math.random() * 2) + 2; // 2 or 3
+          const x = scaledRand(2, 4, progress, 5); // 2 to 7
+          const y = m * x;
+          const coeffX = Math.floor(Math.random() * 2) + 1; // 1 or 2
+          const total = coeffX * x + y;
+          const askForX = Math.random() > 0.35;
+
+          if (askForX) {
+            equation = `y = ${m}x, ${coeffX > 1 ? `${coeffX}x + ` : 'x + '}y = ${total}. x = ?`;
+            answer = x.toString();
+            hint = `Substitute ${m}x for y: ${coeffX + m}x = ${total}`;
+          } else {
+            equation = `y = ${m}x, ${coeffX > 1 ? `${coeffX}x + ` : 'x + '}y = ${total}. y = ?`;
+            answer = y.toString();
+            hint = `Find x = ${x} first, then calculate y = ${m}(${x})`;
+          }
+        } else {
+          // y = x + k, x + y = C
+          const k = Math.floor(Math.random() * 4) + 1; // 1 to 4
+          const x = scaledRand(2, 4, progress, 6); // 2 to 8
+          const y = x + k;
+          const total = x + y; // 2x + k
+          const askForX = Math.random() > 0.35;
+
+          if (askForX) {
+            equation = `y = x + ${k}, x + y = ${total}. x = ?`;
+            answer = x.toString();
+            hint = `Substitute (x + ${k}) for y: 2x + ${k} = ${total}`;
+          } else {
+            equation = `y = x + ${k}, x + y = ${total}. y = ?`;
+            answer = y.toString();
+            hint = `Find x = ${x} first, then calculate ${x} + ${k}`;
+          }
+        }
       } else {
-        // x÷y=quotient (integer), x−y=diff  →  find x
-        const yAdj = Math.floor(Math.random() * (2 + Math.floor(progress * 3))) + 2;
-        const xAdj = yAdj * (Math.floor(Math.random() * (3 + Math.floor(progress * 4))) + 2); // ensure divisible
-        const quotient = xAdj / yAdj;
-        const diff = xAdj - yAdj;
-        equation = `x÷y=${quotient}, x−y=${diff}. x=?`;
-        answer = xAdj.toString();
-        hint = `Express x = quotient × y, then substitute into x − y`;
-        break;
-      }
+        // PHASE 3: Advanced Linear Systems (Multi-step Elimination)
+        const x = scaledRand(3, 5, progress, 8); // 3 to 12
+        const y = scaledRand(2, 4, progress, 6); // 2 to 9
 
-      answer = x.toString();
+        const type = Math.random();
+        if (type < 0.35) {
+          // 3x + y = A, x - y = B
+          const eq1 = 3 * x + y;
+          const eq2 = x - y;
+          equation = `3x + y = ${eq1}, x − y = ${eq2}. x = ?`;
+          answer = x.toString();
+          hint = `Add both equations: 4x = ${eq1 + eq2}`;
+        } else if (type < 0.70) {
+          // 3x + 2y = A, x + 2y = B  (elimination of 2y)
+          const eq1 = 3 * x + 2 * y;
+          const eq2 = x + 2 * y;
+          equation = `3x + 2y = ${eq1}, x + 2y = ${eq2}. x = ?`;
+          answer = x.toString();
+          hint = `Subtract equation 2 from equation 1: 2x = ${eq1 - eq2}`;
+        } else {
+          // 2x + 3y = A, 2x + y = B  (elimination of 2x)
+          const eq1 = 2 * x + 3 * y;
+          const eq2 = 2 * x + y;
+          equation = `2x + 3y = ${eq1}, 2x + y = ${eq2}. y = ?`;
+          answer = y.toString();
+          hint = `Subtract equation 2 from equation 1: 2y = ${eq1 - eq2}`;
+        }
+      }
       break;
     }
 

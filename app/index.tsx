@@ -57,10 +57,16 @@ export default function HomeScreen() {
             <Text style={styles.btnPrimaryText}>Start Adventure</Text>
           </NeoButton>
 
-          {/* Versus Button */}
+          {/* Versus Button (Local 2P) */}
           <NeoButton style={styles.btnVersus as ViewStyle} onPress={() => router.push('/versus')}>
             <Feather name="crosshair" size={28} color="#fff" />
             <Text style={styles.btnVersusText}>Versus</Text>
+          </NeoButton>
+
+          {/* Multiplayer Button (Online) */}
+          <NeoButton style={styles.btnMultiplayer as ViewStyle} onPress={() => router.push('/multiplayer' as any)}>
+            <Feather name="wifi" size={28} color="#fff" />
+            <Text style={styles.btnMultiplayerText}>Multiplayer</Text>
           </NeoButton>
 
           {/* Shop Button */}
@@ -159,6 +165,24 @@ const styles = StyleSheet.create({
     gap: 12
   },
   btnVersusText: {
+    fontFamily: GameFonts.brawl,
+    color: '#fff',
+    fontSize: 20,
+    textTransform: 'uppercase',
+    letterSpacing: 1
+  },
+  btnMultiplayer: {
+    backgroundColor: '#8b5cf6',
+    borderWidth: 3,
+    borderColor: '#1a1008',
+    paddingVertical: 18,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12
+  },
+  btnMultiplayerText: {
     fontFamily: GameFonts.brawl,
     color: '#fff',
     fontSize: 20,

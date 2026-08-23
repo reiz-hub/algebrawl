@@ -18,6 +18,9 @@ export interface UserData {
   inventory?: string[];
   equippedCharacter?: string;
   equippedGear?: string | null;
+  mmr?: number;
+  onlineWins?: number;
+  onlineLosses?: number;
   createdAt?: any;
 }
 
@@ -42,6 +45,9 @@ const toDbRow = (data: Partial<UserData>): Record<string, any> => {
   if (data.inventory !== undefined) row.inventory = data.inventory;
   if (data.equippedCharacter !== undefined) row.equipped_character = data.equippedCharacter;
   if (data.equippedGear !== undefined) row.equipped_gear = data.equippedGear;
+  if (data.mmr !== undefined) row.mmr = data.mmr;
+  if (data.onlineWins !== undefined) row.online_wins = data.onlineWins;
+  if (data.onlineLosses !== undefined) row.online_losses = data.onlineLosses;
   return row;
 };
 
@@ -63,6 +69,9 @@ const fromDbRow = (row: any): UserData => ({
   inventory: row.inventory ?? ['char_algebro'],
   equippedCharacter: row.equipped_character ?? 'char_algebro',
   equippedGear: row.equipped_gear ?? null,
+  mmr: row.mmr ?? 1000,
+  onlineWins: row.online_wins ?? 0,
+  onlineLosses: row.online_losses ?? 0,
   createdAt: row.created_at ?? undefined,
 });
 
