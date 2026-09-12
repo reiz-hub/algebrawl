@@ -159,18 +159,6 @@ export default function ProfileScreen() {
             </View>
           </View>
         </View>
-
-        {/* Login Link */}
-        <TouchableOpacity
-          style={styles.loginLink}
-          activeOpacity={0.7}
-          onPress={() => router.push('/login')}
-        >
-          <Text style={styles.loginLinkText}>
-            Already have an account?{' '}
-            <Text style={styles.loginLinkBold}>Log in here</Text>
-          </Text>
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -258,7 +246,7 @@ const styles = StyleSheet.create({
   inputRow: { marginTop: 12 },
   input: {
     fontFamily: GameFonts.hud,
-    backgroundColor: '#fff9f0',
+    backgroundColor: '#ffffff',
     borderWidth: 3,
     borderColor: '#1a1008',
     borderRadius: 12,
@@ -300,20 +288,5 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 1,
-  },
-  loginLink: {
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
-  loginLinkText: {
-    fontFamily: GameFonts.hud,
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#7a6a55',
-  },
-  loginLinkBold: {
-    fontFamily: GameFonts.brawl,
-    color: '#1a6cf5',
-    fontWeight: '900',
   },
 });

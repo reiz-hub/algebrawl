@@ -7,19 +7,21 @@ import TouchableOpacity from '../components/TouchableOpacity';
 import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
 
+const LOCK_ICON = require('../assets/icons/UI_icons/lock.png');
+
 const GEARS = [
-  { id: 'g1', name: 'No. 2 Pencil', stat: '+2s / Q', icon: '✏️', cost: 0 },
-  { id: 'g2', name: 'Study Notes', stat: '+1 Heart', icon: '📓', cost: 100 },
-  { id: 'g3', name: 'Math Ruler', stat: '+4s / Q', icon: '📏', cost: 200 },
-  { id: 'g4', name: 'Pocket Calc', stat: '+2 Hearts', icon: '📱', cost: 350 },
-  { id: 'g5', name: 'Golden Protractor', stat: '+3 Hearts & +5s/Q', icon: '📐', cost: 600 },
+  { id: 'g1', name: 'No. 2 Pencil', stat: '+2s / Q', icon: '✏️', image: require('../assets/icons/gears/no2_pencil.png'), cost: 0 },
+  { id: 'g2', name: 'Study Notes', stat: '+1 Heart', icon: '📓', image: require('../assets/icons/gears/study_notes.png'), cost: 100 },
+  { id: 'g3', name: 'Math Ruler', stat: '+4s / Q', icon: '📏', image: require('../assets/icons/gears/math_ruler.png'), cost: 200 },
+  { id: 'g4', name: 'Pocket Calc', stat: '+2 Hearts', icon: '📱', image: require('../assets/icons/gears/pocket_calc.png'), cost: 350 },
+  { id: 'g5', name: 'Golden Protractor', stat: '+3 Hearts & +5s/Q', icon: '📐', image: require('../assets/icons/gears/golden_protractor.png'), cost: 600 },
 ];
 
 const SKILLS = [
-  { id: 's1', name: 'Basic Attack', desc: 'Standard Damage', icon: '⚔️', cost: 0 },
-  { id: 's2', name: 'Focus', desc: '+5s Timer (1x)', icon: '⏱️', cost: 150 },
-  { id: 's3', name: 'Shield', desc: 'Block 1 Hit (1x)', icon: '🛡️', cost: 250 },
-  { id: 's4', name: 'Double Strike', desc: '2x Damage (1x)', icon: '🔥', cost: 400 },
+  { id: 's1', name: 'Basic Attack', desc: 'Standard Damage', icon: '⚔️', image: require('../assets/icons/skills/basic_attack.png'), cost: 0 },
+  { id: 's2', name: 'Focus', desc: '+5s Timer (1x)', icon: '⏱️', image: require('../assets/icons/skills/skills.png'), cost: 150 },
+  { id: 's3', name: 'Shield', desc: 'Block 1 Hit (1x)', icon: '🛡️', image: require('../assets/icons/skills/shield.png'), cost: 250 },
+  { id: 's4', name: 'Double Strike', desc: '2x Damage (1x)', icon: '🔥', image: require('../assets/icons/skills/double_strike.png'), cost: 400 },
 ];
 
 const CHARACTERS = [
@@ -39,16 +41,25 @@ export default function PreBattleScreen() {
 
   const inventory = useGameStore((state) => state.inventory);
   const coins = useGameStore((state) => state.coins);
-
-  const [selectedGear, setSelectedGear] = useState('g1');
-  const [selectedSkill, setSelectedSkill] = useState('s1');
-  const [selectedCharacter, setSelectedCharacter] = useState('c0');
+  const equippedCharacter = useGameStore((state) => state.equippedCharacter);
+  const equippedGear = useGameStore((state) => state.equippedGear);
+  const skillStocks = useGameStore((state) => state.skillStocks);
+  const consumeSkill = useGameStore((state) => state.consumeSkill);
+  const getSkillStock = useGameStore((state) => state.getSkillStock);
 
   // Helper: check if item is unlocked (owned in inventory or free starter item)
   const isItemUnlocked = (id: string, cost: number) => {
     if (cost === 0) return true;
-    return inventory.includes(id);
+    return inventory.includes(id) || (id === 'c0' && inventory.includes('char_algebro'));
   };
+
+  const normalizedEquippedChar = equippedCharacter === 'char_algebro' ? 'c0' : equippedCharacter;
+  const initialChar = normalizedEquippedChar && isItemUnlocked(normalizedEquippedChar, 0) ? normalizedEquippedChar : 'c0';
+  const initialGear = equippedGear && isItemUnlocked(equippedGear, 0) ? equippedGear : 'g1';
+
+  const [selectedGear, setSelectedGear] = useState(initialGear);
+  const [selectedSkill, setSelectedSkill] = useState('s1');
+  const [selectedCharacter, setSelectedCharacter] = useState(initialChar);
 
   const BrutalistCard = ({ children, style }: { children: React.ReactNode; style?: any }) => (
     <View style={styles.cardWrapper}>
@@ -156,7 +167,13 @@ export default function PreBattleScreen() {
                       !isUnlocked && styles.itemSlotLocked,
                     ]}
                   >
-                    <Text style={styles.itemIcon}>{!isUnlocked ? '🔒' : gear.icon}</Text>
+                    {!isUnlocked ? (
+                      <Image source={LOCK_ICON} style={{ width: 34, height: 34 }} resizeMode="contain" />
+                    ) : gear.image ? (
+                      <Image source={gear.image} style={{ width: 44, height: 44 }} resizeMode="contain" />
+                    ) : (
+                      <Text style={styles.itemIcon}>{gear.icon}</Text>
+                    )}
                   </View>
                   <Text style={[styles.itemName, !isUnlocked && styles.lockedText]}>
                     {!isUnlocked ? `🪙 ${gear.cost}` : gear.name}
@@ -205,7 +222,7 @@ export default function PreBattleScreen() {
                     ]}
                   >
                     {!isUnlocked ? (
-                      <Text style={styles.itemIcon}>🔒</Text>
+                      <Image source={LOCK_ICON} style={{ width: 34, height: 34 }} resizeMode="contain" />
                     ) : char.image ? (
                       <Image source={char.image} style={{ width: 48, height: 48, borderRadius: 8 }} resizeMode="contain" />
                     ) : (
@@ -232,26 +249,39 @@ export default function PreBattleScreen() {
           {SKILLS.map((skill, index) => {
             const isUnlocked = isItemUnlocked(skill.id, skill.cost);
             const isSelected = selectedSkill === skill.id;
+            const isConsumable = skill.id !== 's1' && skill.cost > 0;
+            const stock = isConsumable ? (skillStocks[skill.id] ?? 0) : Infinity;
+            const hasZeroStock = isConsumable && isUnlocked && stock <= 0;
             return (
               <TouchableOpacity
                 key={skill.id}
                 activeOpacity={0.8}
                 onPress={() => {
-                  if (isUnlocked) {
-                    setSelectedSkill(skill.id);
-                  } else {
+                  if (!isUnlocked || hasZeroStock) {
                     router.push('/shop');
+                  } else {
+                    setSelectedSkill(skill.id);
                   }
                 }}
                 style={[
                   styles.skillRow,
                   index < SKILLS.length - 1 && styles.skillBorder,
                   isSelected && styles.skillRowSelected,
-                  !isUnlocked && styles.skillRowLocked,
+                  (!isUnlocked || hasZeroStock) && styles.skillRowLocked,
                 ]}
               >
                 <View style={[styles.skillIconContainer, !isUnlocked && styles.lockedIconContainer]}>
-                  <Text style={styles.skillIcon}>{!isUnlocked ? '🔒' : skill.icon}</Text>
+                  {!isUnlocked ? (
+                    <Image source={LOCK_ICON} style={{ width: 28, height: 28 }} resizeMode="contain" />
+                  ) : skill.image ? (
+                    <Image
+                      source={skill.image}
+                      style={{ width: 34, height: 34, opacity: hasZeroStock ? 0.5 : 1 }}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Text style={[styles.skillIcon, hasZeroStock && { opacity: 0.5 }]}>{skill.icon}</Text>
+                  )}
                 </View>
                 <View style={styles.skillTextContainer}>
                   <Text style={[styles.skillName, !isUnlocked && styles.lockedText]}>
@@ -261,6 +291,23 @@ export default function PreBattleScreen() {
                     {!isUnlocked ? 'Unlock in Item Shop using Coins' : skill.desc}
                   </Text>
                 </View>
+                {isConsumable && isUnlocked && (
+                  <View style={{
+                    backgroundColor: stock > 0 ? '#fef3c7' : '#fee2e2',
+                    borderWidth: 1.5,
+                    borderColor: '#1a1008',
+                    borderRadius: 8,
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    marginRight: 6,
+                  }}>
+                    <Text style={{
+                      fontFamily: GameFonts.arcade,
+                      fontSize: 11,
+                      color: stock > 0 ? '#1a1008' : '#dc2626',
+                    }}>×{stock}</Text>
+                  </View>
+                )}
                 <View style={styles.radioCircle}>
                   {isSelected && <View style={styles.radioInner} />}
                 </View>
@@ -280,14 +327,26 @@ export default function PreBattleScreen() {
               const activeGear = GEARS.find((g) => g.id === selectedGear);
               const activeCharacter = CHARACTERS.find((c) => c.id === selectedCharacter);
 
+              // Consume skill stock for consumable skills before entering battle
+              if (selectedSkill !== 's1') {
+                const consumed = consumeSkill(selectedSkill);
+                if (!consumed) {
+                  // Safety fallback: shouldn't happen since UI prevents selection
+                  setSelectedSkill('s1');
+                  return;
+                }
+              }
+
               router.push({
                 pathname: '/battle',
                 params: {
                   level,
                   questions,
                   timePerQuestion: timePerQuestion.toString(),
+                  skillId: activeSkill?.id,
                   skillName: activeSkill?.name,
                   skillIcon: activeSkill?.icon,
+                  gearId: activeGear?.id,
                   gearName: activeGear?.name,
                   gearIcon: activeGear?.icon,
                   gearStat: activeGear?.stat,

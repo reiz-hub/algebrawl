@@ -21,6 +21,7 @@ export interface UserData {
   mmr?: number;
   onlineWins?: number;
   onlineLosses?: number;
+  skillStocks?: Record<string, number>;
   createdAt?: any;
 }
 
@@ -48,6 +49,7 @@ const toDbRow = (data: Partial<UserData>): Record<string, any> => {
   if (data.mmr !== undefined) row.mmr = data.mmr;
   if (data.onlineWins !== undefined) row.online_wins = data.onlineWins;
   if (data.onlineLosses !== undefined) row.online_losses = data.onlineLosses;
+  if (data.skillStocks !== undefined) row.skill_stocks = data.skillStocks;
   return row;
 };
 
@@ -72,6 +74,7 @@ const fromDbRow = (row: any): UserData => ({
   mmr: row.mmr ?? 1000,
   onlineWins: row.online_wins ?? 0,
   onlineLosses: row.online_losses ?? 0,
+  skillStocks: row.skill_stocks ?? {},
   createdAt: row.created_at ?? undefined,
 });
 

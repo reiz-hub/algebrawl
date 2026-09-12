@@ -8,11 +8,21 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { SHOP_ITEMS } from '../constants/shopItems';
 import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
 import { ItemCategory, ItemRarity, ShopItem } from '../types/shop';
 import NeoButton from './NeoButton';
+
+const LOCK_IMAGE = require('../assets/icons/UI_icons/lock.png');
+
+const SHOP_TABS: { id: 'all' | ItemCategory; label: string; icon: keyof typeof Feather.glyphMap }[] = [
+  { id: 'all', label: 'ALL', icon: 'grid' },
+  { id: 'gear', label: 'GEARS', icon: 'tool' },
+  { id: 'skill', label: 'SKILLS', icon: 'zap' },
+  { id: 'character', label: 'CHARACTERS', icon: 'user' },
+];
 
 const RARITY_COLORS: Record<ItemRarity, { bg: string; text: string; border: string }> = {
   common: { bg: '#e2e8f0', text: '#1a1008', border: '#1a1008' },
@@ -26,10 +36,11 @@ export default function ShopView() {
   const inventory = useGameStore((state) => state.inventory);
   const equippedCharacter = useGameStore((state) => state.equippedCharacter);
   const equippedGear = useGameStore((state) => state.equippedGear);
+  const skillStocks = useGameStore((state) => state.skillStocks);
+  const unlockedLevel = useGameStore((state) => state.unlockedLevel || 1);
 
   const buyItem = useGameStore((state) => state.buyItem);
   const equipItem = useGameStore((state) => state.equipItem);
-  const addCoins = useGameStore((state) => state.addCoins);
 
   const [activeTab, setActiveTab] = useState<'all' | ItemCategory>('all');
   const [modalFeedback, setModalFeedback] = useState<{
@@ -37,11 +48,13 @@ export default function ShopView() {
     title: string;
     message: string;
     success: boolean;
+    isLocked?: boolean;
   }>({
     visible: false,
     title: '',
     message: '',
     success: false,
+    isLocked: false,
   });
 
   const filteredItems = SHOP_ITEMS.filter((item) => {
@@ -56,6 +69,18 @@ export default function ShopView() {
       title: result.success ? '🎉 ITEM UNLOCKED!' : '⚠️ TRANSACTION FAILED',
       message: result.message,
       success: result.success,
+      isLocked: false,
+    });
+  };
+
+  const handleLockedPress = (item: ShopItem) => {
+    const reqLevel = item.unlockLevel ?? 1;
+    setModalFeedback({
+      visible: true,
+      title: 'ITEM LOCKED',
+      message: `Reach Level ${reqLevel} in Adventure Mode to unlock ${item.name} for purchase! (Your current level: Level ${unlockedLevel}).`,
+      success: false,
+      isLocked: true,
     });
   };
 
@@ -65,10 +90,15 @@ export default function ShopView() {
 
   const renderItemCard = ({ item }: { item: ShopItem }) => {
     const isOwned = inventory.includes(item.id);
+    const isConsumableSkill = item.category === 'skill' && !!item.isConsumable;
+    const skillStock = isConsumableSkill ? (skillStocks[item.id] ?? 0) : 0;
+    const reqLevel = item.unlockLevel ?? 1;
+    const isLevelLocked = !isOwned && unlockedLevel < reqLevel;
+    const isLocked = isConsumableSkill ? unlockedLevel < reqLevel : isLevelLocked;
 
     let isEquipped = false;
     if (item.category === 'character') isEquipped = equippedCharacter === item.id;
-    else if (item.category === 'gear' || item.category === 'skill') isEquipped = equippedGear === item.id;
+    else if (item.category === 'gear') isEquipped = equippedGear === item.id;
 
     const canAfford = coins >= item.cost;
     const rarityStyle = RARITY_COLORS[item.rarity];
@@ -76,24 +106,76 @@ export default function ShopView() {
     return (
       <View style={styles.cardWrapper}>
         <View style={styles.cardShadow} />
-        <View style={styles.cardContent}>
+        <View style={[styles.cardContent, isLocked && styles.cardContentLocked]}>
           {/* Header Row */}
           <View style={styles.cardHeader}>
-            {item.image ? (
-              <Image source={item.image} style={styles.itemAvatarImage} resizeMode="contain" />
-            ) : (
-              <Text style={styles.itemIcon}>{item.icon || '🛍️'}</Text>
-            )}
-            <View style={styles.cardHeaderRight}>
-              <View
-                style={[
-                  styles.rarityBadge,
-                  { backgroundColor: rarityStyle.bg, borderColor: rarityStyle.border },
-                ]}
-              >
-                <Text style={[styles.rarityText, { color: rarityStyle.text }]}>
-                  {item.rarity.toUpperCase()}
+            <View style={styles.imageContainer}>
+              {item.image ? (
+                <Image
+                  source={item.image}
+                  style={[styles.itemAvatarImage, isLocked && styles.imageLocked]}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Text style={[styles.itemIcon, isLocked && styles.imageLocked]}>
+                  {item.icon || '🛍️'}
                 </Text>
+              )}
+              {isLocked && (
+                <Image
+                  source={LOCK_IMAGE}
+                  style={styles.lockOverlayImage}
+                  resizeMode="contain"
+                />
+              )}
+            </View>
+
+            <View style={styles.cardHeaderRight}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                <View
+                  style={[
+                    styles.rarityBadge,
+                    { backgroundColor: rarityStyle.bg, borderColor: rarityStyle.border },
+                  ]}
+                >
+                  <Text style={[styles.rarityText, { color: rarityStyle.text }]}>
+                    {item.rarity.toUpperCase()}
+                  </Text>
+                </View>
+
+                {/* Level Requirement Badge */}
+                {isOwned ? (
+                  <View style={styles.ownedBadge}>
+                    <Text style={styles.ownedBadgeText}>✓ UNLOCKED</Text>
+                  </View>
+                ) : isLocked ? (
+                  <View style={styles.levelReqBadgeLocked}>
+                    <Image source={LOCK_IMAGE} style={styles.badgeLockImage} resizeMode="contain" />
+                    <Text style={styles.levelReqTextLocked}>LVL {reqLevel}</Text>
+                  </View>
+                ) : (
+                  <View style={styles.levelReqBadgeUnlocked}>
+                    <Feather name="check" size={9} color="#16a34a" />
+                    <Text style={styles.levelReqTextUnlocked}>LVL {reqLevel}</Text>
+                  </View>
+                )}
+
+                {isConsumableSkill && isOwned && (
+                  <View style={[
+                    styles.rarityBadge,
+                    {
+                      backgroundColor: skillStock > 0 ? '#dcfce7' : '#fee2e2',
+                      borderColor: '#1a1008',
+                    },
+                  ]}>
+                    <Text style={[
+                      styles.rarityText,
+                      { color: skillStock > 0 ? '#16a34a' : '#dc2626' },
+                    ]}>
+                      {`STOCK: ${skillStock} 🎯`}
+                    </Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.categoryTag}>{item.category.toUpperCase()}</Text>
             </View>
@@ -102,6 +184,19 @@ export default function ShopView() {
           {/* Details */}
           <Text style={styles.itemName}>{item.name}</Text>
           <Text style={styles.itemDescription}>{item.description}</Text>
+
+          {/* Consumable indicator */}
+          {isConsumableSkill && (
+            <Text style={{
+              fontFamily: GameFonts.hud,
+              fontSize: 11,
+              color: '#7a6a55',
+              marginBottom: 8,
+              fontStyle: 'italic',
+            }}>
+              ⚔️ Consumable • 1 use per purchase
+            </Text>
+          )}
 
           {/* Item Stats Badges */}
           {item.stats && (
@@ -129,7 +224,35 @@ export default function ShopView() {
 
           {/* Dynamic Action Button Area */}
           <View style={styles.cardFooter}>
-            {isEquipped ? (
+            {isConsumableSkill ? (
+              // Consumable skill buttons
+              isLocked ? (
+                <TouchableOpacity
+                  style={styles.lockedBtn}
+                  onPress={() => handleLockedPress(item)}
+                  activeOpacity={0.8}
+                >
+                  <Image source={LOCK_IMAGE} style={styles.btnLockImage} resizeMode="contain" />
+                  <Text style={styles.lockedBtnText}>UNLOCKS AT LEVEL {reqLevel}</Text>
+                </TouchableOpacity>
+              ) : canAfford ? (
+                <NeoButton
+                  style={styles.buyBtn}
+                  shadowStyle={styles.buyBtnShadow}
+                  onPress={() => handleBuy(item)}
+                >
+                  <Text style={styles.buyBtnText}>
+                    {isOwned ? `BUY MORE 🪙 ${item.cost}` : `BUY 🪙 ${item.cost}`}
+                  </Text>
+                </NeoButton>
+              ) : (
+                <View style={styles.unaffordableBadge}>
+                  <Text style={styles.unaffordableText}>
+                    NEED 🪙 {item.cost - coins} MORE
+                  </Text>
+                </View>
+              )
+            ) : isEquipped ? (
               <TouchableOpacity
                 style={styles.equippedBadgeBtn}
                 onPress={() => handleEquip(item)}
@@ -145,7 +268,18 @@ export default function ShopView() {
               >
                 <Text style={styles.equipBtnText}>EQUIP</Text>
               </NeoButton>
+            ) : isLocked ? (
+              // Gear & Characters: Locked and unpurchasable if level requirements are not met
+              <TouchableOpacity
+                style={styles.lockedBtn}
+                onPress={() => handleLockedPress(item)}
+                activeOpacity={0.8}
+              >
+                <Image source={LOCK_IMAGE} style={styles.btnLockImage} resizeMode="contain" />
+                <Text style={styles.lockedBtnText}>UNLOCKS AT LEVEL {reqLevel}</Text>
+              </TouchableOpacity>
             ) : canAfford ? (
+              // Gear becomes purchasable only when meeting BOTH level AND coin requirements!
               <NeoButton
                 style={styles.buyBtn}
                 shadowStyle={styles.buyBtnShadow}
@@ -154,6 +288,7 @@ export default function ShopView() {
                 <Text style={styles.buyBtnText}>BUY 🪙 {item.cost}</Text>
               </NeoButton>
             ) : (
+              // Meets level requirement, but needs more coins
               <View style={styles.unaffordableBadge}>
                 <Text style={styles.unaffordableText}>
                   NEED 🪙 {item.cost - coins} MORE
@@ -168,70 +303,72 @@ export default function ShopView() {
 
   return (
     <View style={styles.container}>
-      {/* Floating Background Symbols */}
-      <Text style={[styles.bgSymbol, { top: '3%', left: '8%', transform: [{ rotate: '-10deg' }] }]}>-</Text>
-      <Text style={[styles.bgSymbol, { top: '22%', right: '12%', transform: [{ rotate: '20deg' }] }]}>x²</Text>
-      <Text style={[styles.bgSymbol, { bottom: '25%', left: '15%', transform: [{ rotate: '-15deg' }] }]}>+</Text>
-      <Text style={[styles.bgSymbol, { bottom: '5%', right: '10%', transform: [{ rotate: '10deg' }] }]}>÷</Text>
+      <View style={styles.contentWrapper}>
+        {/* Floating Background Symbols */}
+        <Text style={[styles.bgSymbol, { top: '3%', left: '8%', transform: [{ rotate: '-10deg' }] }]}>-</Text>
+        <Text style={[styles.bgSymbol, { top: '22%', right: '12%', transform: [{ rotate: '20deg' }] }]}>x²</Text>
+        <Text style={[styles.bgSymbol, { bottom: '25%', left: '15%', transform: [{ rotate: '-15deg' }] }]}>+</Text>
+        <Text style={[styles.bgSymbol, { bottom: '5%', right: '10%', transform: [{ rotate: '10deg' }] }]}>÷</Text>
 
-      {/* ── Balance Header ── */}
-      <View style={styles.cardWrapper}>
-        <View style={styles.cardShadow} />
-        <View style={styles.balanceCardContent}>
-          <View style={styles.balanceInfo}>
-            <Text style={styles.balanceLabel}>CURRENT COIN BALANCE</Text>
-            <View style={styles.coinBadge}>
-              <Text style={styles.coinIcon}>🪙</Text>
-              <Text style={styles.coinText}>{coins}</Text>
-            </View>
-          </View>
 
-          {/* Add Test Coins Button */}
-          <TouchableOpacity
-            style={styles.addCoinBtn}
-            onPress={() => addCoins(100)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.addCoinText}>+100 🪙</Text>
-          </TouchableOpacity>
-        </View>
+        {/* ── Item Grid / List ── */}
+        <FlatList
+          data={filteredItems}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItemCard}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          style={styles.flatList}
+        />
       </View>
 
-      {/* ── Category Filter Tabs ── */}
-      <View style={styles.tabsWrapper}>
-        <View style={styles.tabsShadow} />
-        <View style={styles.tabsContainer}>
-          {(['all', 'gear', 'skill', 'character'] as const).map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.tab, activeTab === tab && styles.activeTab]}
-              onPress={() => setActiveTab(tab)}
-              activeOpacity={0.8}
+      {/* ── Secondary Sub-Navigation Layer — Docked immediately above Bottom Navigation Bar ── */}
+      <View style={styles.subnavDock}>
+        {SHOP_TABS.map((tab) => {
+          const isSelected = activeTab === tab.id;
+          const isGear = tab.id === 'gear';
+          const isSkill = tab.id === 'skill';
+
+          return (
+            <View
+              key={tab.id}
+              style={[
+                styles.subTabWrapper,
+                isGear && styles.subTabWrapperMiddle1,
+                isSkill && styles.subTabWrapperMiddle2,
+              ]}
             >
-              <Text
-                style={[styles.tabText, activeTab === tab && styles.activeTabText]}
+              <View
+                style={[
+                  styles.subTabShadow,
+                  isGear && styles.curveBottomRight,
+                  isSkill && styles.curveBottomLeft,
+                ]}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.subTabBtn,
+                  isSelected ? styles.subTabBtnActive : styles.subTabBtnInactive,
+                  isGear && styles.curveBottomRight,
+                  isSkill && styles.curveBottomLeft,
+                ]}
+                onPress={() => setActiveTab(tab.id)}
+                activeOpacity={0.8}
               >
-                {tab === 'all'
-                  ? 'ALL'
-                  : tab === 'gear'
-                    ? 'GEARS'
-                    : tab === 'skill'
-                      ? 'SKILLS'
-                      : 'CHARACTERS'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+                <Text
+                  style={[
+                    styles.subTabLabel,
+                    isSelected ? styles.subTabLabelActive : styles.subTabLabelInactive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          );
+        })}
       </View>
-
-      {/* ── Item Grid / List ── */}
-      <FlatList
-        data={filteredItems}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItemCard}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
 
       {/* ── Purchase Feedback Modal ── */}
       <Modal
@@ -249,6 +386,9 @@ export default function ShopView() {
                 modalFeedback.success ? styles.modalSuccess : styles.modalError,
               ]}
             >
+              {modalFeedback.isLocked && (
+                <Image source={LOCK_IMAGE} style={styles.modalLockImage} resizeMode="contain" />
+              )}
               <Text style={styles.modalTitle}>{modalFeedback.title}</Text>
               <Text style={styles.modalMessage}>{modalFeedback.message}</Text>
               <NeoButton
@@ -270,9 +410,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff9f0',
+    position: 'relative',
+  },
+  contentWrapper: {
+    flex: 1,
     paddingHorizontal: 20,
     paddingTop: 16,
-    position: 'relative',
+  },
+  flatList: {
+    flex: 1,
   },
   bgSymbol: {
     fontFamily: GameFonts.impact,
@@ -303,6 +449,9 @@ const styles = StyleSheet.create({
     borderColor: '#1a1008',
     padding: 16,
   },
+  cardContentLocked: {
+    backgroundColor: '#faf8f5',
+  },
   cardHeader: {
     flexDirection: 'row',
     gap: 14,
@@ -314,9 +463,24 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 4,
   },
+  imageContainer: {
+    position: 'relative',
+    width: 46,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   itemAvatarImage: {
     width: 44,
     height: 44,
+  },
+  imageLocked: {
+    opacity: 0.35,
+  },
+  lockOverlayImage: {
+    position: 'absolute',
+    width: 26,
+    height: 26,
   },
   itemIcon: {
     fontFamily: GameFonts.brawl,
@@ -354,6 +518,61 @@ const styles = StyleSheet.create({
   rarityText: {
     fontFamily: GameFonts.hud,
     fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  levelReqBadgeLocked: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#1a1008',
+    backgroundColor: '#fee2e2',
+  },
+  badgeLockImage: {
+    width: 12,
+    height: 12,
+  },
+  levelReqTextLocked: {
+    fontFamily: GameFonts.hud,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#dc2626',
+    letterSpacing: 0.5,
+  },
+  levelReqBadgeUnlocked: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#1a1008',
+    backgroundColor: '#dcfce7',
+  },
+  levelReqTextUnlocked: {
+    fontFamily: GameFonts.hud,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#16a34a',
+    letterSpacing: 0.5,
+  },
+  ownedBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#1a1008',
+    backgroundColor: '#fef3c7',
+  },
+  ownedBadgeText: {
+    fontFamily: GameFonts.hud,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#b45309',
     letterSpacing: 0.5,
   },
   categoryTag: {
@@ -464,6 +683,33 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  lockedBtn: {
+    backgroundColor: '#f1f5f9',
+    borderWidth: 2.5,
+    borderColor: '#94a3b8',
+    paddingVertical: 12,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lockedBtnText: {
+    fontFamily: GameFonts.brawl,
+    color: '#64748b',
+    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  btnLockImage: {
+    width: 17,
+    height: 17,
+    marginRight: 6,
+  },
+  modalLockImage: {
+    width: 54,
+    height: 54,
+    marginBottom: 12,
+  },
   balanceCardContent: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
@@ -497,63 +743,72 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#1a1008',
   },
-  addCoinBtn: {
-    backgroundColor: '#f5a623',
-    borderWidth: 2.5,
-    borderColor: '#1a1008',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  subnavDock: {
+    backgroundColor: '#fff9f0',
+    borderTopWidth: 2,
+    borderTopColor: '#1a1008',
+    paddingHorizontal: 10,
+    paddingTop: 5,
+    paddingBottom: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  addCoinText: {
-    fontFamily: GameFonts.brawl,
-    fontSize: 13,
-    color: '#1a1008',
-  },
-  tabsWrapper: {
+  subTabWrapper: {
+    flex: 1,
     position: 'relative',
-    marginBottom: 16,
-    zIndex: 1,
   },
-  tabsShadow: {
+  subTabWrapperMiddle1: {
+    marginRight: 8,
+  },
+  subTabWrapperMiddle2: {
+    marginLeft: 8,
+  },
+  curveBottomRight: {
+    borderBottomRightRadius: 20,
+  },
+  curveBottomLeft: {
+    borderBottomLeftRadius: 20,
+  },
+  subTabShadow: {
     position: 'absolute',
-    top: 4,
-    left: 4,
+    top: 2,
+    left: 2,
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',
-    borderRadius: 14,
+    borderRadius: 8,
   },
-  tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    borderWidth: 3,
+  subTabBtn: {
+    paddingVertical: 7,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    borderWidth: 1.5,
     borderColor: '#1a1008',
-    padding: 4,
-    gap: 4,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 10,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  activeTab: {
-    backgroundColor: '#1a6cf5',
+  subTabBtnActive: {
+    backgroundColor: '#e8302a',
   },
-  tabText: {
+  subTabBtnInactive: {
+    backgroundColor: '#ffffff',
+  },
+  subTabLabel: {
     fontFamily: GameFonts.brawl,
-    fontSize: 11,
-    color: '#7a6a55',
-    letterSpacing: 0.5,
+    fontSize: 8,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
-  activeTabText: {
+  subTabLabelActive: {
     color: '#ffffff',
   },
+  subTabLabelInactive: {
+    color: '#7a6a55',
+  },
   listContent: {
-    paddingBottom: 40,
+    paddingBottom: 24,
   },
   modalOverlay: {
     flex: 1,

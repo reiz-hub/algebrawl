@@ -12,9 +12,10 @@ import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
 import { generateQuestion, Question } from '../scripts/mathGenerator';
 import { soundService } from '../services/soundService';
+import { getGearAsset, getSkillAsset } from '../constants/shopItems';
 
 export default function BattleScreen() {
-  const { level, questions, timePerQuestion: timeParam, skillName, skillIcon, gearName, gearIcon, gearStat, characterId: paramCharId, difficulty: paramDifficulty } = useLocalSearchParams();
+  const { level, questions, timePerQuestion: timeParam, skillId, skillName, skillIcon, gearId, gearName, gearIcon, gearStat, characterId: paramCharId, difficulty: paramDifficulty } = useLocalSearchParams();
   const router = useRouter();
   const { recordLevelProgress, updateStats, coins, equippedCharacter } = useGameStore();
   const selectedCharId = String(paramCharId || equippedCharacter || 'c0');
@@ -50,6 +51,9 @@ export default function BattleScreen() {
   const activeSkillIcon = skillIcon ? String(skillIcon) : "⚔️";
   const activeGearStat = gearStat ? String(gearStat) : "";
   const activeGearIcon = gearIcon ? String(gearIcon) : "";
+
+  const activeGearImage = getGearAsset(gearId as string) || getGearAsset(gearName as string) || getGearAsset(activeGearIcon);
+  const activeSkillImage = getSkillAsset(skillId as string) || getSkillAsset(activeSkillName) || getSkillAsset(activeSkillIcon) || getSkillAsset('s1');
 
   // Gear bonus calculations
   const gearBonusHearts =
@@ -404,36 +408,25 @@ export default function BattleScreen() {
         <View style={styles.subBar}>
           <Text style={styles.hpHearts}>{renderHearts()}</Text>
 
-          <Text style={[styles.timer, timer <= 5 && styles.timerDanger]}>⏱️ {timer}s</Text>
+          <Text style={[styles.timer, timer <= 5 && styles.timerDanger]}>{timer}s</Text>
 
           <Text style={styles.questionCounter}>Q:{totalQuestions - enemyHP + 1}/{totalQuestions}</Text>
         </View>
 
         {/* 2. ARENA AREA */}
         <View style={styles.arena}>
-          <AttackProjectile
-            active={attackActive}
-            attacker={attacker}
-            characterId={selectedCharId}
-            enemyId={currentEnemyId}
-            hasDoubleStrike={hasDoubleStrike}
-            hasShield={hasShield}
-            onImpact={handleProjectileImpact}
-            onComplete={handleProjectileComplete}
-          />
-
           {/* Player Side */}
           <View style={styles.characterSlot}>
             <View style={styles.statusBadgeArea}>
               {hasShield && (
                 <View style={styles.statusBadgeRow}>
-                  <Image source={require('../assets/images/sprites/hero_win.png')} style={styles.statusBadgeImage} resizeMode="contain" />
+                  <Image source={require('../assets/icons/skills/shield.png')} style={styles.statusBadgeImage} resizeMode="contain" />
                   <Text style={styles.statusBadgeLabel}>SHIELDED</Text>
                 </View>
               )}
               {hasDoubleStrike && (
                 <View style={styles.statusBadgeRow}>
-                  <Image source={require('../assets/images/sprites/hero_attack.png')} style={styles.statusBadgeImage} resizeMode="contain" />
+                  <Image source={require('../assets/icons/skills/double_strike.png')} style={styles.statusBadgeImage} resizeMode="contain" />
                   <Text style={styles.statusBadgeLabel}>2X DMG</Text>
                 </View>
               )}
@@ -442,24 +435,45 @@ export default function BattleScreen() {
             <Sprite action={playerAction} characterId={selectedCharId} />
 
             <View style={styles.bottomUIArea}>
-              {activeGearStat ? (
-                <View style={[styles.gearIndicator, { backgroundColor: levelTheme.buttonBg, borderColor: levelTheme.buttonBorder }]}>
-                  <Text style={styles.gearIndicatorText}>{activeGearIcon} {activeGearStat}</Text>
+              {(Boolean(activeGearStat) || Boolean(activeSkillName)) ? (
+                <View style={styles.loadoutRow}>
+                  {Boolean(activeGearStat) && (
+                    <View style={styles.gearSquare}>
+                      {activeGearImage ? (
+                        <Image source={activeGearImage} style={styles.gearIconLarge} resizeMode="contain" />
+                      ) : activeGearIcon ? (
+                        <Text style={{ fontSize: 26 }}>{activeGearIcon}</Text>
+                      ) : null}
+                      <Text style={styles.gearSquareText} numberOfLines={1} adjustsFontSizeToFit>{activeGearStat}</Text>
+                    </View>
+                  )}
+
+                  {Boolean(activeSkillName) && (
+                    <TouchableOpacity
+                      style={[
+                        styles.skillSquare,
+                        skillUsed && styles.skillSquareUsed,
+                      ]}
+                      activeOpacity={0.8}
+                      disabled={skillUsed || activeSkillName === "Basic Attack"}
+                      onPress={activateSkill}
+                    >
+                      {activeSkillImage ? (
+                        <Image
+                          source={activeSkillImage}
+                          style={[styles.skillIconLarge, skillUsed && styles.skillIconLargeUsed]}
+                          resizeMode="contain"
+                        />
+                      ) : activeSkillIcon ? (
+                        <Text style={{ fontSize: 26 }}>{activeSkillIcon}</Text>
+                      ) : null}
+                      <Text style={[styles.skillSquareText, skillUsed && styles.skillSquareTextUsed]} numberOfLines={1} adjustsFontSizeToFit>
+                        {activeSkillName}{skillUsed ? " (USED)" : ""}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ) : null}
-
-              <TouchableOpacity
-                style={styles.skillBadgeContainer}
-                activeOpacity={0.8}
-                disabled={skillUsed || activeSkillName === "Basic Attack"}
-                onPress={activateSkill}
-              >
-                <View style={[styles.skillBadge, skillUsed && styles.skillBadgeUsed, !skillUsed && { backgroundColor: levelTheme.buttonBg, borderColor: levelTheme.buttonBorder }]}>
-                  <Text style={[styles.skillBadgeText, skillUsed && styles.skillBadgeTextUsed]}>
-                    {activeSkillIcon} {activeSkillName} {skillUsed ? "(USED)" : ""}
-                  </Text>
-                </View>
-              </TouchableOpacity>
             </View>
           </View>
 
@@ -477,6 +491,17 @@ export default function BattleScreen() {
             <View style={styles.bottomUIArea} />
           </View>
 
+          {/* Projectile Layer (Rendered on top of character slots) */}
+          <AttackProjectile
+            active={attackActive}
+            attacker={attacker}
+            characterId={selectedCharId}
+            enemyId={currentEnemyId}
+            hasDoubleStrike={hasDoubleStrike}
+            hasShield={hasShield}
+            onImpact={handleProjectileImpact}
+            onComplete={handleProjectileComplete}
+          />
         </View>
       </ImageBackground>
 
@@ -824,16 +849,17 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   characterSlot: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'flex-end',
   },
   bottomUIArea: {
-    height: 90,
-    alignItems: 'flex-start',
+    height: 60,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
     width: '100%',
   },
   statusBadgeArea: {
-    minHeight: 36,
+    height: 36,
     justifyContent: 'flex-end',
     alignItems: 'center',
     marginBottom: 4,
@@ -854,35 +880,69 @@ const styles = StyleSheet.create({
     fontFamily: GameFonts.hud, fontSize: 12, color: '#1a1008'
   },
 
-  gearIndicator: {
-    marginTop: 8,
-    backgroundColor: '#fff9f0', borderWidth: 2, borderColor: '#1a1008',
-    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
+  loadoutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
-  gearIndicatorText: {
-    fontFamily: GameFonts.hud, fontSize: 12, color: '#1a1008'
+  gearSquare: {
+    width: 60,
+    minHeight: 56,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 2,
   },
-  skillBadgeContainer: {
-    marginTop: 10,
-    position: 'relative',
+  gearIconLarge: {
+    width: 38,
+    height: 38,
   },
-  skillBadgeShadow: {
-    position: 'absolute', top: 4, left: 4,
-    width: '100%', height: '100%',
-    backgroundColor: '#1a1008', borderRadius: 8,
+  gearSquareText: {
+    fontFamily: GameFonts.hud,
+    fontSize: 10,
+    color: '#ffffff',
+    textAlign: 'center',
+    marginTop: 2,
+    textShadowColor: '#1a1008',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 1,
   },
-  skillBadge: {
-    backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#1a1008',
-    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
+  skillSquare: {
+    width: 60,
+    minHeight: 56,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 2,
   },
-  skillBadgeUsed: { backgroundColor: '#e5d9c4' },
-  skillBadgeText: {
-    fontFamily: GameFonts.brawl, fontSize: 14, color: '#1a1008', textTransform: 'uppercase'
+  skillSquareUsed: {
+    opacity: 0.5,
   },
-  skillBadgeTextUsed: { color: '#7a6a55' },
-  skillActionImage: { width: 24, height: 24 },
-  skillActionImageUsed: { opacity: 0.7 },
+  skillIconLarge: {
+    width: 38,
+    height: 38,
+  },
+  skillIconLargeUsed: {
+    opacity: 0.6,
+  },
+  skillSquareText: {
+    fontFamily: GameFonts.hud,
+    fontSize: 10,
+    color: '#ffffff',
+    textAlign: 'center',
+    marginTop: 2,
+    textShadowColor: '#1a1008',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 1,
+  },
+  skillSquareTextUsed: {
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
 
   questionPanel: {
     minHeight: 270,

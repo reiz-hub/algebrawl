@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { create } from 'zustand';
 import { SHOP_ITEMS } from '../constants/shopItems';
+import { supabase } from '../services/supabase';
 import {
   fetchFromFirestore,
   syncToFirestore,
@@ -13,13 +14,17 @@ import { PurchaseResult } from '../types/shop';
 const STORAGE_KEY_USER_ID = '@algebrawl_userId';
 const STORAGE_KEY_USERNAME = '@algebrawl_username';
 const STORAGE_KEY_INGAMENAME = '@algebrawl_ingamename';
+const STORAGE_KEY_EMAIL = '@algebrawl_email';
 const STORAGE_KEY_GAME_STATE = '@algebrawl_gameState';
+
+export const BASE_INVENTORY = ['g1', 's1', 'c0', 'char_algebro'];
 
 interface GameState {
   // Auth
   userId: string | null;
   username: string | null;
   ingameName: string | null;
+  email: string | null;
   isLoaded: boolean;
   isLoggedIn: boolean;
 
@@ -37,6 +42,7 @@ interface GameState {
   inventory: string[];
   equippedCharacter: string;
   equippedGear: string | null;
+  skillStocks: Record<string, number>;
 
   // Multiplayer MMR
   mmr: number;
@@ -49,6 +55,7 @@ interface GameState {
   updateStats: (xpToAdd: number, isWin: boolean, coinsEarned?: number) => void;
   setUsername: (username: string) => void;
   setIngameName: (ingameName: string) => void;
+  setEmail: (email: string | null) => void;
   loginWithData: (userId: string, data: UserData) => void;
   logout: () => Promise<void>;
   getUserId: () => string | null;
@@ -61,6 +68,10 @@ interface GameState {
   equipItem: (itemId: string) => void;
   addCoins: (amount: number) => void;
   unlockAllDev: () => void;
+
+  // Consumable Skill Actions
+  consumeSkill: (skillId: string) => boolean;
+  getSkillStock: (skillId: string) => number;
 }
 
 /**
@@ -80,6 +91,7 @@ const persistLocally = async (state: Partial<GameState>) => {
       inventory: state.inventory,
       equippedCharacter: state.equippedCharacter,
       equippedGear: state.equippedGear,
+      skillStocks: state.skillStocks,
       mmr: state.mmr,
       onlineWins: state.onlineWins,
       onlineLosses: state.onlineLosses,
@@ -94,9 +106,10 @@ const persistLocally = async (state: Partial<GameState>) => {
  * Sync current game state to Firestore / Supabase.
  */
 const syncToCloud = async (userId: string | null, state: Partial<GameState>) => {
-  if (!userId || !state.isLoggedIn) return;
+  if (!userId) return;
   await syncToFirestore(userId, {
     isGuest: !state.isLoggedIn,
+    ...(state.email ? { email: state.email } : {}),
     ...(state.username ? { username: state.username } : {}),
     ...(state.ingameName ? { ingameName: state.ingameName } : {}),
     unlockedLevel: state.unlockedLevel ?? 1,
@@ -110,6 +123,7 @@ const syncToCloud = async (userId: string | null, state: Partial<GameState>) => 
     inventory: state.inventory ?? ['char_algebro'],
     equippedCharacter: state.equippedCharacter ?? 'char_algebro',
     equippedGear: state.equippedGear ?? null,
+    skillStocks: state.skillStocks ?? {},
     mmr: state.mmr ?? 1000,
     onlineWins: state.onlineWins ?? 0,
     onlineLosses: state.onlineLosses ?? 0,
@@ -121,6 +135,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   userId: null,
   username: null,
   ingameName: null,
+  email: null,
   isLoaded: false,
   isLoggedIn: false,
 
@@ -138,6 +153,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   inventory: ['g1', 's1', 'c0', 'char_algebro'],
   equippedCharacter: 'c0',
   equippedGear: 'g1',
+  skillStocks: {},
 
   // Multiplayer MMR defaults
   mmr: 1000,
@@ -145,34 +161,63 @@ export const useGameStore = create<GameState>((set, get) => ({
   onlineLosses: 0,
 
   /**
-   * Initialize: load userId from AsyncStorage (or generate one),
-   * load local game state, then attempt to sync with Firestore.
+   * Initialize: load userId from Supabase Auth session (or anonymous sign-in),
+   * load local game state, then attempt to sync with Firestore/Supabase.
    */
   loadLocalData: async () => {
     try {
-      // 1. Resolve userId
+      // 1. Resolve auth session / userId
       let userId = await AsyncStorage.getItem(STORAGE_KEY_USER_ID);
-      if (!userId) {
-        userId = Crypto.randomUUID();
-        await AsyncStorage.setItem(STORAGE_KEY_USER_ID, userId);
+      let sessionUser: any = null;
+
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session?.user) {
+          sessionUser = sessionData.session.user;
+          userId = sessionUser.id;
+          await AsyncStorage.setItem(STORAGE_KEY_USER_ID, sessionUser.id);
+        } else {
+          // No active session — try anonymous sign in
+          const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+          if (anonData?.user) {
+            sessionUser = anonData.user;
+            userId = anonData.user.id;
+            await AsyncStorage.setItem(STORAGE_KEY_USER_ID, anonData.user.id);
+          } else {
+            console.warn('[useGameStore] Anonymous sign-in failed:', anonError);
+            if (!userId) {
+              const fallbackId = Crypto.randomUUID();
+              userId = fallbackId;
+              await AsyncStorage.setItem(STORAGE_KEY_USER_ID, fallbackId);
+            }
+          }
+        }
+      } catch (authErr) {
+        console.warn('[useGameStore] Auth init error, using fallback:', authErr);
+        if (!userId) {
+          const fallbackId = Crypto.randomUUID();
+          userId = fallbackId;
+          await AsyncStorage.setItem(STORAGE_KEY_USER_ID, fallbackId);
+        }
       }
 
-      // 2. Load username and ingameName if set
+      // 2. Load username, ingameName, email if set
       const username = await AsyncStorage.getItem(STORAGE_KEY_USERNAME);
       const ingameName = await AsyncStorage.getItem(STORAGE_KEY_INGAMENAME);
+      const email = await AsyncStorage.getItem(STORAGE_KEY_EMAIL);
 
       // 3. Load local game state
       const savedJson = await AsyncStorage.getItem(STORAGE_KEY_GAME_STATE);
       let localState = savedJson ? JSON.parse(savedJson) : null;
 
-      // 4. Try to fetch from Firestore (may have newer data from another device)
-      const cloudData = await fetchFromFirestore(userId);
+      // 4. Try to fetch from Supabase (may have newer data from another device)
+      const cloudData = userId ? await fetchFromFirestore(userId) : null;
 
       if (cloudData) {
         // Merge inventory lists (union)
         const combinedInventory = Array.from(
           new Set([
-            'char_algebro',
+            ...BASE_INVENTORY,
             ...(localState?.inventory ?? []),
             ...(cloudData.inventory ?? []),
           ])
@@ -218,6 +263,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             cloudData.equippedGear !== undefined
               ? cloudData.equippedGear
               : localState?.equippedGear ?? null,
+          skillStocks: {} as Record<string, number>,
           mmr: cloudData.mmr ?? localState?.mmr ?? 1000,
           onlineWins: Math.max(
             localState?.onlineWins ?? 0,
@@ -242,18 +288,33 @@ export const useGameStore = create<GameState>((set, get) => ({
           );
         }
 
+        // Merge skillStocks — take max per skill
+        const allSkillKeys = new Set([
+          ...Object.keys(localState?.skillStocks ?? {}),
+          ...Object.keys(cloudData.skillStocks ?? {}),
+        ]);
+        for (const key of allSkillKeys) {
+          merged.skillStocks[key] = Math.max(
+            localState?.skillStocks?.[key] ?? 0,
+            cloudData.skillStocks?.[key] ?? 0
+          );
+        }
+
         localState = merged;
       }
 
       const finalUsername = username || cloudData?.username || null;
       const finalIngameName = ingameName || cloudData?.ingameName || null;
+      const finalEmail = email || cloudData?.email || sessionUser?.email || null;
+      const isUserLoggedIn = !!finalUsername && (!sessionUser || !sessionUser.is_anonymous);
 
       set({
         userId,
         username: finalUsername,
         ingameName: finalIngameName,
+        email: finalEmail,
         isLoaded: true,
-        isLoggedIn: !!finalUsername,
+        isLoggedIn: isUserLoggedIn,
         unlockedLevel: localState?.unlockedLevel ?? 1,
         totalXP: localState?.totalXP ?? 0,
         totalBattlesWon: localState?.totalBattlesWon ?? 0,
@@ -262,9 +323,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         maxStreak: localState?.maxStreak ?? 0,
         levelStars: localState?.levelStars ?? {},
         coins: localState?.coins ?? 100,
-        inventory: localState?.inventory ?? ['char_algebro'],
+        inventory: localState?.inventory ?? BASE_INVENTORY,
         equippedCharacter: localState?.equippedCharacter ?? 'char_algebro',
         equippedGear: localState?.equippedGear ?? null,
+        skillStocks: localState?.skillStocks ?? {},
         mmr: localState?.mmr ?? 1000,
         onlineWins: localState?.onlineWins ?? 0,
         onlineLosses: localState?.onlineLosses ?? 0,
@@ -273,12 +335,15 @@ export const useGameStore = create<GameState>((set, get) => ({
       // Persist the merged state back
       await persistLocally(localState ?? {});
 
-      // Save username/ingameName locally if we got it from cloud
+      // Save username/ingameName/email locally if we got it from cloud
       if (cloudData?.username && !username) {
         await AsyncStorage.setItem(STORAGE_KEY_USERNAME, cloudData.username);
       }
       if (cloudData?.ingameName && !ingameName) {
         await AsyncStorage.setItem(STORAGE_KEY_INGAMENAME, cloudData.ingameName);
+      }
+      if (finalEmail && !email) {
+        await AsyncStorage.setItem(STORAGE_KEY_EMAIL, finalEmail);
       }
     } catch (error) {
       console.warn('[useGameStore] loadLocalData failed:', error);
@@ -358,25 +423,59 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
+  setEmail: (email: string | null) => {
+    set({ email });
+    if (email) {
+      AsyncStorage.setItem(STORAGE_KEY_EMAIL, email).catch(() => {});
+    } else {
+      AsyncStorage.removeItem(STORAGE_KEY_EMAIL).catch(() => {});
+    }
+  },
+
   loginWithData: (userId: string, data: UserData) => {
-    const newState = {
+    const state = get();
+    const combinedInventory = Array.from(
+      new Set([
+        ...BASE_INVENTORY,
+        ...(state.inventory ?? []),
+        ...(data.inventory ?? []),
+      ])
+    );
+
+    const newState: Partial<GameState> = {
       userId,
-      username: data.username || null,
-      ingameName: data.ingameName || null,
-      isLoaded: true,
+      username: data.username ?? state.username,
+      ingameName: data.ingameName ?? state.ingameName,
+      email: data.email ?? state.email,
       isLoggedIn: true,
-      unlockedLevel: data.unlockedLevel ?? 1,
-      totalXP: data.xp ?? 0,
-      totalBattlesWon: data.wins ?? 0,
-      totalBattles: data.totalBattles ?? 0,
-      currentStreak: data.currentStreak ?? 0,
-      maxStreak: data.maxStreak ?? 0,
-      levelStars: data.levelStars ?? {},
-      coins: data.coins ?? 100,
-      inventory: data.inventory ?? ['char_algebro'],
-      equippedCharacter: data.equippedCharacter ?? 'char_algebro',
-      equippedGear: data.equippedGear ?? null,
-      mmr: data.mmr ?? 1000,
+      isLoaded: true,
+      unlockedLevel: Math.max(state.unlockedLevel, data.unlockedLevel ?? 1),
+      totalXP: Math.max(state.totalXP, data.xp ?? 0),
+      totalBattlesWon: Math.max(state.totalBattlesWon, data.wins ?? 0),
+      totalBattles: Math.max(state.totalBattles, data.totalBattles ?? 0),
+      currentStreak: Math.max(state.currentStreak, data.currentStreak ?? 0),
+      maxStreak: Math.max(state.maxStreak, data.maxStreak ?? 0),
+      levelStars: { ...state.levelStars, ...(data.levelStars ?? {}) },
+      coins: Math.max(state.coins, data.coins ?? 100),
+      inventory: combinedInventory,
+      equippedCharacter:
+        data.equippedCharacter || state.equippedCharacter || 'char_algebro',
+      equippedGear:
+        data.equippedGear !== undefined
+          ? data.equippedGear
+          : state.equippedGear,
+      // Merge skillStocks — take max per skill
+      skillStocks: (() => {
+        const localStocks = state.skillStocks ?? {};
+        const cloudStocks = data.skillStocks ?? {};
+        const merged: Record<string, number> = {};
+        const allKeys = new Set([...Object.keys(localStocks), ...Object.keys(cloudStocks)]);
+        for (const key of allKeys) {
+          merged[key] = Math.max(localStocks[key] ?? 0, cloudStocks[key] ?? 0);
+        }
+        return merged;
+      })(),
+      mmr: data.mmr ?? state.mmr ?? 1000,
       onlineWins: data.onlineWins ?? 0,
       onlineLosses: data.onlineLosses ?? 0,
     };
@@ -391,9 +490,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (data.ingameName) {
       AsyncStorage.setItem(STORAGE_KEY_INGAMENAME, data.ingameName).catch(() => { });
     }
+    if (data.email) {
+      AsyncStorage.setItem(STORAGE_KEY_EMAIL, data.email).catch(() => { });
+    }
     persistLocally(newState);
 
-    // Also push to Firestore with isGuest: false since user is now authenticated
+    // Also push to Firestore/Supabase with isGuest: false since user is now authenticated
     syncToFirestore(userId, {
       isGuest: false,
       email: data.email,
@@ -410,6 +512,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       inventory: data.inventory ?? ['char_algebro'],
       equippedCharacter: data.equippedCharacter ?? 'char_algebro',
       equippedGear: data.equippedGear ?? null,
+      skillStocks: data.skillStocks ?? {},
       mmr: data.mmr ?? 1000,
       onlineWins: data.onlineWins ?? 0,
       onlineLosses: data.onlineLosses ?? 0,
@@ -418,19 +521,23 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   logout: async () => {
     try {
-      // Generate a fresh guest ID
+      // 1. Generate guest UUID immediately
       const newGuestId = Crypto.randomUUID();
 
-      // Clear stored auth data
-      await AsyncStorage.removeItem(STORAGE_KEY_USERNAME);
-      await AsyncStorage.removeItem(STORAGE_KEY_INGAMENAME);
+      // 2. Clear stored credentials and persist new guest ID
+      await AsyncStorage.multiRemove([
+        STORAGE_KEY_USERNAME,
+        STORAGE_KEY_INGAMENAME,
+        STORAGE_KEY_EMAIL,
+      ]);
       await AsyncStorage.setItem(STORAGE_KEY_USER_ID, newGuestId);
 
-      // Reset to fresh guest state
+      // 3. Reset store to fresh guest state immediately for instant UI response
       const freshState = {
         userId: newGuestId,
         username: null,
         ingameName: null,
+        email: null,
         isLoggedIn: false,
         isLoaded: true,
         unlockedLevel: 1,
@@ -441,9 +548,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         maxStreak: 0,
         levelStars: {} as Record<number, number>,
         coins: 100,
-        inventory: ['char_algebro'],
+        inventory: BASE_INVENTORY,
         equippedCharacter: 'char_algebro',
         equippedGear: null,
+        skillStocks: {} as Record<string, number>,
         mmr: 1000,
         onlineWins: 0,
         onlineLosses: 0,
@@ -451,6 +559,23 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       set(freshState);
       await persistLocally(freshState);
+
+      // 4. Perform Supabase signOut & optional anonymous sign-in in background
+      (async () => {
+        try {
+          await supabase.auth.signOut();
+        } catch (err) {
+          console.warn('[useGameStore] signOut error:', err);
+        }
+        try {
+          const { data: anonData } = await supabase.auth.signInAnonymously();
+          if (anonData?.user) {
+            const anonUid = anonData.user.id;
+            set({ userId: anonUid });
+            await AsyncStorage.setItem(STORAGE_KEY_USER_ID, anonUid);
+          }
+        } catch (_) {}
+      })();
     } catch (error) {
       console.warn('[useGameStore] logout failed:', error);
     }
@@ -493,10 +618,70 @@ export const useGameStore = create<GameState>((set, get) => ({
       return { success: false, message: 'Item not found in catalog.' };
     }
 
-    if (state.inventory.includes(itemId)) {
-      return { success: false, message: `You already own ${item.name}!`, item };
+    // ── Level requirement check (enforced across all shop items) ──
+    const reqLevel = item.unlockLevel ?? 1;
+    if (state.unlockedLevel < reqLevel) {
+      return {
+        success: false,
+        message: `Requires Level ${reqLevel}! Reach Level ${reqLevel} in Adventure Mode to unlock.`,
+        item,
+      };
     }
 
+    // ── Consumable skill handling ──
+    const isConsumableSkill = item.category === 'skill' && item.isConsumable;
+    if (isConsumableSkill) {
+      const currentStock = state.skillStocks[itemId] ?? 0;
+
+      // Allow repurchase even if owned — adds 1 stock (no stock limit)
+      if (state.coins < item.cost) {
+        const deficit = item.cost - state.coins;
+        return {
+          success: false,
+          message: `Insufficient coins! You need ${deficit} more 🪙.`,
+          item,
+        };
+      }
+
+      const newCoins = state.coins - item.cost;
+      const newSkillStocks = {
+        ...state.skillStocks,
+        [itemId]: currentStock + 1,
+      };
+      const newInventory = state.inventory.includes(itemId)
+        ? state.inventory
+        : [...state.inventory, itemId];
+
+      const newState = {
+        ...state,
+        coins: newCoins,
+        inventory: newInventory,
+        skillStocks: newSkillStocks,
+      };
+
+      set({
+        coins: newCoins,
+        inventory: newInventory,
+        skillStocks: newSkillStocks,
+      });
+
+      persistLocally(newState);
+      syncToCloud(state.userId, newState);
+
+      const stockLabel = currentStock > 0 ? 'Bought +1' : 'Unlocked';
+      return {
+        success: true,
+        message: `${stockLabel} ${item.name}! Stock: ${currentStock + 1} 🎯`,
+        item,
+      };
+    }
+
+    // ── Standard (non-consumable) item handling (Gear & Characters) ──
+    if (state.inventory.includes(itemId)) {
+      return { success: false, message: `You already permanently own ${item.name}!`, item };
+    }
+
+    // Must meet coin requirement as well
     if (state.coins < item.cost) {
       const deficit = item.cost - state.coins;
       return {
@@ -536,9 +721,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     persistLocally(newState);
     syncToCloud(state.userId, newState);
 
+    const isGear = item.category === 'gear';
     return {
       success: true,
-      message: `Unlocked ${item.name}!`,
+      message: isGear
+        ? `Permanently unlocked ${item.name}! You can equip it anytime.`
+        : `Permanently unlocked ${item.name}!`,
       item,
     };
   },
@@ -583,6 +771,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       unlockedLevel: 7,
       coins: Math.max(state.coins, 9999),
       inventory: newInventory,
+      skillStocks: { s2: 99, s3: 99, s4: 99 },
       levelStars: {
         ...state.levelStars,
         1: 10,
@@ -598,5 +787,37 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     persistLocally(newState);
     syncToCloud(state.userId, newState);
+  },
+
+  // ── Consumable Skill Actions ──────────────────────────────
+
+  consumeSkill: (skillId: string): boolean => {
+    const state = get();
+    // s1 (Basic Attack) is unlimited — never consumed
+    const item = SHOP_ITEMS.find((i) => i.id === skillId);
+    if (!item || !item.isConsumable) return true; // Not consumable, always allow
+
+    const currentStock = state.skillStocks[skillId] ?? 0;
+    if (currentStock <= 0) return false; // Out of stock
+
+    const newSkillStocks = {
+      ...state.skillStocks,
+      [skillId]: currentStock - 1,
+    };
+
+    const newState = { ...state, skillStocks: newSkillStocks };
+    set({ skillStocks: newSkillStocks });
+
+    persistLocally(newState);
+    syncToCloud(state.userId, newState);
+
+    return true;
+  },
+
+  getSkillStock: (skillId: string): number => {
+    const state = get();
+    const item = SHOP_ITEMS.find((i) => i.id === skillId);
+    if (!item || !item.isConsumable) return Infinity; // Non-consumable = unlimited
+    return state.skillStocks[skillId] ?? 0;
   },
 }));

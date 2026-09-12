@@ -5,8 +5,10 @@ import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Animated,
   Easing,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,11 +19,8 @@ import TouchableOpacity from '../components/TouchableOpacity';
 import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
 import { useMultiplayerStore } from '../hooks/useMultiplayerStore';
-import {
-  findMatch,
-  checkRankedMatch,
-  createRankedRoom,
-} from '../services/multiplayerService';
+import { supabase } from '../services/supabase';
+import { attemptMatch, checkConnectivity } from '../services/multiplayerService';
 import { getRank } from '../services/mmrService';
 import { soundService } from '../services/soundService';
 import { getCharacterDetails } from '../constants/characterSkills';
@@ -42,7 +41,7 @@ export default function WaitingRoomScreen() {
   const action = String(params.action ?? 'create'); // 'create' | 'join' | 'search'
   const joinCode = String(params.code ?? '');
 
-  const { userId, ingameName, username, mmr, equippedCharacter } = useGameStore();
+  const { userId, ingameName, username, mmr, equippedCharacter, isLoggedIn } = useGameStore();
   const mp = useMultiplayerStore();
 
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -51,6 +50,8 @@ export default function WaitingRoomScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const timerPulseAnim = useRef(new Animated.Value(1)).current;
   const searchInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const connCheckInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const connectionLost = useRef(false);
   const initialized = useRef(false);
 
   const playerName = ingameName || username || 'Player';
@@ -125,11 +126,69 @@ export default function WaitingRoomScreen() {
     } else if (action === 'join' && joinCode) {
       mp.initJoinRoom(joinCode, userId, playerName, mmr, charId);
     } else if (action === 'search') {
+      if (!isLoggedIn) {
+        Alert.alert('Login Required', 'You must be signed in to play ranked matches. Guest players cannot enter ranked queue.');
+        router.replace('/(tabs)/dungeon?tab=rank' as any);
+        return;
+      }
       mp.initSearchMatch(userId, playerName, mmr, charId);
     }
-  }, [userId, equippedCharacter]);
+  }, [userId, equippedCharacter, isLoggedIn]);
 
-  // Ranked Matchmaking Polling (Exact MMR only, no bots, bidirectional detection)
+  // ── Connectivity Monitor ──────────────────────────────────
+  // While searching or waiting, ping the backend every 10s.
+  // On failure, set an error and cancel the current action gracefully.
+  useEffect(() => {
+    const isActive = mp.matchStatus === 'searching' || mp.matchStatus === 'waiting';
+    if (!isActive || !userId) {
+      if (connCheckInterval.current) {
+        clearInterval(connCheckInterval.current);
+        connCheckInterval.current = null;
+      }
+      return;
+    }
+
+    connectionLost.current = false;
+    connCheckInterval.current = setInterval(async () => {
+      if (connectionLost.current) return;
+      const online = await checkConnectivity();
+      if (!online) {
+        connectionLost.current = true;
+        if (connCheckInterval.current) {
+          clearInterval(connCheckInterval.current);
+          connCheckInterval.current = null;
+        }
+        // Stop search / leave room
+        if (mp.matchStatus === 'searching') {
+          mp.cancelSearch(userId);
+        } else {
+          mp.reset();
+        }
+        mp.reset();
+        router.replace('/multiplayer' as any);
+        // Brief delay to ensure navigation completes before alert
+        setTimeout(() => {
+          const { Alert } = require('react-native');
+          Alert.alert(
+            '📡 Connection Lost',
+            'You lost your internet connection. Please reconnect and try again.',
+            [{ text: 'OK' }]
+          );
+        }, 300);
+      }
+    }, 10000);
+
+    return () => {
+      if (connCheckInterval.current) {
+        clearInterval(connCheckInterval.current);
+        connCheckInterval.current = null;
+      }
+    };
+  }, [mp.matchStatus, userId]);
+
+  // Ranked Matchmaking Polling — single atomic RPC call per tick.
+  // Uses server-side attempt_match() with FOR UPDATE SKIP LOCKED to prevent
+  // ghost matches. Only one client can claim an opponent at a time.
   useEffect(() => {
     if (mp.matchStatus !== 'searching' || !userId) {
       if (searchInterval.current) {
@@ -144,38 +203,23 @@ export default function WaitingRoomScreen() {
 
       const charId = equippedCharacter || 'c0';
 
-      // 1. Check if another player already matched with us and created a room
-      const existingRoom = await checkRankedMatch(userId);
-      if (existingRoom) {
+      // Touch queue heartbeat so opponent matching knows this player is active
+      supabase
+        .from('matchmaking_queue')
+        .update({ queued_at: new Date().toISOString() })
+        .eq('player_id', userId)
+        .then(() => {});
+
+      // Single atomic RPC: finds opponent, creates room, cleans up queue
+      // Returns the matched room or null if no opponent found yet
+      const room = await attemptMatch(userId, mmr, playerName, charId);
+      if (room) {
         soundService.playSound('hit');
-        const isHost = existingRoom.host_id === userId;
-        await mp.enterReadyCheck(existingRoom, isHost, charId);
+        const isHost = room.host_id === userId;
+        await mp.enterReadyCheck(room, isHost, charId);
         if (searchInterval.current) {
           clearInterval(searchInterval.current);
           searchInterval.current = null;
-        }
-        return;
-      }
-
-      // 2. Query matchmaking queue for an opponent within 200 MMR difference (human-only)
-      const opponent = await findMatch(userId, mmr, mp.mmrSearchRange);
-      if (opponent) {
-        soundService.playSound('hit');
-        const room = await createRankedRoom(
-          userId,
-          playerName,
-          mmr,
-          opponent.player_id,
-          opponent.player_name ?? 'Opponent',
-          opponent.mmr
-        );
-
-        if (room) {
-          await mp.enterReadyCheck(room, true, charId);
-          if (searchInterval.current) {
-            clearInterval(searchInterval.current);
-            searchInterval.current = null;
-          }
         }
       }
     }, 2000);
@@ -385,9 +429,10 @@ export default function WaitingRoomScreen() {
                 </>
               ) : (
                 <>
-                  <Text style={styles.playerRank}>
-                    {myRank.badge} {myRank.name}
-                  </Text>
+                  <View style={styles.playerRankBadgeRow}>
+                    <Image source={myRank.icon} style={styles.playerRankIcon} resizeMode="contain" />
+                    <Text style={styles.playerRank}>{myRank.name}</Text>
+                  </View>
                   <Text style={styles.playerMmr}>{mmr} MMR</Text>
                 </>
               )}
@@ -445,9 +490,10 @@ export default function WaitingRoomScreen() {
                     </>
                   ) : (
                     <>
-                      <Text style={styles.playerRank}>
-                        {opponentRank.badge} {opponentRank.name}
-                      </Text>
+                      <View style={styles.playerRankBadgeRow}>
+                        <Image source={opponentRank.icon} style={styles.playerRankIcon} resizeMode="contain" />
+                        <Text style={styles.playerRank}>{opponentRank.name}</Text>
+                      </View>
                       <Text style={styles.playerMmr}>{mp.opponentMmr} MMR</Text>
                     </>
                   )}
@@ -841,6 +887,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     marginBottom: 4,
+  },
+  playerRankBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  playerRankIcon: {
+    width: 18,
+    height: 18,
   },
   playerRank: {
     fontFamily: GameFonts.hud,

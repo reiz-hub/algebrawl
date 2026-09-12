@@ -369,15 +369,6 @@ export default function OnlineBattleScreen() {
 
       {/* Arena */}
       <View style={styles.arena}>
-        <AttackProjectile
-          active={attackActive}
-          attacker={attacker}
-          characterId={myChar.id}
-          enemyId={oppChar.id}
-          onImpact={handleProjectileImpact}
-          onComplete={handleProjectileComplete}
-        />
-
         {/* My Sprite */}
         <View style={styles.spriteCol}>
           <Sprite action={mySpriteAction as any} characterId={myChar.id} />
@@ -401,6 +392,16 @@ export default function OnlineBattleScreen() {
           <Text style={styles.spriteLabel}>{mp.opponentName ?? 'Opponent'}</Text>
           <Text style={styles.spriteHearts}>{renderHearts(mp.opponentHearts)}</Text>
         </View>
+
+        {/* Projectile Layer */}
+        <AttackProjectile
+          active={attackActive}
+          attacker={attacker}
+          characterId={myChar.id}
+          enemyId={oppChar.id}
+          onImpact={handleProjectileImpact}
+          onComplete={handleProjectileComplete}
+        />
       </View>
 
       {/* Question Panel */}

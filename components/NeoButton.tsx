@@ -9,9 +9,10 @@ interface NeoButtonProps {
   wrapperStyle?: ViewStyle | ViewStyle[] | any;
   children: React.ReactNode;
   disabled?: boolean;
+  disabledOpacity?: number;
 }
 
-export default function NeoButton({ onPress, style, shadowStyle, wrapperStyle, children, disabled }: NeoButtonProps) {
+export default function NeoButton({ onPress, style, shadowStyle, wrapperStyle, children, disabled, disabledOpacity }: NeoButtonProps) {
   const transAnim = useRef(new Animated.Value(0)).current;
 
   const handlePressIn = () => {
@@ -30,7 +31,7 @@ export default function NeoButton({ onPress, style, shadowStyle, wrapperStyle, c
       <Animated.View style={{ transform: [{ translateX: transAnim }, { translateY: transAnim }] }}>
         <TouchableOpacity
           activeOpacity={1}
-          style={[style, disabled && { opacity: 0.7 }]}
+          style={[style, disabled && { opacity: disabledOpacity ?? 0.7 }]}
           onPress={onPress}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}

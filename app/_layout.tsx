@@ -3,10 +3,9 @@ import * as SplashScreen from 'expo-splash-screen';
 import { Stack, usePathname } from 'expo-router';
 import { useEffect, useState } from 'react';
 import DeactivatedModal from '../components/DeactivatedModal';
-import SettingsButton from '../components/SettingsButton';
 import { useGameStore } from '../hooks/useGameStore';
 import { soundService } from '../services/soundService';
-import { checkAccountStatus } from '../services/supabaseSync';
+import { checkAccountStatus, createUserDoc } from '../services/supabaseSync';
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   /* ignore */
@@ -53,6 +52,12 @@ export default function RootLayout() {
     soundService.initialize();
   }, []);
 
+  // Ensure user row exists in Supabase users table (guest or permanent)
+  useEffect(() => {
+    if (!isLoaded || !userId) return;
+    createUserDoc(userId);
+  }, [isLoaded, userId]);
+
   // Check account status when a logged-in user's data finishes loading
   useEffect(() => {
     if (!isLoaded || !isLoggedIn || !userId) return;
@@ -80,17 +85,17 @@ export default function RootLayout() {
     <>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="(tabs)" />
         <Stack.Screen name="map" />
         <Stack.Screen name="pre-battle" />
         <Stack.Screen name="battle" />
         <Stack.Screen name="stats" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="login" />
+        <Stack.Screen name="register" />
         <Stack.Screen name="versus" />
         <Stack.Screen name="versus-battle" />
       </Stack>
-
-      {(pathname === '/' || pathname === '/index') && <SettingsButton />}
 
       <DeactivatedModal
         visible={showDeactivated}

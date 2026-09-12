@@ -5,6 +5,29 @@ import { supabase } from './supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { calculateMmrChange } from './mmrService';
 
+/* ── Connectivity Check ──────────────────────────────────── */
+
+/**
+ * Quick connectivity check — pings the Supabase REST endpoint with a
+ * lightweight HEAD request. Returns true if the device is online and can
+ * reach the backend, false otherwise. Uses a 5-second timeout so it
+ * never blocks the UI for too long.
+ */
+export async function checkConnectivity(): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch('https://bhjkpepmrklicrkqparx.supabase.co/rest/v1/', {
+      method: 'HEAD',
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    return res.ok || res.status === 401; // 401 is expected (no auth header) but proves connectivity
+  } catch {
+    return false;
+  }
+}
+
 /* ── Types ───────────────────────────────────────────────── */
 
 export interface MatchRoom {
@@ -482,6 +505,44 @@ export async function createRankedRoom(
   await leaveQueue(guestId);
 
   return room as MatchRoom;
+}
+
+/**
+ * Atomically attempt to find and match with an opponent via server-side Postgres function.
+ * Uses FOR UPDATE SKIP LOCKED to prevent ghost matches — only one client can claim
+ * an opponent at a time. Returns the matched room if found, null otherwise.
+ *
+ * This replaces the old pattern of calling findMatch() + createRankedRoom() separately,
+ * which was prone to race conditions where two clients could match the same opponent.
+ */
+export async function attemptMatch(
+  playerId: string,
+  playerMmr: number,
+  playerName: string,
+  playerCharacter: string = 'c0'
+): Promise<MatchRoom | null> {
+  const { data: roomId, error } = await supabase.rpc('attempt_match', {
+    p_player_id: playerId,
+    p_player_mmr: playerMmr,
+    p_player_name: playerName,
+    p_player_character: playerCharacter,
+    p_mmr_range: 200,
+  });
+
+  if (error) {
+    // If the function doesn't exist yet (not deployed), fall back gracefully
+    if (error.message?.includes('attempt_match') || error.code === '42883') {
+      console.warn('[Multiplayer] attempt_match() function not found in DB. Run the latest schema.sql migration.');
+      return null;
+    }
+    console.warn('[Multiplayer] attemptMatch RPC failed:', error.message || error);
+    return null;
+  }
+
+  if (!roomId) return null;
+
+  // Fetch the full room details
+  return getRoom(roomId);
 }
 
 /**

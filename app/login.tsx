@@ -4,70 +4,204 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
 import ErrorModal from '../components/ErrorModal';
 import NeoButton from '../components/NeoButton';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { useGameStore } from '../hooks/useGameStore';
-import { lookupByUsername } from '../services/supabaseSync';
+import { soundService } from '../services/soundService';
+import { supabase } from '../services/supabase';
+import { fetchFromSupabase, lookupByEmail, lookupByUsername } from '../services/supabaseSync';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { loginWithData } = useGameStore();
+  const { loginWithData, setUsername, setIngameName, setEmail } = useGameStore();
   const [usernameInput, setUsernameInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorConfig, setErrorConfig] = useState<{ visible: boolean; title: string; message: string; subMessage?: string } | null>(null);
 
+  const checkNetwork = async (): Promise<boolean> => {
+    try {
+      await fetch('https://clients3.google.com/generate_204', { method: 'HEAD', mode: 'no-cors' });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const handleLogin = async () => {
     const trimmed = usernameInput.trim();
+    const trimPass = passwordInput.trim();
+
     if (!trimmed) {
       setErrorConfig({
         visible: true,
-        title: 'Invalid',
-        message: 'Please enter a username.'
+        title: 'Invalid Input',
+        message: 'Please enter your username or email.',
+      });
+      return;
+    }
+    if (!trimPass) {
+      setErrorConfig({
+        visible: true,
+        title: 'Invalid Input',
+        message: 'Please enter your password.',
       });
       return;
     }
 
     setIsLoading(true);
 
-    try {
-      const result = await lookupByUsername(trimmed);
+    const online = await checkNetwork();
+    if (!online) {
+      setIsLoading(false);
+      setErrorConfig({
+        visible: true,
+        title: 'No Internet',
+        message: 'Please check your internet connection and try again.',
+      });
+      return;
+    }
 
-      if (!result) {
-        setErrorConfig({
-          visible: true,
-          title: 'Not Found',
-          message: 'No account found with that username.',
-          subMessage: 'Check spelling or create a new account from the Profile screen.'
+    try {
+      let targetEmail = trimmed;
+      const isEmailInput = trimmed.includes('@');
+      let fallbackEmail: string | null = null;
+      let emailUserFound: any = null;
+
+      if (isEmailInput) {
+        emailUserFound = await lookupByEmail(trimmed);
+        if (emailUserFound && emailUserFound.data.username) {
+          fallbackEmail = `${emailUserFound.data.username.toLowerCase()}@algebrawls.local`;
+        }
+      } else {
+        const found = await lookupByUsername(trimmed);
+        if (found && found.data.email) {
+          targetEmail = found.data.email;
+        } else {
+          targetEmail = `${trimmed.toLowerCase()}@algebrawls.local`;
+        }
+      }
+
+      let { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: targetEmail,
+        password: trimPass,
+      });
+
+      // If direct email auth failed and we have an internal fallback email for this user
+      if ((authError || !authData?.user) && fallbackEmail) {
+        const fallbackRes = await supabase.auth.signInWithPassword({
+          email: fallbackEmail,
+          password: trimPass,
         });
+        if (fallbackRes.data?.user) {
+          authData = fallbackRes.data;
+          authError = null;
+        }
+      }
+
+      if (authError || !authData?.user) {
+        const msg = authError?.message?.toLowerCase() || '';
         setIsLoading(false);
+
+        if (isEmailInput) {
+          if (!emailUserFound) {
+            setErrorConfig({
+              visible: true,
+              title: 'Account Not Found',
+              message: `No account found linked to "${trimmed}".`,
+              subMessage: 'Please check your spelling or register a new account.',
+            });
+            return;
+          }
+        } else {
+          const userExists = await lookupByUsername(trimmed);
+          if (!userExists) {
+            setErrorConfig({
+              visible: true,
+              title: 'Account Not Found',
+              message: `No account found with username "${trimmed}".`,
+              subMessage: 'Please check your spelling or register a new account.',
+            });
+            return;
+          }
+        }
+
+        if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
+          setErrorConfig({
+            visible: true,
+            title: 'Login Failed',
+            message: 'Incorrect password or credentials.',
+            subMessage: 'Please double-check your password and try again.',
+          });
+        } else if (msg.includes('email not confirmed')) {
+          setErrorConfig({
+            visible: true,
+            title: 'Email Not Verified',
+            message: 'Please verify your email address before logging in.',
+          });
+        } else {
+          setErrorConfig({
+            visible: true,
+            title: 'Login Failed',
+            message: authError?.message || 'Unable to log in. Please try again.',
+          });
+        }
         return;
       }
 
-      // Check if the account has been deactivated by an admin
-      if (result.data.isActive === false) {
+      const uid = authData.user.id;
+      const cloudData = await fetchFromSupabase(uid);
+
+      if (cloudData && (cloudData as any).isActive === false) {
+        await supabase.auth.signOut();
+        setIsLoading(false);
         setErrorConfig({
           visible: true,
           title: 'Account Deactivated',
           message: 'Your account has been deactivated by an administrator.',
-          subMessage: 'Please contact support if you believe this is a mistake.'
+          subMessage: 'Please contact support if you believe this is a mistake.',
         });
-        setIsLoading(false);
         return;
       }
 
-      // Restore progress from the found account
-      loginWithData(result.userId, result.data);
+      const resolvedUser = cloudData?.username || trimmed;
+      const userEmail = authData.user.email || cloudData?.email || null;
+
+      loginWithData(uid, {
+        email: userEmail ?? undefined,
+        username: resolvedUser,
+        ingameName: cloudData?.ingameName ?? undefined,
+        unlockedLevel: cloudData?.unlockedLevel ?? 1,
+        levelStars: cloudData?.levelStars ?? {},
+        xp: cloudData?.xp ?? 0,
+        totalBattles: cloudData?.totalBattles ?? 0,
+        wins: cloudData?.wins ?? 0,
+        currentStreak: cloudData?.currentStreak ?? 0,
+        maxStreak: cloudData?.maxStreak ?? 0,
+        coins: cloudData?.coins ?? 100,
+        inventory: cloudData?.inventory ?? ['char_algebro'],
+        equippedCharacter: cloudData?.equippedCharacter ?? 'char_algebro',
+        equippedGear: cloudData?.equippedGear ?? null,
+        mmr: cloudData?.mmr ?? 1000,
+        onlineWins: cloudData?.onlineWins ?? 0,
+        onlineLosses: cloudData?.onlineLosses ?? 0,
+      });
+
+      setUsername(resolvedUser);
+      if (cloudData?.ingameName) setIngameName(cloudData.ingameName);
+      if (userEmail) setEmail(userEmail);
 
       Alert.alert(
         'Welcome Back!',
-        `Logged in as "${trimmed}". Your progress has been restored.`,
+        `Logged in as "${resolvedUser}". Your progress has been restored.`,
         [{ text: 'OK', onPress: () => router.replace('/') }],
       );
-    } catch (error) {
+    } catch (error: any) {
       console.warn('[Login] Error:', error);
       setErrorConfig({
         visible: true,
         title: 'Error',
-        message: 'Something went wrong.',
-        subMessage: 'Please check your internet connection and try again.'
+        message: error.message || 'Something went wrong.',
+        subMessage: 'Please check your internet connection and try again.',
       });
     } finally {
       setIsLoading(false);
@@ -84,22 +218,35 @@ export default function LoginScreen() {
 
       <View style={styles.content}>
         <Text style={styles.title}>LOG IN</Text>
-        <Text style={styles.subtitle}>Enter your username to restore your progress</Text>
+        <Text style={styles.subtitle}>Enter your username and password to restore your progress</Text>
 
         {/* Login Card */}
         <View style={styles.card}>
           <View style={styles.cardShadow} />
           <View style={styles.cardInner}>
-            <Text style={styles.label}>USERNAME</Text>
+            <Text style={styles.label}>USERNAME OR EMAIL</Text>
             <TextInput
               style={styles.input}
               value={usernameInput}
               onChangeText={setUsernameInput}
-              placeholder="Enter your username..."
+              placeholder="Enter username or email..."
               placeholderTextColor="#b5a58d"
-              maxLength={20}
+              maxLength={40}
               autoCapitalize="none"
               autoCorrect={false}
+              editable={!isLoading}
+            />
+
+            <Text style={styles.label}>PASSWORD</Text>
+            <TextInput
+              style={styles.input}
+              value={passwordInput}
+              onChangeText={setPasswordInput}
+              placeholder="Enter password..."
+              placeholderTextColor="#b5a58d"
+              secureTextEntry
+              maxLength={40}
+              autoCapitalize="none"
               editable={!isLoading}
             />
 
@@ -129,9 +276,19 @@ export default function LoginScreen() {
           <Text style={styles.backBtnText}>BACK</Text>
         </NeoButton>
 
-        <Text style={styles.footerHint}>
-          {"Don't"} have an account? Just play as a guest and claim a username from the Profile screen later.
-        </Text>
+        <TouchableOpacity
+          onPress={() => {
+            soundService.playSound('click');
+            router.replace('/register');
+          }}
+          style={{ marginTop: 24, alignItems: 'center' }}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.footerHint}>
+            {"Don't"} have an account?{' '}
+            <Text style={styles.footerLink}>Register here</Text>
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <ErrorModal
@@ -269,8 +426,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#7a6a55',
     textAlign: 'center',
-    marginTop: 30,
+    marginTop: 10,
     lineHeight: 20,
     paddingHorizontal: 10,
+  },
+  footerLink: {
+    color: '#1a6cf5',
+    textDecorationLine: 'underline',
+    fontWeight: '900',
   },
 });

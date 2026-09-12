@@ -64,7 +64,7 @@ export const LEVEL_THEMES: Record<number, LevelTheme> = {
     level: 2,
     name: 'Orc Stronghold',
     bgImage: require('../assets/images/mapbg/orc_bg.png'),
-    mapButtonImage: require('../assets/images/mapbg/orc_bg.png'),
+    mapButtonImage: require('../assets/images/map_button/orc_mapbutton.png'),
     enemyId: 'villain2',
     projectileId: 'orc_slash',
     stageBgColor: '#0d2b1b',   // Deep Forest Emerald Stage Background
@@ -83,7 +83,7 @@ export const LEVEL_THEMES: Record<number, LevelTheme> = {
     level: 3,
     name: 'Slime Realm',
     bgImage: require('../assets/images/mapbg/slime_bg.png'), // Slime background for Level 3
-    mapButtonImage: require('../assets/images/mapbg/slime_bg.png'),
+    mapButtonImage: require('../assets/images/map_button/slime_mapbutton.png'),
     enemyId: 'slime',
     projectileId: 'spit',
     stageBgColor: '#0f291e',   // Deep Toxic Slime Green Stage Background
@@ -102,7 +102,7 @@ export const LEVEL_THEMES: Record<number, LevelTheme> = {
     level: 4,
     name: 'Knight Realm',
     bgImage: require('../assets/images/mapbg/knight_bg.png'),
-    mapButtonImage: require('../assets/images/mapbg/knight_bg.png'),
+    mapButtonImage: require('../assets/images/map_button/knight_mapbutton.png'),
     enemyId: 'knight',
     projectileId: 'slash',
     stageBgColor: '#0f2233',   // Deep Frost Navy Stage Background
@@ -121,7 +121,7 @@ export const LEVEL_THEMES: Record<number, LevelTheme> = {
     level: 5,
     name: 'Desert Ruins',
     bgImage: require('../assets/images/mapbg/mummy_bg.png'),
-    mapButtonImage: require('../assets/images/mapbg/mummy_bg.png'),
+    mapButtonImage: require('../assets/images/map_button/mummy_mapbutton.png'),
     enemyId: 'mummy',
     projectileId: 'mummy_projectile',
     stageBgColor: '#2e2110',   // Deep Desert Bronze Stage Background
@@ -139,8 +139,8 @@ export const LEVEL_THEMES: Record<number, LevelTheme> = {
   6: {
     level: 6,
     name: 'Void Sanctum',
-    bgImage: require('../assets/images/mapbg/golem_bg.jpg'),
-    mapButtonImage: require('../assets/images/mapbg/golem_bg.jpg'),
+    bgImage: require('../assets/images/mapbg/golem_bg.png'),
+    mapButtonImage: require('../assets/images/map_button/golem_mapbutton.png'),
     enemyId: 'golem',
     projectileId: 'thorns',
     stageBgColor: '#160f2e',   // Deep Void Indigo Stage Background
@@ -158,8 +158,8 @@ export const LEVEL_THEMES: Record<number, LevelTheme> = {
   7: {
     level: 7,
     name: 'Chaos Arena',
-    bgImage: require('../assets/images/mapbg/inferno_bg.jpg'),
-    mapButtonImage: require('../assets/images/mapbg/inferno_bg.jpg'),
+    bgImage: require('../assets/images/mapbg/inferno_bg.png'),
+    mapButtonImage: require('../assets/images/map_button/inferno_mapbutton.png'),
     enemyId: 'easy_dragon',
     projectileId: 'easy_flame',
     stageBgColor: '#1a0a0a',   // Deep Crimson-Black Stage Background

@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   RefreshControl,
   StyleSheet,
   Text,
@@ -18,7 +19,9 @@ import { useGameStore } from '../hooks/useGameStore';
 import { fetchLeaderboard, type LeaderboardEntry } from '../services/multiplayerService';
 import { getRank, RANKS } from '../services/mmrService';
 
-export default function LeaderboardScreen() {
+import TopBar from '../components/TopBar';
+
+export default function LeaderboardScreen({ showBackButton = true }: { showBackButton?: boolean } = {}) {
   const router = useRouter();
   const { userId, mmr, onlineWins, onlineLosses } = useGameStore();
 
@@ -58,24 +61,33 @@ export default function LeaderboardScreen() {
       <View style={[styles.row, isMe && styles.rowHighlight]}>
         {/* Position */}
         <View style={styles.positionCol}>
-          {position <= 3 ? (
-            <Text style={styles.positionMedal}>
-              {position === 1 ? '🥇' : position === 2 ? '🥈' : '🥉'}
-            </Text>
-          ) : (
-            <Text style={styles.positionNumber}>#{position}</Text>
-          )}
+          <Text
+            style={[
+              styles.positionNumber,
+              position === 1
+                ? styles.positionTop1
+                : position === 2
+                ? styles.positionTop2
+                : position === 3
+                ? styles.positionTop3
+                : null,
+            ]}
+          >
+            #{position}
+          </Text>
+        </View>
+
+        {/* Rank Icon */}
+        <View style={styles.rankCol}>
+          <Image source={rank.icon} style={styles.rankBadgeIcon} resizeMode="contain" />
         </View>
 
         {/* Player Info */}
         <View style={styles.playerCol}>
-          <View style={styles.playerNameRow}>
-            <Text style={styles.rankBadge}>{rank.badge}</Text>
-            <Text style={[styles.playerName, isMe && styles.playerNameMe]} numberOfLines={1}>
-              {displayName}
-              {isMe ? ' (You)' : ''}
-            </Text>
-          </View>
+          <Text style={[styles.playerName, isMe && styles.playerNameMe]} numberOfLines={1}>
+            {displayName}
+            {isMe ? ' (You)' : ''}
+          </Text>
           <Text style={styles.playerRecord}>
             {wins}W - {losses}L
           </Text>
@@ -84,7 +96,6 @@ export default function LeaderboardScreen() {
         {/* MMR */}
         <View style={styles.mmrCol}>
           <Text style={[styles.mmrValue, { color: rank.color }]}>{item.mmr}</Text>
-          <Text style={[styles.rankName, { color: rank.color }]}>{rank.name}</Text>
         </View>
       </View>
     );
@@ -92,17 +103,15 @@ export default function LeaderboardScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>🏆 LEADERBOARD</Text>
-      </View>
+      {/* Header with TopBar and Back button on the right */}
+      <TopBar title="RANKING" />
 
       {/* My Stats Card */}
       <View style={styles.myStatsCard}>
         <View style={styles.myStatsShadow} />
         <View style={styles.myStatsContent}>
           <View style={styles.myStatsLeft}>
-            <Text style={styles.myStatsRankBadge}>{myRank.badge}</Text>
+            <Image source={myRank.icon} style={styles.myStatsRankIcon} resizeMode="contain" />
             <View>
               <Text style={[styles.myStatsRankName, { color: myRank.color }]}>
                 {myRank.name}
@@ -121,14 +130,41 @@ export default function LeaderboardScreen() {
         </View>
       </View>
 
-      {/* Rank Legend */}
+      {/* Rank Overview */}
       <View style={styles.rankLegend}>
-        {RANKS.map((r) => (
-          <View key={r.name} style={styles.rankLegendItem}>
-            <Text style={styles.rankLegendBadge}>{r.badge}</Text>
-            <Text style={[styles.rankLegendName, { color: r.color }]}>{r.minMmr}+</Text>
-          </View>
-        ))}
+        {RANKS.map((r) => {
+          const isAchieved = (mmr ?? 0) >= r.minMmr;
+          return (
+            <View key={r.name} style={styles.rankLegendItem}>
+              <View style={styles.rankIconWrapper}>
+                <Image
+                  source={r.icon}
+                  style={[
+                    styles.rankLegendIcon,
+                    !isAchieved && styles.rankLegendIconLocked,
+                  ]}
+                  resizeMode="contain"
+                />
+                {!isAchieved && (
+                  <Image
+                    source={r.icon}
+                    style={styles.rankIconShadowOverlay}
+                    resizeMode="contain"
+                  />
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.rankLegendName,
+                  { color: isAchieved ? r.color : '#8c7e6c' },
+                  !isAchieved && styles.rankLegendNameLocked,
+                ]}
+              >
+                {r.minMmr}+
+              </Text>
+            </View>
+          );
+        })}
       </View>
 
       {/* List */}
@@ -155,17 +191,6 @@ export default function LeaderboardScreen() {
           }
         />
       )}
-
-      {/* Back Button */}
-      <View style={styles.bottomBar}>
-        <NeoButton
-          style={styles.backBtn}
-          onPress={() => router.back()}
-        >
-          <Feather name="arrow-left" size={18} color="#1a1008" />
-          <Text style={styles.backBtnText}>Back</Text>
-        </NeoButton>
-      </View>
     </View>
   );
 }
@@ -219,8 +244,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  myStatsRankBadge: {
-    fontSize: 30,
+  myStatsRankIcon: {
+    width: 36,
+    height: 36,
   },
   myStatsRankName: {
     fontFamily: GameFonts.brawl,
@@ -250,21 +276,45 @@ const styles = StyleSheet.create({
   // Rank Legend
   rankLegend: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 14,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginBottom: 4,
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 6,
   },
   rankLegendItem: {
     alignItems: 'center',
   },
-  rankLegendBadge: {
-    fontSize: 18,
+  rankIconWrapper: {
+    width: 38,
+    height: 38,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    marginBottom: 4,
+  },
+  rankLegendIcon: {
+    width: 38,
+    height: 38,
+  },
+  rankLegendIconLocked: {
+    opacity: 0.35,
+  },
+  rankIconShadowOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 38,
+    height: 38,
+    tintColor: '#000000',
+    opacity: 0.6,
   },
   rankLegendName: {
     fontFamily: GameFonts.arcade,
-    fontSize: 8,
+    fontSize: 10,
+  },
+  rankLegendNameLocked: {
+    opacity: 0.5,
   },
 
   // List
@@ -289,35 +339,44 @@ const styles = StyleSheet.create({
   },
 
   positionCol: {
-    width: 40,
+    width: 36,
     alignItems: 'center',
-  },
-  positionMedal: {
-    fontSize: 22,
+    justifyContent: 'center',
   },
   positionNumber: {
     fontFamily: GameFonts.arcade,
-    fontSize: 12,
+    fontSize: 14,
     color: '#7a6a55',
   },
+  positionTop1: {
+    color: '#b45309',
+  },
+  positionTop2: {
+    color: '#475569',
+  },
+  positionTop3: {
+    color: '#78350f',
+  },
 
+  rankCol: {
+    width: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+    marginRight: 8,
+  },
+  rankBadgeIcon: {
+    width: 38,
+    height: 38,
+  },
   playerCol: {
     flex: 1,
-    marginLeft: 8,
-  },
-  playerNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  rankBadge: {
-    fontSize: 16,
+    justifyContent: 'center',
   },
   playerName: {
     fontFamily: GameFonts.brawl,
-    fontSize: 13,
+    fontSize: 14,
     color: '#1a1008',
-    flexShrink: 1,
   },
   playerNameMe: {
     color: '#1a6cf5',
@@ -327,21 +386,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#7a6a55',
     marginTop: 2,
-    marginLeft: 22,
   },
 
   mmrCol: {
     alignItems: 'flex-end',
+    justifyContent: 'center',
     marginLeft: 8,
   },
   mmrValue: {
     fontFamily: GameFonts.arcade,
     fontSize: 16,
-  },
-  rankName: {
-    fontFamily: GameFonts.hud,
-    fontSize: 10,
-    textTransform: 'uppercase',
   },
 
   // Loading / Empty

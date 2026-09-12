@@ -277,11 +277,11 @@ export default function Sprite({ action, isEnemy = false, characterId, enemyId }
     { translateX: shakeAnim },
     ...(isIdle
       ? [
-          { translateY: idleTranslateY },
-          { scaleX: idleScaleX },
-          { scaleY: idleScaleY },
-          { rotate: idleRotate },
-        ]
+        { translateY: idleTranslateY },
+        { scaleX: idleScaleX },
+        { scaleY: idleScaleY },
+        { rotate: idleRotate },
+      ]
       : isEnemy
         ? [{ scaleX: -1 as const }]
         : []),

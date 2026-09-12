@@ -1,6 +1,8 @@
 // services/mmrService.ts
 // Elo-style MMR calculation for online multiplayer matches
 
+import { ImageSourcePropType } from 'react-native';
+
 /**
  * K-factor determines how much MMR changes per match.
  * Higher K = more volatile, lower K = more stable.
@@ -17,21 +19,59 @@ const MMR_FLOOR = 0;
  */
 export const STARTING_MMR = 1000;
 
+export interface RankInfo {
+  name: string;
+  minMmr: number;
+  badge: string;
+  color: string;
+  icon: ImageSourcePropType;
+}
+
 /**
  * Rank thresholds and display info.
  */
-export const RANKS = [
-  { name: 'Bronze', minMmr: 0, badge: '🥉', color: '#CD7F32' },
-  { name: 'Silver', minMmr: 1000, badge: '🥈', color: '#C0C0C0' },
-  { name: 'Gold', minMmr: 1500, badge: '🥇', color: '#FFD700' },
-  { name: 'Diamond', minMmr: 2000, badge: '💎', color: '#B9F2FF' },
-  { name: 'Master', minMmr: 2500, badge: '👑', color: '#FF6B6B' },
+export const RANKS: readonly RankInfo[] = [
+  {
+    name: 'Bronze',
+    minMmr: 0,
+    badge: '🥉',
+    color: '#CD7F32',
+    icon: require('../assets/icons/rank_icons/bronze.png'),
+  },
+  {
+    name: 'Silver',
+    minMmr: 1000,
+    badge: '🥈',
+    color: '#C0C0C0',
+    icon: require('../assets/icons/rank_icons/silver.png'),
+  },
+  {
+    name: 'Gold',
+    minMmr: 1500,
+    badge: '🥇',
+    color: '#FFD700',
+    icon: require('../assets/icons/rank_icons/gold.png'),
+  },
+  {
+    name: 'Diamond',
+    minMmr: 2000,
+    badge: '💎',
+    color: '#B9F2FF',
+    icon: require('../assets/icons/rank_icons/diamond.png'),
+  },
+  {
+    name: 'Conqueror',
+    minMmr: 2500,
+    badge: '👑',
+    color: '#FF6B6B',
+    icon: require('../assets/icons/rank_icons/conqueror.png'),
+  },
 ] as const;
 
 /**
  * Get the rank info for a given MMR value.
  */
-export function getRank(mmr: number) {
+export function getRank(mmr: number): RankInfo {
   for (let i = RANKS.length - 1; i >= 0; i--) {
     if (mmr >= RANKS[i].minMmr) {
       return RANKS[i];

@@ -23,6 +23,10 @@ export interface ShopItem {
   icon?: string;
   image?: any;
   stats?: ItemStats;
+  /** Whether the item is consumable (consumed upon use in battle, can buy as many as wanted). */
+  isConsumable?: boolean;
+  /** Minimum player level required to unlock / purchase the item */
+  unlockLevel?: number;
 }
 
 export interface PurchaseResult {

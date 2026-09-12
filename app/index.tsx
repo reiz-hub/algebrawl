@@ -50,37 +50,14 @@ export default function HomeScreen() {
         />
 
         <View style={styles.buttonContainer}>
-
-          {/* Primary Button: Start Adventure */}
-          <NeoButton style={styles.btnPrimary as ViewStyle} onPress={() => router.push('/map')}>
-            <Feather name="play" size={28} color="#fff" />
-            <Text style={styles.btnPrimaryText}>Start Adventure</Text>
+          {/* Single Action Button: PLAY */}
+          <NeoButton
+            style={styles.btnPlay as ViewStyle}
+            onPress={() => router.push('/(tabs)/dungeon' as any)}
+          >
+            <Feather name="play" size={32} color="#fff" />
+            <Text style={styles.btnPlayText}>PLAY</Text>
           </NeoButton>
-
-          {/* Versus Button (Local 2P) */}
-          <NeoButton style={styles.btnVersus as ViewStyle} onPress={() => router.push('/versus')}>
-            <Feather name="crosshair" size={28} color="#fff" />
-            <Text style={styles.btnVersusText}>Versus</Text>
-          </NeoButton>
-
-          {/* Multiplayer Button (Online) */}
-          <NeoButton style={styles.btnMultiplayer as ViewStyle} onPress={() => router.push('/multiplayer' as any)}>
-            <Feather name="wifi" size={28} color="#fff" />
-            <Text style={styles.btnMultiplayerText}>Multiplayer</Text>
-          </NeoButton>
-
-          {/* Shop Button */}
-          <NeoButton style={styles.btnShop as ViewStyle} onPress={() => router.push('/shop')}>
-            <Feather name="shopping-bag" size={28} color="#fff" />
-            <Text style={styles.btnShopText}>Item Shop</Text>
-          </NeoButton>
-
-          {/* Secondary Button: Player Stats */}
-          <NeoButton style={styles.btnSecondary as ViewStyle} onPress={() => router.push('/stats')}>
-            <Feather name="user" size={28} color="#1a1008" />
-            <Text style={styles.btnSecondaryText}>Player Stats</Text>
-          </NeoButton>
-
         </View>
       </View>
 
@@ -135,23 +112,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1008',
     borderRadius: 16
   },
-  btnPrimary: {
+  btnPlay: {
     backgroundColor: '#e8302a',
     borderWidth: 3,
     borderColor: '#1a1008',
-    paddingVertical: 18,
-    borderRadius: 16,
+    paddingVertical: 20,
+    borderRadius: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12
+    gap: 14,
   },
-  btnPrimaryText: {
+  btnPlayText: {
     fontFamily: GameFonts.brawl,
     color: '#fff',
-    fontSize: 20,
+    fontSize: 26,
     textTransform: 'uppercase',
-    letterSpacing: 1
+    letterSpacing: 2,
   },
   btnVersus: {
     backgroundColor: '#1a6cf5',

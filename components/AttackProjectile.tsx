@@ -267,6 +267,11 @@ export default function AttackProjectile({
   const [showImpact, setShowImpact] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
 
+  const onImpactRef = useRef(onImpact);
+  onImpactRef.current = onImpact;
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
   const flightAnim = useRef(new Animated.Value(0)).current;
   const impactAnim = useRef(new Animated.Value(0)).current;
   const spinAnim = useRef(new Animated.Value(0)).current;
@@ -294,8 +299,8 @@ export default function AttackProjectile({
     // Straight linear flight sequence
     Animated.timing(flightAnim, {
       toValue: 1,
-      duration: 380,
-      easing: Easing.linear,
+      duration: 420,
+      easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     }).start(() => {
       setShowImpact(true);
@@ -303,8 +308,8 @@ export default function AttackProjectile({
       const blocked = attacker === 'enemy' && hasShield;
       setIsBlocked(blocked);
 
-      if (onImpact) {
-        onImpact();
+      if (onImpactRef.current) {
+        onImpactRef.current();
       }
 
       // Impact explosion & floating text
@@ -315,28 +320,28 @@ export default function AttackProjectile({
         useNativeDriver: true,
       }).start(() => {
         setIsAnimating(false);
-        if (onComplete) {
-          onComplete();
+        if (onCompleteRef.current) {
+          onCompleteRef.current();
         }
       });
     });
-  }, [active]);
+  }, [active, attacker, hasShield]);
 
-  if (!active && !isAnimating) return null;
+  const isVisible = active || isAnimating;
 
-  const startX = attacker === 'player' ? 30 : containerWidth - 110;
-  const targetX = attacker === 'player' ? containerWidth - 110 : 30;
+  const startX = attacker === 'player' ? 45 : containerWidth - 115;
+  const targetX = attacker === 'player' ? containerWidth - 115 : 45;
 
   const projectileTranslateX = flightAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [startX, targetX],
   });
 
-  const baseScale = hasDoubleStrike && attacker === 'player' ? 1.65 : 1.2;
+  const baseScale = hasDoubleStrike && attacker === 'player' ? 1.7 : 1.3;
 
   const projectileScale = flightAnim.interpolate({
     inputRange: [0, 0.1, 0.9, 1],
-    outputRange: [0.6 * baseScale, baseScale, baseScale, 1.2 * baseScale],
+    outputRange: [0.7 * baseScale, baseScale, baseScale, 1.15 * baseScale],
   });
 
   // Impact burst scales
@@ -367,12 +372,24 @@ export default function AttackProjectile({
 
   return (
     <View
-      style={StyleSheet.absoluteFillObject}
+      style={[StyleSheet.absoluteFillObject, styles.rootContainer]}
       pointerEvents="none"
-      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      onLayout={(e) => {
+        const w = e.nativeEvent.layout.width;
+        if (w > 0) setContainerWidth(w);
+      }}
     >
+      {/* Pre-warm image in background memory so it renders with zero decode delay */}
+      {!isVisible && (
+        <Image
+          source={powerConfig.image}
+          style={styles.preloaderImage}
+          resizeMode="contain"
+        />
+      )}
+
       {/* 1. FLYING PROJECTILE (CLEAN SPRITE FLIGHT) */}
-      {!showImpact && (
+      {isVisible && !showImpact && (
         <Animated.View
           style={[
             styles.projectileWrapper,
@@ -380,7 +397,7 @@ export default function AttackProjectile({
               transform: [
                 { translateX: projectileTranslateX },
                 { scale: projectileScale },
-                ...(attacker === 'enemy' ? [{ scaleX: -1 as const }] : []),
+                { scaleX: attacker === 'enemy' ? -1 : 1 },
               ],
             },
           ]}
@@ -402,7 +419,7 @@ export default function AttackProjectile({
       )}
 
       {/* 2. IMPACT BURST & DAMAGE POPUP */}
-      {showImpact && (
+      {isVisible && showImpact && (
         <View style={[styles.impactContainer, { left: targetX - 38 }]}>
           {/* Shield Forcefield Barrier Deflection */}
           {isBlocked ? (
@@ -471,18 +488,30 @@ export default function AttackProjectile({
 }
 
 const styles = StyleSheet.create({
+  rootContainer: {
+    zIndex: 999,
+    elevation: 100,
+  },
+  preloaderImage: {
+    width: 1,
+    height: 1,
+    opacity: 0,
+    position: 'absolute',
+  },
   projectileWrapper: {
     position: 'absolute',
-    top: '42%',
-    width: 78,
-    height: 78,
+    left: 0,
+    top: '38%',
+    width: 88,
+    height: 88,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 100,
+    zIndex: 1000,
+    elevation: 101,
   },
   projectileImage: {
-    width: 72,
-    height: 72,
+    width: 82,
+    height: 82,
   },
   specialOverlayText: {
     fontFamily: GameFonts.brawl,
@@ -512,7 +541,8 @@ const styles = StyleSheet.create({
     height: 78,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 101,
+    zIndex: 1001,
+    elevation: 102,
   },
   impactRing: {
     position: 'absolute',
