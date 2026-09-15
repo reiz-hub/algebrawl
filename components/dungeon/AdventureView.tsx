@@ -395,9 +395,9 @@ export default function AdventureView() {
             <Text style={styles.difficultySubtitle}>Random Mode — Level 7</Text>
 
             {[
-              { key: 'easy' as const, label: 'EASY', questions: 35, desc: '30 Questions + Boss', color: '#22c55e', icon: '🌿' },
-              { key: 'medium' as const, label: 'MEDIUM', questions: 65, desc: '60 Questions + Boss', color: '#f5a623', icon: '🔥' },
-              { key: 'hard' as const, label: 'HARD', questions: 105, desc: '100 Questions + Boss', color: '#e8302a', icon: '💀' },
+              { key: 'easy' as const, label: 'EASY', questions: 35, desc: '30 Questions + Boss', color: '#22c55e', icon: require('../../assets/icons/UI_icons/easy.png') },
+              { key: 'medium' as const, label: 'MEDIUM', questions: 65, desc: '60 Questions + Boss', color: '#f5a623', icon: require('../../assets/icons/UI_icons/medium.png') },
+              { key: 'hard' as const, label: 'HARD', questions: 105, desc: '100 Questions + Boss', color: '#e8302a', icon: require('../../assets/icons/UI_icons/hard.png') },
             ].map((diff) => (
               <NeoButton
                 key={diff.key}
@@ -426,7 +426,7 @@ export default function AdventureView() {
                 }}
               >
                 <View style={styles.difficultyBtnInner}>
-                  <Text style={styles.difficultyBtnIcon}>{diff.icon}</Text>
+                  <Image source={diff.icon} style={styles.difficultyBtnImage} resizeMode="contain" />
                   <View style={styles.difficultyBtnText}>
                     <Text style={styles.difficultyBtnLabel}>{diff.label}</Text>
                     <Text style={styles.difficultyBtnDesc}>{diff.desc}</Text>
@@ -816,8 +816,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  difficultyBtnIcon: {
-    fontSize: 24,
+  difficultyBtnImage: {
+    width: 36,
+    height: 36,
   },
   difficultyBtnText: {
     flex: 1,

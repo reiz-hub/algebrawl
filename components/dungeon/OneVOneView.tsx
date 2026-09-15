@@ -10,12 +10,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import NeoButton from '../NeoButton';
-import TouchableOpacity from '../TouchableOpacity';
 import { GameFonts } from '../../constants/theme';
 import { useGameStore } from '../../hooks/useGameStore';
 import { checkConnectivity } from '../../services/multiplayerService';
 import { soundService } from '../../services/soundService';
+import NeoButton from '../NeoButton';
+import TouchableOpacity from '../TouchableOpacity';
 
 export default function OneVOneView() {
   const router = useRouter();

@@ -16,14 +16,14 @@ import {
 } from 'react-native';
 import NeoButton from '../components/NeoButton';
 import TouchableOpacity from '../components/TouchableOpacity';
+import { getCharacterDetails } from '../constants/characterSkills';
 import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
 import { useMultiplayerStore } from '../hooks/useMultiplayerStore';
-import { supabase } from '../services/supabase';
-import { attemptMatch, checkConnectivity } from '../services/multiplayerService';
 import { getRank } from '../services/mmrService';
+import { attemptMatch, checkConnectivity } from '../services/multiplayerService';
 import { soundService } from '../services/soundService';
-import { getCharacterDetails } from '../constants/characterSkills';
+import { supabase } from '../services/supabase';
 
 const FUNDAMENTAL_TOPICS = [
   { id: 1, name: 'Variables', icon: '🔤', desc: 'Basics & Substitution' },
@@ -208,7 +208,7 @@ export default function WaitingRoomScreen() {
         .from('matchmaking_queue')
         .update({ queued_at: new Date().toISOString() })
         .eq('player_id', userId)
-        .then(() => {});
+        .then(() => { });
 
       // Single atomic RPC: finds opponent, creates room, cleans up queue
       // Returns the matched room or null if no opponent found yet
@@ -355,8 +355,8 @@ export default function WaitingRoomScreen() {
           {isReadyCheck
             ? '⚔️ READY CHECK'
             : action === 'search' || mp.mode === 'ranked'
-            ? '⚔️ RANKED MATCH'
-            : '🏠 LOBBY VERSUS'}
+              ? '⚔️ RANKED MATCH'
+              : '🏠 LOBBY VERSUS'}
         </Text>
         <TouchableOpacity style={styles.closeBtn} onPress={handleCancel}>
           <Feather name="x" size={20} color="#1a1008" />

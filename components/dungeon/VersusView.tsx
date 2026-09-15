@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import NeoButton from '../NeoButton';
 import TouchableOpacity from '../TouchableOpacity';
 import { GameFonts } from '../../constants/theme';
@@ -165,6 +165,7 @@ export default function VersusView() {
               placeholder="Player 1 Name"
               placeholderTextColor="#a0907e"
               maxLength={15}
+              autoCorrect={false}
             />
           </View>
           {renderCharacterSelector('CHOOSE HERO', p1Character, setP1Character)}
@@ -188,6 +189,7 @@ export default function VersusView() {
               placeholder="Player 2 Name"
               placeholderTextColor="#a0907e"
               maxLength={15}
+              autoCorrect={false}
             />
           </View>
           {renderCharacterSelector('CHOOSE HERO', p2Character, setP2Character)}
@@ -252,10 +254,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   playerBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    borderWidth: 2,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 2.5,
     borderColor: '#1a1008',
     justifyContent: 'center',
     alignItems: 'center',
@@ -263,16 +265,19 @@ const styles = StyleSheet.create({
   playerBadgeText: {
     fontFamily: GameFonts.brawl,
     color: '#fff',
-    fontSize: 14,
+    fontSize: 16,
   },
   nameInput: {
     flex: 1,
-    height: 40,
+    height: 48,
+    minHeight: 48,
     backgroundColor: '#fff9f0',
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: '#1a1008',
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 2,
+    textAlignVertical: 'center',
     fontFamily: GameFonts.brawl,
     fontSize: 14,
     color: '#1a1008',

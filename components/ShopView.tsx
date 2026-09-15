@@ -58,6 +58,8 @@ export default function ShopView() {
   });
 
   const filteredItems = SHOP_ITEMS.filter((item) => {
+    // Exclude free default items (given, not purchasable)
+    if (item.cost === 0) return false;
     if (activeTab === 'all') return true;
     return item.category === activeTab;
   });

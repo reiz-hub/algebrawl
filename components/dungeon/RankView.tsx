@@ -9,8 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import NeoButton from '../NeoButton';
-import TouchableOpacity from '../TouchableOpacity';
+import { getCharacterDetails } from '../../constants/characterSkills';
 import { GameFonts } from '../../constants/theme';
 import { useGameStore } from '../../hooks/useGameStore';
 import { getRank, RANKS } from '../../services/mmrService';
@@ -19,8 +18,9 @@ import {
   getRankedMatchHistory,
   RankedMatchHistoryItem,
 } from '../../services/multiplayerService';
-import { getCharacterDetails } from '../../constants/characterSkills';
 import { soundService } from '../../services/soundService';
+import NeoButton from '../NeoButton';
+import TouchableOpacity from '../TouchableOpacity';
 
 export default function RankView() {
   const router = useRouter();
@@ -263,8 +263,8 @@ export default function RankView() {
                             isWin
                               ? styles.historyBadgeWin
                               : isLoss
-                              ? styles.historyBadgeLoss
-                              : styles.historyBadgeDraw,
+                                ? styles.historyBadgeLoss
+                                : styles.historyBadgeDraw,
                           ]}
                         >
                           <Text style={styles.historyBadgeText}>
@@ -297,8 +297,8 @@ export default function RankView() {
                               item.mmrChange > 0
                                 ? styles.mmrGain
                                 : item.mmrChange < 0
-                                ? styles.mmrLoss
-                                : styles.mmrEven,
+                                  ? styles.mmrLoss
+                                  : styles.mmrEven,
                             ]}
                           >
                             {item.mmrChange > 0 ? `+${item.mmrChange}` : item.mmrChange} MMR

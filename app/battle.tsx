@@ -17,7 +17,7 @@ import { getGearAsset, getSkillAsset } from '../constants/shopItems';
 export default function BattleScreen() {
   const { level, questions, timePerQuestion: timeParam, skillId, skillName, skillIcon, gearId, gearName, gearIcon, gearStat, characterId: paramCharId, difficulty: paramDifficulty } = useLocalSearchParams();
   const router = useRouter();
-  const { recordLevelProgress, updateStats, coins, equippedCharacter } = useGameStore();
+  const { recordLevelProgress, updateStats, coins, equippedCharacter, devModeEnabled } = useGameStore();
   const selectedCharId = String(paramCharId || equippedCharacter || 'c0');
   const selectedDifficulty = (paramDifficulty ? String(paramDifficulty) : 'medium') as 'easy' | 'medium' | 'hard';
 
@@ -511,6 +511,11 @@ export default function BattleScreen() {
           {currentQ.hint ? (
             <Text style={[styles.hintText, isMedium && styles.hintTextMedium, isExtraLarge && styles.hintTextLarge]}>{currentQ.hint}</Text>
           ) : null}
+          {devModeEnabled && (
+            <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '900', textAlign: 'center', marginBottom: 2, letterSpacing: 1 }}>
+              🛠️ DEV ANSWER: {currentQ.correctAnswer}
+            </Text>
+          )}
           <Text style={[styles.equation, isMedium && styles.equationMedium, isExtraLarge && styles.equationLarge]} adjustsFontSizeToFit numberOfLines={2}>{currentQ.equation}</Text>
 
           <View style={styles.optionsContainer}>
@@ -740,7 +745,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#ffffff',
     textTransform: 'uppercase',
-    fontStyle: 'italic',
     letterSpacing: 1,
     marginRight: 10,
     textShadowColor: '#1a1008',

@@ -1,7 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   Platform,
   Pressable,
@@ -12,12 +11,14 @@ import {
 import { useGameStore } from '../hooks/useGameStore';
 import { GameFonts } from '../constants/theme';
 import { soundService } from '../services/soundService';
+import { IS_DEV_BUILD } from '../constants/devMode';
 import TouchableOpacity from './TouchableOpacity';
 
 export default function SettingsButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [musicEnabled, setMusicEnabled] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const { devModeEnabled, toggleDevMode } = useGameStore();
 
   // Rotation animation for settings gear
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -48,14 +49,6 @@ export default function SettingsButton() {
     await soundService.setSoundEnabled(newValue);
   };
 
-  const handleDevUnlockAll = () => {
-    useGameStore.getState().unlockAllDev();
-    Alert.alert(
-      'DEV MODE 🔓',
-      'All levels (1-7), characters, gears, skills, and 9,999 coins have been unlocked!'
-    );
-    setIsOpen(false);
-  };
 
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
@@ -152,20 +145,28 @@ export default function SettingsButton() {
               {/* Divider */}
               <View style={styles.divider} />
 
-              {/* Developer Unlock All Button */}
-              <TouchableOpacity
-                style={styles.devUnlockRow}
-                activeOpacity={0.8}
-                onPress={handleDevUnlockAll}
-              >
-                <View style={styles.devIconBox}>
-                  <Feather name="unlock" size={15} color="#fff" />
-                </View>
-                <View style={styles.textContainer}>
-                  <Text style={styles.devUnlockTitle}>DEV UNLOCK</Text>
-                  <Text style={styles.devUnlockSub}>Unlock All 🔓</Text>
-                </View>
-              </TouchableOpacity>
+              {/* Developer Mode Toggle (only in dev builds) */}
+              {IS_DEV_BUILD && (
+                <TouchableOpacity
+                  style={styles.toggleRow}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    toggleDevMode();
+                  }}
+                >
+                  <View style={[styles.devIconBox, !devModeEnabled && { backgroundColor: '#94a3b8' }]}>
+                    <Feather name={devModeEnabled ? 'unlock' : 'lock'} size={15} color="#fff" />
+                  </View>
+                  <View style={styles.textContainer}>
+                    <Text style={[styles.devUnlockTitle, !devModeEnabled && { color: '#7a6a55' }]}>
+                      DEV {devModeEnabled ? 'ON' : 'OFF'}
+                    </Text>
+                  </View>
+                  <View style={[styles.switchTrack, devModeEnabled ? styles.switchTrackOn : styles.switchTrackOff]}>
+                    <View style={[styles.switchThumb, devModeEnabled ? styles.switchThumbOn : styles.switchThumbOff]} />
+                  </View>
+                </TouchableOpacity>
+              )}
 
             </View>
           </View>

@@ -243,7 +243,7 @@ export const lookupByIngameName = async (
 };
 
 /**
- * Look up a userId by email.
+ * Look up a userId by email (case-insensitive).
  */
 export const lookupByEmail = async (
   email: string
@@ -252,7 +252,7 @@ export const lookupByEmail = async (
     const { data, error } = await supabase
       .from('users')
       .select('*')
-      .eq('email', email.trim().toLowerCase())
+      .ilike('email', email.trim())
       .limit(1)
       .single();
 
@@ -266,5 +266,79 @@ export const lookupByEmail = async (
     console.warn('[Supabase] Email lookup failed:', error);
     return null;
   }
+};
+
+/**
+ * Resolves all candidate auth emails for a given username or email input.
+ * Queries `users` table and the `get_auth_email` RPC to determine the exact
+ * Supabase auth email, ensuring players can seamlessly log in with either
+ * their username or linked Gmail under any circumstance.
+ */
+export const resolveLoginEmails = async (
+  input: string
+): Promise<{
+  candidates: string[];
+  userRecord: UserData | null;
+  userId: string | null;
+}> => {
+  const trimmed = input.trim();
+  const isEmail = trimmed.includes('@');
+  const candidates: string[] = [];
+  const add = (email?: string | null) => {
+    if (!email) return;
+    const clean = email.trim().toLowerCase();
+    if (clean && !candidates.includes(clean)) {
+      candidates.push(clean);
+    }
+  };
+
+  let userRecord: UserData | null = null;
+  let userId: string | null = null;
+
+  if (isEmail) {
+    const found = await lookupByEmail(trimmed);
+    if (found) {
+      userRecord = found.data;
+      userId = found.userId;
+    }
+  } else {
+    const found = await lookupByUsername(trimmed);
+    if (found) {
+      userRecord = found.data;
+      userId = found.userId;
+    }
+  }
+
+  // 1. Primary: Exact email in Supabase auth.users from database function
+  if (userId) {
+    try {
+      const { data: authEmail } = await supabase.rpc('get_auth_email', {
+        target_user_id: userId,
+      });
+      if (authEmail) {
+        add(authEmail);
+      }
+    } catch (err) {
+      console.warn('[Supabase] get_auth_email failed:', err);
+    }
+  }
+
+  // 2. If typed input is an email, try it directly
+  if (isEmail) {
+    add(trimmed);
+  }
+
+  // 3. The linked email stored in the users table
+  if (userRecord?.email) {
+    add(userRecord.email);
+  }
+
+  // 4. The internal @algebrawls.local fallback
+  const username = userRecord?.username || (!isEmail ? trimmed : null);
+  if (username) {
+    add(`${username.toLowerCase()}@algebrawls.local`);
+  }
+
+  return { candidates, userRecord, userId };
 };
 

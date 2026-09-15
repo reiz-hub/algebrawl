@@ -5,21 +5,19 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   Modal,
   StyleSheet,
   Text,
-  View,
+  View
 } from 'react-native';
-import Sprite from '../components/sprite';
 import AttackProjectile from '../components/AttackProjectile';
+import Sprite from '../components/sprite';
 import TouchableOpacity from '../components/TouchableOpacity';
+import { getCharacterDetails } from '../constants/characterSkills';
 import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
 import { useMultiplayerStore } from '../hooks/useMultiplayerStore';
 import { soundService } from '../services/soundService';
-import { getRank } from '../services/mmrService';
-import { getCharacterDetails } from '../constants/characterSkills';
 
 export default function OnlineBattleScreen() {
   const router = useRouter();

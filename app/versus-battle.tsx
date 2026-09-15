@@ -347,25 +347,27 @@ export default function VersusBattleScreen() {
   return (
     <View style={styles.container}>
       {/* 1. TOP HEADER BAR (HEADER & PAUSE BUTTON OUTSIDE MAP BG) */}
-      <View style={styles.headerBar}>
-        <Text style={styles.versusTitle}>⚔️ VERSUS BATTLE</Text>
+      <View style={styles.topBar}>
+        <Text style={styles.levelTitle} numberOfLines={1} adjustsFontSizeToFit>
+          VERSUS BATTLE
+        </Text>
         <TouchableOpacity style={styles.pauseBtn} onPress={() => setIsPaused(true)}>
-          <Feather name="pause" size={18} color="#1a1008" />
+          <Feather name="pause" size={14} color="#1a1008" />
+          <Text style={styles.pauseLabel}>PAUSE</Text>
         </TouchableOpacity>
       </View>
 
-      {/* MAP BACKGROUND COVERING SUB-BAR HUD (HEARTS, TIMER, TURN, ROUND) AND ARENA */}
+      {/* MAP BACKGROUND COVERING SUB-BAR HUD (HEARTS, TIMER, ROUND) AND ARENA */}
       <ImageBackground
         source={levelTheme.bgImage || undefined}
         style={[styles.mapArea, { backgroundColor: levelTheme.stageBgColor }]}
         resizeMode="cover"
       >
-        <View style={styles.topBar}>
+        <View style={styles.subBar}>
           <Text style={styles.hpHearts}>{renderHearts(p1HP, p1MaxHearts)}</Text>
 
-          <View style={styles.timerBadgeBox}>
+          <View style={styles.timerBlock}>
             <Text style={[styles.timer, timer <= 5 && styles.timerDanger]}>{Math.max(0, timer)}s</Text>
-            <Text style={styles.turnText}>{activeName.toUpperCase()} TURN</Text>
             <Text style={styles.roundText}>Round {Math.min(round, totalQuestions)}/{totalQuestions} · Lv.{currentLevel}</Text>
           </View>
 
@@ -373,118 +375,146 @@ export default function VersusBattleScreen() {
         </View>
 
         <View style={styles.arena}>
-          {/* Player 1 - left side */}
-          <View style={styles.playerColumn}>
+          {/* Player 1 Side */}
+          <View style={styles.characterSlot}>
+            <View style={styles.statusBadgeArea}>
+              {p1Shield && (
+                <View style={styles.statusBadgeRow}>
+                  <Image source={require('../assets/icons/skills/shield.png')} style={styles.statusBadgeImage} resizeMode="contain" />
+                  <Text style={styles.statusBadgeLabel}>SHIELDED</Text>
+                </View>
+              )}
+              {p1Double && (
+                <View style={styles.statusBadgeRow}>
+                  <Image source={require('../assets/icons/skills/double_strike.png')} style={styles.statusBadgeImage} resizeMode="contain" />
+                  <Text style={styles.statusBadgeLabel}>2X DMG</Text>
+                </View>
+              )}
+            </View>
+
             <Sprite action={p1SpriteAction as any} characterId={p1Character} />
-            <Text style={styles.playerName}>{p1CharInfo.icon} {p1Name}</Text>
-            {p1Shield && (
-              <View style={styles.statusBadgeRow}>
-                <Image source={require('../assets/icons/skills/shield.png')} style={styles.statusBadgeImage} resizeMode="contain" />
-                <Text style={styles.statusBadgeLabel}>SHIELDED</Text>
-              </View>
-            )}
-            {p1Double && (
-              <View style={styles.statusBadgeRow}>
-                <Image source={require('../assets/icons/skills/double_strike.png')} style={styles.statusBadgeImage} resizeMode="contain" />
-                <Text style={styles.statusBadgeLabel}>2X DMG</Text>
-              </View>
-            )}
-            {(Boolean(p1GearStat) || Boolean(p1SkillName)) && (
-              <View style={styles.loadoutRow}>
-                {Boolean(p1GearStat) && (
-                  <View style={styles.gearSquare}>
-                    {p1GearImage ? (
-                      <Image source={p1GearImage} style={styles.gearIconLarge} resizeMode="contain" />
-                    ) : p1GearIcon ? (
-                      <Text style={{ fontSize: 22 }}>{p1GearIcon}</Text>
-                    ) : null}
-                    <Text style={styles.gearSquareText} numberOfLines={1} adjustsFontSizeToFit>{p1GearStat}</Text>
+
+            <View style={styles.bottomUIArea}>
+              <View style={styles.playerNameRow}>
+                <Text style={styles.playerName} numberOfLines={1}>{p1Name}</Text>
+                {turn === 1 && (
+                  <View style={styles.turnIndicatorBadge}>
+                    <Text style={styles.turnIndicatorText}>YOUR TURN</Text>
                   </View>
                 )}
-                {Boolean(p1SkillName) && (
-                  <TouchableOpacity
-                    style={[
-                      styles.skillSquare,
-                      p1SkillCooldown > 0 && styles.skillSquareUsed,
-                      turn === 1 && p1SkillCooldown === 0 && styles.skillSquareActive,
-                    ]}
-                    activeOpacity={0.8}
-                    disabled={turn !== 1 || p1SkillCooldown > 0 || p1SkillName === 'Basic Attack'}
-                    onPress={turn === 1 ? activateSkill : undefined}
-                  >
-                    {p1SkillImage ? (
-                      <Image
-                        source={p1SkillImage}
-                        style={[styles.skillIconLarge, p1SkillCooldown > 0 && styles.skillIconLargeUsed]}
-                        resizeMode="contain"
-                      />
-                    ) : p1SkillIcon ? (
-                      <Text style={{ fontSize: 22 }}>{p1SkillIcon}</Text>
-                    ) : null}
-                    <Text style={[styles.skillSquareText, p1SkillCooldown > 0 && styles.skillSquareTextUsed]} numberOfLines={1} adjustsFontSizeToFit>
-                      {p1SkillName}{p1SkillCooldown > 0 ? ` (CD:${p1SkillCooldown})` : ''}
-                    </Text>
-                  </TouchableOpacity>
-                )}
               </View>
-            )}
+
+              {(Boolean(p1GearStat) || Boolean(p1SkillName)) && (
+                <View style={styles.loadoutRow}>
+                  {Boolean(p1GearStat) && (
+                    <View style={styles.gearSquare}>
+                      {p1GearImage ? (
+                        <Image source={p1GearImage} style={styles.gearIconLarge} resizeMode="contain" />
+                      ) : p1GearIcon ? (
+                        <Text style={{ fontSize: 26 }}>{p1GearIcon}</Text>
+                      ) : null}
+                      <Text style={styles.gearSquareText} numberOfLines={1} adjustsFontSizeToFit>{p1GearStat}</Text>
+                    </View>
+                  )}
+                  {Boolean(p1SkillName) && (
+                    <TouchableOpacity
+                      style={[
+                        styles.skillSquare,
+                        p1SkillCooldown > 0 && styles.skillSquareUsed,
+                        turn === 1 && p1SkillCooldown === 0 && styles.skillSquareActive,
+                      ]}
+                      activeOpacity={0.8}
+                      disabled={turn !== 1 || p1SkillCooldown > 0 || p1SkillName === 'Basic Attack'}
+                      onPress={turn === 1 ? activateSkill : undefined}
+                    >
+                      {p1SkillImage ? (
+                        <Image
+                          source={p1SkillImage}
+                          style={[styles.skillIconLarge, p1SkillCooldown > 0 && styles.skillIconLargeUsed]}
+                          resizeMode="contain"
+                        />
+                      ) : p1SkillIcon ? (
+                        <Text style={{ fontSize: 26 }}>{p1SkillIcon}</Text>
+                      ) : null}
+                      <Text style={[styles.skillSquareText, p1SkillCooldown > 0 && styles.skillSquareTextUsed]} numberOfLines={1} adjustsFontSizeToFit>
+                        {p1SkillName}{p1SkillCooldown > 0 ? ` (${p1SkillCooldown})` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </View>
           </View>
 
-          {/* Player 2 - right side */}
-          <View style={styles.playerColumnRight}>
+          {/* Player 2 Side */}
+          <View style={styles.characterSlot}>
+            <View style={styles.statusBadgeArea}>
+              {p2Shield && (
+                <View style={styles.statusBadgeRow}>
+                  <Image source={require('../assets/icons/skills/shield.png')} style={styles.statusBadgeImage} resizeMode="contain" />
+                  <Text style={styles.statusBadgeLabel}>SHIELDED</Text>
+                </View>
+              )}
+              {p2Double && (
+                <View style={styles.statusBadgeRow}>
+                  <Image source={require('../assets/icons/skills/double_strike.png')} style={styles.statusBadgeImage} resizeMode="contain" />
+                  <Text style={styles.statusBadgeLabel}>2X DMG</Text>
+                </View>
+              )}
+            </View>
+
             <Sprite action={p2SpriteAction as any} isEnemy characterId={p2Character} />
-            <Text style={styles.playerName}>{p2CharInfo.icon} {p2Name}</Text>
-            {p2Shield && (
-              <View style={styles.statusBadgeRow}>
-                <Image source={require('../assets/icons/skills/shield.png')} style={styles.statusBadgeImage} resizeMode="contain" />
-                <Text style={styles.statusBadgeLabel}>SHIELDED</Text>
-              </View>
-            )}
-            {p2Double && (
-              <View style={styles.statusBadgeRow}>
-                <Image source={require('../assets/icons/skills/double_strike.png')} style={styles.statusBadgeImage} resizeMode="contain" />
-                <Text style={styles.statusBadgeLabel}>2X DMG</Text>
-              </View>
-            )}
-            {(Boolean(p2GearStat) || Boolean(p2SkillName)) && (
-              <View style={styles.loadoutRow}>
-                {Boolean(p2GearStat) && (
-                  <View style={styles.gearSquare}>
-                    {p2GearImage ? (
-                      <Image source={p2GearImage} style={styles.gearIconLarge} resizeMode="contain" />
-                    ) : p2GearIcon ? (
-                      <Text style={{ fontSize: 22 }}>{p2GearIcon}</Text>
-                    ) : null}
-                    <Text style={styles.gearSquareText} numberOfLines={1} adjustsFontSizeToFit>{p2GearStat}</Text>
+
+            <View style={styles.bottomUIArea}>
+              <View style={styles.playerNameRow}>
+                <Text style={styles.playerName} numberOfLines={1}>{p2Name}</Text>
+                {turn === 2 && (
+                  <View style={styles.turnIndicatorBadge}>
+                    <Text style={styles.turnIndicatorText}>YOUR TURN</Text>
                   </View>
                 )}
-                {Boolean(p2SkillName) && (
-                  <TouchableOpacity
-                    style={[
-                      styles.skillSquare,
-                      p2SkillCooldown > 0 && styles.skillSquareUsed,
-                      turn === 2 && p2SkillCooldown === 0 && styles.skillSquareActive,
-                    ]}
-                    activeOpacity={0.8}
-                    disabled={turn !== 2 || p2SkillCooldown > 0 || p2SkillName === 'Basic Attack'}
-                    onPress={turn === 2 ? activateSkill : undefined}
-                  >
-                    {p2SkillImage ? (
-                      <Image
-                        source={p2SkillImage}
-                        style={[styles.skillIconLarge, p2SkillCooldown > 0 && styles.skillIconLargeUsed]}
-                        resizeMode="contain"
-                      />
-                    ) : p2SkillIcon ? (
-                      <Text style={{ fontSize: 22 }}>{p2SkillIcon}</Text>
-                    ) : null}
-                    <Text style={[styles.skillSquareText, p2SkillCooldown > 0 && styles.skillSquareTextUsed]} numberOfLines={1} adjustsFontSizeToFit>
-                      {p2SkillName}{p2SkillCooldown > 0 ? ` (CD:${p2SkillCooldown})` : ''}
-                    </Text>
-                  </TouchableOpacity>
-                )}
               </View>
-            )}
+
+              {(Boolean(p2GearStat) || Boolean(p2SkillName)) && (
+                <View style={styles.loadoutRow}>
+                  {Boolean(p2GearStat) && (
+                    <View style={styles.gearSquare}>
+                      {p2GearImage ? (
+                        <Image source={p2GearImage} style={styles.gearIconLarge} resizeMode="contain" />
+                      ) : p2GearIcon ? (
+                        <Text style={{ fontSize: 26 }}>{p2GearIcon}</Text>
+                      ) : null}
+                      <Text style={styles.gearSquareText} numberOfLines={1} adjustsFontSizeToFit>{p2GearStat}</Text>
+                    </View>
+                  )}
+                  {Boolean(p2SkillName) && (
+                    <TouchableOpacity
+                      style={[
+                        styles.skillSquare,
+                        p2SkillCooldown > 0 && styles.skillSquareUsed,
+                        turn === 2 && p2SkillCooldown === 0 && styles.skillSquareActive,
+                      ]}
+                      activeOpacity={0.8}
+                      disabled={turn !== 2 || p2SkillCooldown > 0 || p2SkillName === 'Basic Attack'}
+                      onPress={turn === 2 ? activateSkill : undefined}
+                    >
+                      {p2SkillImage ? (
+                        <Image
+                          source={p2SkillImage}
+                          style={[styles.skillIconLarge, p2SkillCooldown > 0 && styles.skillIconLargeUsed]}
+                          resizeMode="contain"
+                        />
+                      ) : p2SkillIcon ? (
+                        <Text style={{ fontSize: 26 }}>{p2SkillIcon}</Text>
+                      ) : null}
+                      <Text style={[styles.skillSquareText, p2SkillCooldown > 0 && styles.skillSquareTextUsed]} numberOfLines={1} adjustsFontSizeToFit>
+                        {p2SkillName}{p2SkillCooldown > 0 ? ` (${p2SkillCooldown})` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </View>
           </View>
           
           <AttackProjectile
@@ -667,48 +697,40 @@ export default function VersusBattleScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff9f0' },
 
-  headerBar: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12,
-    backgroundColor: '#1a1008', zIndex: 10,
-  },
-  versusTitle: {
-    fontFamily: GameFonts.brawl, fontSize: 18, color: '#ffffff',
-    textTransform: 'uppercase', letterSpacing: 1,
-  },
-  mapArea: {
-    flex: 1,
-    position: 'relative',
-  },
   topBar: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8,
-    backgroundColor: 'transparent', zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 56,
+    paddingBottom: 12,
+    backgroundColor: '#1a1008',
   },
-  topLeft: { flexDirection: 'column', alignItems: 'flex-start', gap: 6 },
-  topRight: {
-    flexDirection: 'column', alignItems: 'flex-end', gap: 6,
-  },
-  pauseBtnPlaceholder: {
-    width: 40, height: 40,
+  levelTitle: {
+    fontFamily: GameFonts.brawl,
+    flex: 1,
+    fontSize: 20,
+    color: '#ffffff',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginRight: 10,
+    textShadowColor: '#1a1008',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 0,
   },
   pauseBtn: {
-    backgroundColor: '#fff9f0', borderWidth: 2.5, borderColor: '#1a1008',
-    borderRadius: 10, width: 40, height: 40, justifyContent: 'center', alignItems: 'center',
-  },
-  pauseIcon: {
-    fontFamily: GameFonts.brawl, fontSize: 18, color: '#1a1008', transform: [{ rotate: '90deg' }]
-  },
-  timerBadgeBox: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#fff9f0',
+    borderWidth: 2,
+    borderColor: '#1a1008',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  hpHearts: {
-    fontFamily: GameFonts.brawl, fontSize: 18,
-    textShadowColor: '#1a1008', textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 0,
-  },
-  enemyHpText: {
-    fontFamily: GameFonts.arcade, fontSize: 16,
-    textShadowColor: '#1a1008', textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 0,
+  pauseLabel: {
+    fontFamily: GameFonts.brawl, fontSize: 12, color: '#1a1008', textTransform: 'uppercase', letterSpacing: 0.5
   },
   pauseTogglesRow: {
     flexDirection: 'row',
@@ -745,49 +767,130 @@ const styles = StyleSheet.create({
   pauseToggleBtnDisabled: {
     backgroundColor: '#e5d9c4',
   },
-  timer: {
-    fontFamily: GameFonts.arcade, fontSize: 20, color: '#ffffff',
+  mapArea: {
+    flex: 1,
+    position: 'relative',
+  },
+  subBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: 'transparent',
+  },
+  timerBlock: { alignItems: 'center' },
+  hpHearts: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 20,
+    textShadowColor: '#1a1008',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 0,
+  },
+  enemyHpText: {
+    fontFamily: GameFonts.arcade, fontSize: 14, color: '#f5a623',
     textShadowColor: '#1a1008', textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 0,
   },
-  timerDanger: { color: '#e8302a' },
-  turnText: {
-    fontFamily: GameFonts.brawl, fontSize: 13, color: '#f5a623', marginTop: 2,
-    textShadowColor: '#1a1008', textShadowOffset: { width: 1.5, height: 1.5 }, textShadowRadius: 0,
+  timer: {
+    fontFamily: GameFonts.arcade,
+    fontSize: 20,
+    color: '#ffffff',
+    textShadowColor: '#1a1008',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 0,
   },
+  timerDanger: { color: '#e8302a' },
   roundText: {
-    fontFamily: GameFonts.arcade, fontSize: 12, color: '#ffffff', marginTop: 2,
-    textShadowColor: '#1a1008', textShadowOffset: { width: 1.5, height: 1.5 }, textShadowRadius: 0,
+    fontFamily: GameFonts.arcade,
+    fontSize: 12,
+    color: '#f5a623',
+    marginTop: 2,
+    textShadowColor: '#1a1008',
+    textShadowOffset: { width: 1.5, height: 1.5 },
+    textShadowRadius: 0,
   },
 
-  arena: { flex: 1, position: 'relative', overflow: 'hidden', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 16, paddingTop: 10 },
-  playerColumn: { alignItems: 'flex-start', flex: 1 },
-  playerColumnRight: { alignItems: 'flex-end', flex: 1 },
-  playerName: {
-    fontFamily: GameFonts.brawl, marginTop: 4, color: '#ffffff', fontSize: 14, marginBottom: 4, alignSelf: 'center',
-    textShadowColor: '#1a1008', textShadowOffset: { width: 1.5, height: 1.5 }, textShadowRadius: 0,
+  arena: {
+    flex: 1,
+    position: 'relative',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    paddingBottom: 16,
   },
-  statusBadge: {
-    fontFamily: GameFonts.hud,
-    marginTop: 6,
+  characterSlot: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  statusBadgeArea: {
+    height: 36,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  statusBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: '#fff9f0',
-    color: '#1a1008',
-    fontSize: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
     borderWidth: 2,
     borderColor: '#1a1008',
     borderRadius: 8,
-    overflow: 'hidden',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  statusBadgeImage: { width: 16, height: 16 },
+  statusBadgeLabel: {
+    fontFamily: GameFonts.hud, fontSize: 12, color: '#1a1008'
+  },
+  bottomUIArea: {
+    minHeight: 60,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    width: '100%',
+  },
+  playerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 24,
+    marginBottom: 4,
+  },
+  playerName: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 14,
+    color: '#ffffff',
+    textShadowColor: '#1a1008',
+    textShadowOffset: { width: 1.5, height: 1.5 },
+    textShadowRadius: 0,
+    textAlign: 'center',
+  },
+  turnIndicatorBadge: {
+    backgroundColor: '#f5a623',
+    borderWidth: 2,
+    borderColor: '#1a1008',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    alignSelf: 'center',
+  },
+  turnIndicatorText: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 9,
+    color: '#1a1008',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   loadoutRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 6,
+    justifyContent: 'center',
+    gap: 10,
   },
   gearSquare: {
-    width: 52,
-    minHeight: 48,
+    width: 60,
+    minHeight: 56,
     backgroundColor: 'transparent',
     borderWidth: 0,
     borderColor: 'transparent',
@@ -796,12 +899,12 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   gearIconLarge: {
-    width: 32,
-    height: 32,
+    width: 38,
+    height: 38,
   },
   gearSquareText: {
     fontFamily: GameFonts.hud,
-    fontSize: 9,
+    fontSize: 10,
     color: '#ffffff',
     textAlign: 'center',
     marginTop: 2,
@@ -809,10 +912,9 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 1,
   },
-
   skillSquare: {
-    width: 52,
-    minHeight: 48,
+    width: 60,
+    minHeight: 56,
     backgroundColor: 'transparent',
     borderWidth: 0,
     borderColor: 'transparent',
@@ -827,15 +929,15 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   skillIconLarge: {
-    width: 32,
-    height: 32,
+    width: 38,
+    height: 38,
   },
   skillIconLargeUsed: {
     opacity: 0.6,
   },
   skillSquareText: {
     fontFamily: GameFonts.hud,
-    fontSize: 9,
+    fontSize: 10,
     color: '#ffffff',
     textAlign: 'center',
     marginTop: 2,
@@ -846,49 +948,40 @@ const styles = StyleSheet.create({
   skillSquareTextUsed: {
     color: 'rgba(255, 255, 255, 0.7)',
   },
-  statusBadgeRow: {
-    marginTop: 6,
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#fff9f0', borderWidth: 2, borderColor: '#1a1008', borderRadius: 8,
-    paddingHorizontal: 8, paddingVertical: 4,
-  },
-  statusBadgeImage: { width: 16, height: 16 },
-  statusBadgeLabel: {
-    fontFamily: GameFonts.hud, fontSize: 12, color: '#1a1008'
-  },
 
   questionPanel: {
-    height: 340,
-    justifyContent: 'center',
+    minHeight: 270,
+    maxHeight: 350,
+    justifyContent: 'space-between',
     backgroundColor: '#fff9f0', borderTopWidth: 4, borderColor: '#1a1008',
-    paddingTop: 20, paddingBottom: 20, paddingHorizontal: 25, borderRadius: 0, alignItems: 'center',
+    paddingTop: 12, paddingBottom: 16, paddingHorizontal: 16, borderRadius: 0, alignItems: 'center',
   },
   equation: {
-    fontFamily: GameFonts.impact, fontSize: 34, color: '#ffffff', marginVertical: 10, textAlign: 'center'
+    fontFamily: GameFonts.impact, fontSize: 24, color: '#ffffff', marginVertical: 4, textAlign: 'center'
   },
   equationMedium: {
-    fontFamily: GameFonts.impact, fontSize: 40, marginVertical: 15
+    fontFamily: GameFonts.impact, fontSize: 26, marginVertical: 6
   },
   equationLarge: {
-    fontFamily: GameFonts.impact, fontSize: 44, marginVertical: 15
+    fontFamily: GameFonts.impact, fontSize: 28, marginVertical: 8
   },
-  optionsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, width: '100%', marginTop: 10 },
-  optionWrapper: { width: '45%', position: 'relative' },
-  optionShadow: { position: 'absolute', top: 5, left: 5, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 0 },
-  optionButton: { backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#1a1008', borderRadius: 0, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', minHeight: 60 },
-  optionButtonMedium: { paddingVertical: 14, minHeight: 64 },
-  optionButtonLarge: { paddingVertical: 15, minHeight: 66 },
+  optionsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, width: '100%', marginTop: 6 },
+  optionWrapper: { width: '47%', position: 'relative' },
+  optionShadow: { position: 'absolute', top: 3, left: 3, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 8 },
+  optionButton: { backgroundColor: '#fff9f0', borderWidth: 2.5, borderColor: '#1a1008', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center', minHeight: 50 },
+  optionButtonMedium: { paddingVertical: 10, minHeight: 54 },
+  optionButtonLarge: { paddingVertical: 10, minHeight: 56 },
   optionCorrect: { backgroundColor: '#22c55e', borderColor: '#14532d' },
   optionWrong: { backgroundColor: '#e8302a', borderColor: '#7f1d1d' },
   optionDimmed: { opacity: 0.5 },
   optionText: {
-    fontFamily: GameFonts.brawl, fontSize: 20, color: '#ffffff', textAlign: 'center'
+    fontFamily: GameFonts.brawl, fontSize: 16, color: '#ffffff', textAlign: 'center'
   },
   optionTextMedium: {
-    fontFamily: GameFonts.brawl, fontSize: 24
+    fontFamily: GameFonts.brawl, fontSize: 18
   },
   optionTextLarge: {
-    fontFamily: GameFonts.brawl, fontSize: 26
+    fontFamily: GameFonts.brawl, fontSize: 20
   },
   optionTextOnColor: { color: '#fff' },
 

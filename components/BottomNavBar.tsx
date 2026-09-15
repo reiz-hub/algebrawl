@@ -16,7 +16,7 @@ const ALLOWED_TABS = ['profile', 'shop', 'dungeon', 'ranking', 'settings'];
 const TAB_CONFIGS: Record<string, TabConfig> = {
   profile: {
     label: 'PROFILE',
-    icon: require('../assets/icons/UI_icons/achievements.png'),
+    icon: require('../assets/icons/UI_icons/profile.png'),
   },
   shop: {
     label: 'SHOP',
@@ -53,7 +53,7 @@ export default function BottomNavBar({ state, descriptors, navigation }: BottomT
         const isFocused = state.index === index;
         const config = TAB_CONFIGS[route.name] || {
           label: route.name.toUpperCase(),
-          icon: require('../assets/icons/UI_icons/achievements.png'),
+          icon: require('../assets/icons/UI_icons/profile.png'),
         };
 
         const onPress = () => {

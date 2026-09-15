@@ -82,6 +82,9 @@ const ps = StyleSheet.create({
   btnText: { fontSize: 16, fontWeight: '900', color: '#fff', letterSpacing: 2 },
 });
 
+const LOCK_ICON = require('../assets/icons/UI_icons/lock.png');
+const ACHIEVEMENTS_ICON = require('../assets/icons/UI_icons/achievements.png');
+
 const LEVELS = [
   { id: 1, name: 'Variables', questions: 10 },
   { id: 2, name: 'Equations', questions: 20 },
@@ -170,12 +173,12 @@ export default function PlayerStatsScreen({ showBackButton = true }: { showBackB
   const displayName = (isLoggedIn && ingameName) ? ingameName.toUpperCase() : (username ? username.toUpperCase() : 'GUEST USER');
 
   const achievements = [
-    { id: 1, icon: '🎯', title: 'First Blood', desc: 'Win your first battle', done: totalBattlesWon >= 1 },
-    { id: 2, icon: '🔥', title: 'On Fire', desc: '5 streak in one battle', done: safeMaxStreak >= 5 },
-    { id: 3, icon: '👑', title: 'Undefeated', desc: 'Win 5 battles total', done: totalBattlesWon >= 5 },
-    { id: 4, icon: '💀', title: 'Boss Slayer', desc: 'Defeat the Math Overlord', done: !!levelStars[7] },
-    { id: 5, icon: '⚡', title: 'Speed Demon', desc: 'Answer in under 5 seconds', done: false },
-    { id: 6, icon: '💎', title: 'Perfectionist', desc: 'Perfect score on all levels', done: LEVELS.every(lvl => (levelStars[lvl.id] || 0) === lvl.questions) },
+    { id: 1, icon: '🎯', image: require('../assets/icons/achievements/first_blood.png'), title: 'First Blood', desc: 'Win your first battle', done: totalBattlesWon >= 1 },
+    { id: 2, icon: '🔥', image: require('../assets/icons/achievements/onfire.png'), title: 'On Fire', desc: '5 streak in one battle', done: safeMaxStreak >= 5 },
+    { id: 3, icon: '👑', image: require('../assets/icons/achievements/undefeated.png'), title: 'Undefeated', desc: 'Win 5 battles total', done: totalBattlesWon >= 5 },
+    { id: 4, icon: '💀', image: require('../assets/icons/achievements/boss_slayer.png'), title: 'Boss Slayer', desc: 'Defeat the Math Overlord', done: !!levelStars[7] },
+    { id: 5, icon: '⚡', image: require('../assets/icons/achievements/speed_demon.png'), title: 'Speed Demon', desc: 'Answer in under 5 seconds', done: false },
+    { id: 6, icon: '💎', image: require('../assets/icons/achievements/Perfectionist.png'), title: 'Perfectionist', desc: 'Perfect score on all levels', done: LEVELS.every(lvl => (levelStars[lvl.id] || 0) === lvl.questions) },
   ];
 
   const handleEditIngameSubmit = async () => {
@@ -373,7 +376,7 @@ export default function PlayerStatsScreen({ showBackButton = true }: { showBackB
                     activeOpacity={0.7}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Feather name="edit-2" size={14} color="#1a1008" />
+                    <Feather name="edit" size={14} color="#1a1008" />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.rankBadge}><Text style={styles.rankText}>{playerRank}</Text></View>
@@ -457,41 +460,61 @@ export default function PlayerStatsScreen({ showBackButton = true }: { showBackB
             const isLocked = lvl.id > unlockedLevel;
             const progressPercent = isLocked ? 0 : (scoreEarned / lvl.questions) * 100;
             const isPerfect = scoreEarned === lvl.questions;
-            const scoreDisplay = isLocked ? '🔒' : `${scoreEarned}/${lvl.questions}`;
-
             return (
               <View key={lvl.id} style={[styles.levelProgressRow, isLocked && { opacity: 0.4 }]}>
                 <Text style={styles.levelNameText}>{lvl.name}</Text>
                 <View style={styles.levelBarOuter}>
                   <View style={[
                     styles.levelBarInner,
+                    lvl.id === 7 && styles.levelBarRandom,
                     { width: `${progressPercent}%` },
                     isPerfect && styles.levelBarPerfect,
                   ]} />
                 </View>
-                <Text style={[
-                  styles.scoreText,
-                  isPerfect && styles.scoreTextPerfect,
-                  isLocked && styles.scoreTextLocked,
-                ]}>
-                  {scoreDisplay}
-                </Text>
+                {isLocked ? (
+                  <View style={styles.levelLockBox}>
+                    <Image source={LOCK_ICON} style={styles.levelLockIcon} resizeMode="contain" />
+                  </View>
+                ) : (
+                  <Text style={[
+                    styles.scoreText,
+                    lvl.id === 7 && styles.scoreTextRandom,
+                    isPerfect && styles.scoreTextPerfect,
+                  ]}>
+                    {scoreEarned}/{lvl.questions}
+                  </Text>
+                )}
               </View>
             );
           })}
         </View>
 
         {/* ACHIEVEMENTS */}
-        <Text style={styles.sectionHeader}>🏅 ACHIEVEMENTS</Text>
+        <View style={styles.sectionHeaderRow}>
+          <Image source={ACHIEVEMENTS_ICON} style={styles.sectionHeaderIcon} resizeMode="contain" />
+          <Text style={styles.sectionHeaderInline}>ACHIEVEMENTS</Text>
+        </View>
         {achievements.map((ach) => (
           <View key={ach.id} style={[styles.achRow, !ach.done && { opacity: 0.5 }]}>
             <Text style={styles.achNum}>{ach.id}</Text>
-            <View style={styles.achIconBox}><Text style={{ fontSize: 24 }}>{ach.icon}</Text></View>
+            <View style={styles.achIconBox}>
+              {ach.image ? (
+                <Image source={ach.image} style={styles.achImage} resizeMode="contain" />
+              ) : (
+                <Text style={{ fontSize: 24 }}>{ach.icon}</Text>
+              )}
+            </View>
             <View style={{ flex: 1, marginLeft: 10 }}>
               <Text style={styles.achTitle}>{ach.title}</Text>
               <Text style={styles.achDesc}>{ach.desc}</Text>
             </View>
-            <Text style={{ fontSize: 18 }}>{ach.done ? '✅' : '🔒'}</Text>
+            <View style={styles.achStatusBox}>
+              {ach.done ? (
+                <Text style={{ fontSize: 18 }}>✅</Text>
+              ) : (
+                <Image source={LOCK_ICON} style={styles.achLockIcon} resizeMode="contain" />
+              )}
+            </View>
           </View>
         ))}
       </ScrollView>
@@ -553,6 +576,9 @@ const styles = StyleSheet.create({
   title: { fontFamily: GameFonts.brawl, fontSize: 22, color: '#1a1008', textTransform: 'uppercase', letterSpacing: 1 },
   scrollContent: { padding: 20 },
   sectionHeader: { fontFamily: GameFonts.brawl, fontSize: 14, color: '#1a1008', marginTop: 20, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', marginTop: 20, marginBottom: 10, gap: 8 },
+  sectionHeaderIcon: { width: 22, height: 22 },
+  sectionHeaderInline: { fontFamily: GameFonts.brawl, fontSize: 14, color: '#1a1008', textTransform: 'uppercase', letterSpacing: 0.5 },
 
   card: { marginBottom: 15 },
   cardShadow: { position: 'absolute', top: 4, left: 4, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
@@ -605,14 +631,21 @@ const styles = StyleSheet.create({
   levelNameText: { fontFamily: GameFonts.brawl, width: 85, fontSize: 10, color: '#1a1008' },
   levelBarOuter: { flex: 1, height: 10, backgroundColor: '#e5d9c4', borderRadius: 5, borderWidth: 1.5, borderColor: '#1a1008', marginHorizontal: 10, overflow: 'hidden' },
   levelBarInner: { height: '100%', backgroundColor: '#22c55e' },
+  levelBarRandom: { backgroundColor: '#f5a623' },
   levelBarPerfect: { backgroundColor: '#f5a623' },
   scoreText: { fontFamily: GameFonts.brawl, width: 52, fontSize: 10, textAlign: 'right', color: '#22c55e' },
+  scoreTextRandom: { color: '#f5a623' },
   scoreTextPerfect: { color: '#f5a623' },
   scoreTextLocked: { color: '#7a6a55' },
+  levelLockBox: { width: 52, alignItems: 'flex-end', justifyContent: 'center' },
+  levelLockIcon: { width: 14, height: 14 },
 
   achRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderWidth: 2, borderColor: '#1a1008', borderRadius: 12, padding: 12, marginBottom: 10 },
   achNum: { fontFamily: GameFonts.brawl, width: 25, fontSize: 12, color: '#f5a623' },
-  achIconBox: { width: 40, alignItems: 'center' },
+  achIconBox: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+  achImage: { width: 36, height: 36 },
   achTitle: { fontFamily: GameFonts.brawl, fontSize: 12, color: '#1a1008' },
   achDesc: { fontFamily: GameFonts.hud, fontSize: 11, color: '#7a6a55' },
+  achStatusBox: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  achLockIcon: { width: 20, height: 20 },
 });

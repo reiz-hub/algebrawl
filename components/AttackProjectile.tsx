@@ -12,6 +12,8 @@ export interface AttackProjectileProps {
   hasShield?: boolean;
   onImpact?: () => void;
   onComplete?: () => void;
+  projectileTop?: number | string;
+  impactTop?: number | string;
 }
 
 export interface PowerConfig {
@@ -261,6 +263,8 @@ export default function AttackProjectile({
   hasShield = false,
   onImpact,
   onComplete,
+  projectileTop,
+  impactTop,
 }: AttackProjectileProps) {
   const [containerWidth, setContainerWidth] = useState(340);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -393,6 +397,7 @@ export default function AttackProjectile({
         <Animated.View
           style={[
             styles.projectileWrapper,
+            projectileTop !== undefined && { top: projectileTop as any },
             {
               transform: [
                 { translateX: projectileTranslateX },
@@ -420,7 +425,7 @@ export default function AttackProjectile({
 
       {/* 2. IMPACT BURST & DAMAGE POPUP */}
       {isVisible && showImpact && (
-        <View style={[styles.impactContainer, { left: targetX - 38 }]}>
+        <View style={[styles.impactContainer, { left: targetX - 38 }, impactTop !== undefined && { top: impactTop as any }]}>
           {/* Shield Forcefield Barrier Deflection */}
           {isBlocked ? (
             <Animated.View

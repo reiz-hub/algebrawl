@@ -18,11 +18,13 @@ import { GameFonts } from '../../constants/theme';
 import { useGameStore } from '../../hooks/useGameStore';
 import { soundService } from '../../services/soundService';
 import { supabase } from '../../services/supabase';
+import { IS_DEV_BUILD } from '../../constants/devMode';
 import {
   fetchFromSupabase,
   lookupByEmail,
   lookupByIngameName,
   lookupByUsername,
+  resolveLoginEmails,
   syncToSupabase,
 } from '../../services/supabaseSync';
 import { sendEmailLinkedNotification } from '../../services/emailService';
@@ -92,6 +94,8 @@ export default function TabSettingsScreen() {
     setIngameName,
     setEmail,
     logout,
+    devModeEnabled,
+    toggleDevMode,
   } = useGameStore();
 
   const [musicEnabled, setMusicEnabled] = useState(true);
@@ -382,67 +386,61 @@ export default function TabSettingsScreen() {
     }
 
     try {
-      let targetEmail: string = input;
       const isEmailInput = input.includes('@');
-      let fallbackEmail: string | null = null;
-      let emailUserFound: any = null;
+      const { candidates, userRecord } = await resolveLoginEmails(input);
 
-      if (isEmailInput) {
-        emailUserFound = await lookupByEmail(input);
-        if (emailUserFound && emailUserFound.data.username) {
-          fallbackEmail = `${emailUserFound.data.username.toLowerCase()}@algebrawls.local`;
-        }
-      } else {
-        const found = await lookupByUsername(input);
-        if (found && found.data.email) {
-          targetEmail = found.data.email;
-        } else {
-          targetEmail = `${input.toLowerCase()}@algebrawls.local`;
-        }
+      if (candidates.length === 0) {
+        setLoading(false);
+        setErrorConfig({
+          visible: true,
+          title: 'Account Not Found',
+          message: isEmailInput
+            ? `No account found linked to "${input}".`
+            : `No account found with username "${input}".`,
+          subMessage: 'Please check your spelling or register a new account.',
+        });
+        return;
       }
 
-      let { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: targetEmail,
-        password: trimPass,
-      });
+      let authData: any = null;
+      let authError: any = null;
 
-      // If direct email auth failed and we have an internal fallback email for this user
-      if ((authError || !authData?.user) && fallbackEmail) {
-        const fallbackRes = await supabase.auth.signInWithPassword({
-          email: fallbackEmail,
+      // Try each candidate email in priority order (true auth email from RPC comes first)
+      for (const emailCandidate of candidates) {
+        const res = await supabase.auth.signInWithPassword({
+          email: emailCandidate,
           password: trimPass,
         });
-        if (fallbackRes.data?.user) {
-          authData = fallbackRes.data;
+        if (res.data?.user && !res.error) {
+          authData = res.data;
           authError = null;
+          break;
         }
+        authError = res.error;
       }
 
       if (authError || !authData?.user) {
         const msg = authError?.message?.toLowerCase() || '';
         setLoading(false);
 
-        if (isEmailInput) {
-          if (!emailUserFound) {
-            setErrorConfig({
-              visible: true,
-              title: 'Account Not Found',
-              message: `No account found linked to "${input}".`,
-              subMessage: 'Please check your spelling or register a new account.',
-            });
-            return;
-          }
-        } else {
-          const userExists = await lookupByUsername(input);
-          if (!userExists) {
-            setErrorConfig({
-              visible: true,
-              title: 'Account Not Found',
-              message: `No account found with username "${input}".`,
-              subMessage: 'Please check your spelling or register a new account.',
-            });
-            return;
-          }
+        if (!userRecord && !isEmailInput) {
+          setErrorConfig({
+            visible: true,
+            title: 'Account Not Found',
+            message: `No account found with username "${input}".`,
+            subMessage: 'Please check your spelling or register a new account.',
+          });
+          return;
+        }
+
+        if (!userRecord && isEmailInput) {
+          setErrorConfig({
+            visible: true,
+            title: 'Account Not Found',
+            message: `No account found linked to "${input}".`,
+            subMessage: 'Please check your spelling or register a new account.',
+          });
+          return;
         }
 
         if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
@@ -456,17 +454,19 @@ export default function TabSettingsScreen() {
           setErrorConfig({
             visible: true,
             title: 'Email Not Verified',
-            message: 'Please check your email and verify your account first.',
+            message: 'Please verify your email address before logging in.',
           });
         } else {
           setErrorConfig({
             visible: true,
             title: 'Login Failed',
-            message: authError?.message || 'Unable to sign in. Please try again.',
+            message: authError?.message || 'Unable to log in. Please try again.',
           });
         }
         return;
       }
+
+
 
       const uid = authData.user.id;
       const cloudData = await fetchFromSupabase(uid);
@@ -1151,27 +1151,46 @@ export default function TabSettingsScreen() {
           </View>
         </View>
 
-        {/* Developer Tools Card */}
+        {/* Developer Tools Card (only in dev builds) */}
+        {IS_DEV_BUILD && (
         <View style={styles.cardWrapper}>
           <View style={styles.cardShadow} />
           <View style={styles.cardContent}>
             <Text style={styles.cardSectionHeader}>DEVELOPER OPTIONS</Text>
 
             <TouchableOpacity
-              style={styles.devUnlockRow}
+              style={styles.toggleRow}
               activeOpacity={0.8}
-              onPress={handleDevUnlockAll}
+              onPress={toggleDevMode}
             >
-              <View style={styles.devIconBox}>
-                <Feather name="unlock" size={18} color="#fff" />
+              <View style={[styles.devIconBox, !devModeEnabled && { backgroundColor: '#94a3b8' }]}>
+                <Feather name={devModeEnabled ? 'unlock' : 'lock'} size={18} color="#fff" />
               </View>
               <View style={styles.textContainer}>
-                <Text style={styles.devUnlockTitle}>DEV UNLOCK ALL</Text>
-                <Text style={styles.devUnlockSub}>Unlock levels 1-7, items, and 9,999 coins</Text>
+                <Text style={[styles.devUnlockTitle, !devModeEnabled && { color: '#7a6a55' }]}>
+                  DEV MODE {devModeEnabled ? 'ON' : 'OFF'}
+                </Text>
+                <Text style={styles.devUnlockSub}>
+                  {devModeEnabled
+                    ? 'All levels, 99,999 coins, answers shown'
+                    : 'Max levels, coins, show answers'}
+                </Text>
+              </View>
+              <View style={[styles.switchTrack, devModeEnabled ? styles.switchTrackOn : styles.switchTrackOff]}>
+                <View style={[styles.switchThumb, devModeEnabled ? styles.switchThumbOn : styles.switchThumbOff]} />
               </View>
             </TouchableOpacity>
+
+            {devModeEnabled && (
+              <View style={{ backgroundColor: '#fef3c7', borderWidth: 2, borderColor: '#f59e0b', borderRadius: 8, padding: 8, marginTop: 4 }}>
+                <Text style={{ fontFamily: GameFonts.hud, fontSize: 10, color: '#92400e', fontWeight: '700', textAlign: 'center' }}>
+                  ⚠️ Dev mode is active. Turn off to restore your real progress.
+                </Text>
+              </View>
+            )}
           </View>
         </View>
+        )}
 
         {/* App Info Card */}
         <View style={styles.cardWrapper}>

@@ -2,6 +2,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { create } from 'zustand';
+import { IS_DEV_BUILD } from '../constants/devMode';
 import { SHOP_ITEMS } from '../constants/shopItems';
 import { supabase } from '../services/supabase';
 import {
@@ -69,15 +70,29 @@ interface GameState {
   addCoins: (amount: number) => void;
   unlockAllDev: () => void;
 
+  // Dev Mode
+  devModeEnabled: boolean;
+  toggleDevMode: () => void;
+
   // Consumable Skill Actions
   consumeSkill: (skillId: string) => boolean;
   getSkillStock: (skillId: string) => number;
 }
 
 /**
+ * Snapshot of real game state saved before dev mode is enabled.
+ * Used to restore the real progress when dev mode is turned off.
+ */
+let devModeSnapshot: Record<string, any> | null = null;
+
+/**
  * Persist game state to AsyncStorage.
+ * Skipped when dev mode is active to protect real save data.
  */
 const persistLocally = async (state: Partial<GameState>) => {
+  // Don't save dev-inflated state to storage
+  if (state.devModeEnabled) return;
+
   try {
     const saveable = {
       unlockedLevel: state.unlockedLevel,
@@ -104,8 +119,12 @@ const persistLocally = async (state: Partial<GameState>) => {
 
 /**
  * Sync current game state to Firestore / Supabase.
+ * Skipped when dev mode is active to protect real cloud data.
  */
 const syncToCloud = async (userId: string | null, state: Partial<GameState>) => {
+  // Don't sync dev-inflated state to cloud
+  if (state.devModeEnabled) return;
+
   if (!userId) return;
   await syncToFirestore(userId, {
     isGuest: !state.isLoggedIn,
@@ -159,6 +178,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   mmr: 1000,
   onlineWins: 0,
   onlineLosses: 0,
+
+  // Dev mode (off by default, must be manually enabled)
+  devModeEnabled: false,
 
   /**
    * Initialize: load userId from Supabase Auth session (or anonymous sign-in),
@@ -334,6 +356,8 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       // Persist the merged state back
       await persistLocally(localState ?? {});
+
+
 
       // Save username/ingameName/email locally if we got it from cloud
       if (cloudData?.username && !username) {
@@ -787,6 +811,102 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     persistLocally(newState);
     syncToCloud(state.userId, newState);
+  },
+
+  toggleDevMode: () => {
+    const state = get();
+
+    if (!IS_DEV_BUILD) return; // Safety: only works in dev builds
+
+    if (!state.devModeEnabled) {
+      // ── Enabling dev mode: snapshot real state, then apply maxed values ──
+      console.log('[DEV MODE] Enabled — saving real progress snapshot and maxing everything');
+
+      // Save snapshot of real state before overwriting
+      devModeSnapshot = {
+        unlockedLevel: state.unlockedLevel,
+        totalXP: state.totalXP,
+        totalBattlesWon: state.totalBattlesWon,
+        totalBattles: state.totalBattles,
+        currentStreak: state.currentStreak,
+        maxStreak: state.maxStreak,
+        levelStars: { ...state.levelStars },
+        coins: state.coins,
+        inventory: [...state.inventory],
+        equippedCharacter: state.equippedCharacter,
+        equippedGear: state.equippedGear,
+        skillStocks: { ...state.skillStocks },
+        mmr: state.mmr,
+        onlineWins: state.onlineWins,
+        onlineLosses: state.onlineLosses,
+      };
+
+      const allItems = ['g1', 'g2', 'g3', 'g4', 'g5', 's1', 's2', 's3', 's4', 'c0', 'c1', 'c2', 'c3', 'c4', 'char_algebro'];
+      const newInventory = Array.from(new Set([...state.inventory, ...allItems]));
+      set({
+        devModeEnabled: true,
+        unlockedLevel: 7,
+        coins: 99999,
+        inventory: newInventory,
+        skillStocks: { s2: 99, s3: 99, s4: 99 },
+        levelStars: { 1: 10, 2: 20, 3: 20, 4: 30, 5: 30, 6: 50, 7: 105 },
+      });
+    } else {
+      // ── Disabling dev mode: restore from snapshot ──
+      console.log('[DEV MODE] Disabled — restoring real saved progress from snapshot');
+
+      if (devModeSnapshot) {
+        set({
+          devModeEnabled: false,
+          unlockedLevel: devModeSnapshot.unlockedLevel,
+          totalXP: devModeSnapshot.totalXP,
+          totalBattlesWon: devModeSnapshot.totalBattlesWon,
+          totalBattles: devModeSnapshot.totalBattles,
+          currentStreak: devModeSnapshot.currentStreak,
+          maxStreak: devModeSnapshot.maxStreak,
+          levelStars: devModeSnapshot.levelStars,
+          coins: devModeSnapshot.coins,
+          inventory: devModeSnapshot.inventory,
+          equippedCharacter: devModeSnapshot.equippedCharacter,
+          equippedGear: devModeSnapshot.equippedGear,
+          skillStocks: devModeSnapshot.skillStocks,
+          mmr: devModeSnapshot.mmr,
+          onlineWins: devModeSnapshot.onlineWins,
+          onlineLosses: devModeSnapshot.onlineLosses,
+        });
+        devModeSnapshot = null;
+      } else {
+        // Fallback: reload from AsyncStorage if snapshot is missing
+        set({ devModeEnabled: false });
+        (async () => {
+          try {
+            const savedJson = await AsyncStorage.getItem(STORAGE_KEY_GAME_STATE);
+            if (savedJson) {
+              const saved = JSON.parse(savedJson);
+              set({
+                unlockedLevel: saved.unlockedLevel ?? 1,
+                totalXP: saved.totalXP ?? 0,
+                totalBattlesWon: saved.totalBattlesWon ?? 0,
+                totalBattles: saved.totalBattles ?? 0,
+                currentStreak: saved.currentStreak ?? 0,
+                maxStreak: saved.maxStreak ?? 0,
+                levelStars: saved.levelStars ?? {},
+                coins: saved.coins ?? 100,
+                inventory: saved.inventory ?? BASE_INVENTORY,
+                equippedCharacter: saved.equippedCharacter ?? 'char_algebro',
+                equippedGear: saved.equippedGear ?? null,
+                skillStocks: saved.skillStocks ?? {},
+                mmr: saved.mmr ?? 1000,
+                onlineWins: saved.onlineWins ?? 0,
+                onlineLosses: saved.onlineLosses ?? 0,
+              });
+            }
+          } catch (err) {
+            console.warn('[DEV MODE] Failed to restore saved state:', err);
+          }
+        })();
+      }
+    }
   },
 
   // ── Consumable Skill Actions ──────────────────────────────

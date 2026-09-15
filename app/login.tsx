@@ -8,7 +8,7 @@ import TouchableOpacity from '../components/TouchableOpacity';
 import { useGameStore } from '../hooks/useGameStore';
 import { soundService } from '../services/soundService';
 import { supabase } from '../services/supabase';
-import { fetchFromSupabase, lookupByEmail, lookupByUsername } from '../services/supabaseSync';
+import { fetchFromSupabase, lookupByEmail, lookupByUsername, resolveLoginEmails } from '../services/supabaseSync';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -62,67 +62,61 @@ export default function LoginScreen() {
     }
 
     try {
-      let targetEmail = trimmed;
       const isEmailInput = trimmed.includes('@');
-      let fallbackEmail: string | null = null;
-      let emailUserFound: any = null;
+      const { candidates, userRecord } = await resolveLoginEmails(trimmed);
 
-      if (isEmailInput) {
-        emailUserFound = await lookupByEmail(trimmed);
-        if (emailUserFound && emailUserFound.data.username) {
-          fallbackEmail = `${emailUserFound.data.username.toLowerCase()}@algebrawls.local`;
-        }
-      } else {
-        const found = await lookupByUsername(trimmed);
-        if (found && found.data.email) {
-          targetEmail = found.data.email;
-        } else {
-          targetEmail = `${trimmed.toLowerCase()}@algebrawls.local`;
-        }
+      if (candidates.length === 0) {
+        setIsLoading(false);
+        setErrorConfig({
+          visible: true,
+          title: 'Account Not Found',
+          message: isEmailInput
+            ? `No account found linked to "${trimmed}".`
+            : `No account found with username "${trimmed}".`,
+          subMessage: 'Please check your spelling or register a new account.',
+        });
+        return;
       }
 
-      let { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: targetEmail,
-        password: trimPass,
-      });
+      let authData: any = null;
+      let authError: any = null;
 
-      // If direct email auth failed and we have an internal fallback email for this user
-      if ((authError || !authData?.user) && fallbackEmail) {
-        const fallbackRes = await supabase.auth.signInWithPassword({
-          email: fallbackEmail,
+      // Try each candidate email in priority order (true auth email from RPC comes first)
+      for (const emailCandidate of candidates) {
+        const res = await supabase.auth.signInWithPassword({
+          email: emailCandidate,
           password: trimPass,
         });
-        if (fallbackRes.data?.user) {
-          authData = fallbackRes.data;
+        if (res.data?.user && !res.error) {
+          authData = res.data;
           authError = null;
+          break;
         }
+        authError = res.error;
       }
 
       if (authError || !authData?.user) {
         const msg = authError?.message?.toLowerCase() || '';
         setIsLoading(false);
 
-        if (isEmailInput) {
-          if (!emailUserFound) {
-            setErrorConfig({
-              visible: true,
-              title: 'Account Not Found',
-              message: `No account found linked to "${trimmed}".`,
-              subMessage: 'Please check your spelling or register a new account.',
-            });
-            return;
-          }
-        } else {
-          const userExists = await lookupByUsername(trimmed);
-          if (!userExists) {
-            setErrorConfig({
-              visible: true,
-              title: 'Account Not Found',
-              message: `No account found with username "${trimmed}".`,
-              subMessage: 'Please check your spelling or register a new account.',
-            });
-            return;
-          }
+        if (!userRecord && !isEmailInput) {
+          setErrorConfig({
+            visible: true,
+            title: 'Account Not Found',
+            message: `No account found with username "${trimmed}".`,
+            subMessage: 'Please check your spelling or register a new account.',
+          });
+          return;
+        }
+
+        if (!userRecord && isEmailInput) {
+          setErrorConfig({
+            visible: true,
+            title: 'Account Not Found',
+            message: `No account found linked to "${trimmed}".`,
+            subMessage: 'Please check your spelling or register a new account.',
+          });
+          return;
         }
 
         if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
