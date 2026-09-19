@@ -90,6 +90,24 @@ const POWER_CONFIGS: Record<string, PowerConfig> = {
     impactColor: '#16a34a',
     symbol: 'RAD',
   },
+  c5: {
+    name: 'Algebraic Strike',
+    image: require('../assets/projectiles/punch.png'),
+    mainColor: '#f43f5e',
+    glowColor: '#fb7185',
+    particles: ['+', '-', 'x', '/', 'x²', '√y'],
+    impactColor: '#e11d48',
+    symbol: 'STRIKE',
+  },
+  char_algegal: {
+    name: 'Algebraic Strike',
+    image: require('../assets/projectiles/punch.png'),
+    mainColor: '#f43f5e',
+    glowColor: '#fb7185',
+    particles: ['+', '-', 'x', '/', 'x²', '√y'],
+    impactColor: '#e11d48',
+    symbol: 'STRIKE',
+  },
   enemy: {
     name: 'Shadow Void Blast',
     image: require('../assets/projectiles/void.png'),
@@ -341,7 +359,7 @@ export default function AttackProjectile({
     outputRange: [startX, targetX],
   });
 
-  const baseScale = hasDoubleStrike && attacker === 'player' ? 1.7 : 1.3;
+  const baseScale = hasDoubleStrike && attacker === 'player' ? 2.15 : 1.65;
 
   const projectileScale = flightAnim.interpolate({
     inputRange: [0, 0.1, 0.9, 1],
@@ -351,7 +369,7 @@ export default function AttackProjectile({
   // Impact burst scales
   const impactRingScale = impactAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.3, 2.5],
+    outputRange: [0.3, 2.8],
   });
 
   const impactRingOpacity = impactAnim.interpolate({

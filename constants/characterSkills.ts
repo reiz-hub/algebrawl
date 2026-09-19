@@ -80,6 +80,28 @@ export const CHARACTER_DETAILS: Record<string, CharacterSkillInfo> = {
     skillType: 'Passive',
     skillDesc: 'Grants +2 bonus hearts & starts with a free Shield.',
   },
+  c5: {
+    id: 'c5',
+    name: 'Algegal',
+    rarity: 'common',
+    icon: '🎀',
+    avatar: require('../assets/images/avatar/algegalavatar.png'),
+    skillName: 'Algebraic Precision',
+    skillIcon: '🎀',
+    skillType: 'Passive',
+    skillDesc: 'Balanced math heroine with standard 3 Hearts & swift calculation.',
+  },
+  char_algegal: {
+    id: 'c5',
+    name: 'Algegal',
+    rarity: 'common',
+    icon: '🎀',
+    avatar: require('../assets/images/avatar/algegalavatar.png'),
+    skillName: 'Algebraic Precision',
+    skillIcon: '🎀',
+    skillType: 'Passive',
+    skillDesc: 'Balanced math heroine with standard 3 Hearts & swift calculation.',
+  },
 };
 
 export function getCharacterDetails(charId?: string | null): CharacterSkillInfo {

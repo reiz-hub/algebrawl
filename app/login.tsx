@@ -1,11 +1,12 @@
 // app/login.tsx
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, BackHandler, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
 import ErrorModal from '../components/ErrorModal';
 import NeoButton from '../components/NeoButton';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { useGameStore } from '../hooks/useGameStore';
+import { STARTING_MMR } from '../services/mmrService';
 import { soundService } from '../services/soundService';
 import { supabase } from '../services/supabase';
 import { fetchFromSupabase, lookupByEmail, lookupByUsername, resolveLoginEmails } from '../services/supabaseSync';
@@ -13,6 +14,20 @@ import { fetchFromSupabase, lookupByEmail, lookupByUsername, resolveLoginEmails 
 export default function LoginScreen() {
   const router = useRouter();
   const { loginWithData, setUsername, setIngameName, setEmail } = useGameStore();
+
+  // Hardware back mirrors the in-game BACK button
+  useEffect(() => {
+    const onBackPress = () => {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/' as any);
+      }
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, []);
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -175,7 +190,7 @@ export default function LoginScreen() {
         inventory: cloudData?.inventory ?? ['char_algebro'],
         equippedCharacter: cloudData?.equippedCharacter ?? 'char_algebro',
         equippedGear: cloudData?.equippedGear ?? null,
-        mmr: cloudData?.mmr ?? 1000,
+        mmr: cloudData?.mmr ?? STARTING_MMR,
         onlineWins: cloudData?.onlineWins ?? 0,
         onlineLosses: cloudData?.onlineLosses ?? 0,
       });

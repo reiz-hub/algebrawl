@@ -112,8 +112,8 @@ const styles = StyleSheet.create({
   },
   cardShadow: {
     position: 'absolute',
-    top: 6,
-    left: 6,
+    top: 3,
+    left: 3,
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',
@@ -180,8 +180,8 @@ const styles = StyleSheet.create({
   },
   btnShadow: {
     position: 'absolute',
-    top: 4,
-    left: 4,
+    top: 2,
+    left: 2,
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',

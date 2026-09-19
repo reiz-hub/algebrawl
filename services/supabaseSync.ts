@@ -1,4 +1,5 @@
 // services/supabaseSync.ts
+import { STARTING_MMR } from './mmrService';
 import { supabase } from './supabase';
 
 export interface UserData {
@@ -18,6 +19,7 @@ export interface UserData {
   inventory?: string[];
   equippedCharacter?: string;
   equippedGear?: string | null;
+  equippedTitle?: string;
   mmr?: number;
   onlineWins?: number;
   onlineLosses?: number;
@@ -46,6 +48,7 @@ const toDbRow = (data: Partial<UserData>): Record<string, any> => {
   if (data.inventory !== undefined) row.inventory = data.inventory;
   if (data.equippedCharacter !== undefined) row.equipped_character = data.equippedCharacter;
   if (data.equippedGear !== undefined) row.equipped_gear = data.equippedGear;
+  if (data.equippedTitle !== undefined) row.equipped_title = data.equippedTitle;
   if (data.mmr !== undefined) row.mmr = data.mmr;
   if (data.onlineWins !== undefined) row.online_wins = data.onlineWins;
   if (data.onlineLosses !== undefined) row.online_losses = data.onlineLosses;
@@ -71,7 +74,8 @@ const fromDbRow = (row: any): UserData => ({
   inventory: row.inventory ?? ['char_algebro'],
   equippedCharacter: row.equipped_character ?? 'char_algebro',
   equippedGear: row.equipped_gear ?? null,
-  mmr: row.mmr ?? 1000,
+  equippedTitle: row.equipped_title ?? 'novice',
+  mmr: row.mmr ?? STARTING_MMR,
   onlineWins: row.online_wins ?? 0,
   onlineLosses: row.online_losses ?? 0,
   skillStocks: row.skill_stocks ?? {},

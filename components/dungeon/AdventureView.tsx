@@ -187,7 +187,7 @@ export default function AdventureView() {
     if (level.id === 7) {
       setIsDifficultyVisible(true);
     } else {
-      router.push({
+      router.replace({
         pathname: '/pre-battle',
         params: {
           level: level.id,
@@ -414,7 +414,7 @@ export default function AdventureView() {
                 wrapperStyle={{ alignSelf: 'stretch', marginBottom: 12 }}
                 onPress={() => {
                   setIsDifficultyVisible(false);
-                  router.push({
+                  router.replace({
                     pathname: '/pre-battle',
                     params: {
                       level: 7,

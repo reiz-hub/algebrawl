@@ -149,6 +149,18 @@ export const SHOP_ITEMS: ShopItem[] = [
     stats: {},
   },
   {
+    id: 'c5',
+    name: 'Algegal',
+    category: 'character',
+    cost: 0,
+    unlockLevel: 1,
+    description: 'The swift math heroine. Balanced gameplay with standard 3 Hearts.',
+    rarity: 'common',
+    icon: '🎀',
+    image: require('../assets/images/avatar/algegalavatar.png'),
+    stats: {},
+  },
+  {
     id: 'c1',
     name: 'Ada Lovelace',
     category: 'character',

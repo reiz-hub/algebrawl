@@ -1,10 +1,14 @@
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,6 +21,7 @@ import TouchableOpacity from '../../components/TouchableOpacity';
 import { GameFonts } from '../../constants/theme';
 import { useGameStore } from '../../hooks/useGameStore';
 import { soundService } from '../../services/soundService';
+import { STARTING_MMR } from '../../services/mmrService';
 import { supabase } from '../../services/supabase';
 import { IS_DEV_BUILD } from '../../constants/devMode';
 import {
@@ -84,6 +89,7 @@ const SuccessPopup: React.FC<SuccessPopupProps> = ({ visible, icon, title, messa
 };
 
 export default function TabSettingsScreen() {
+  const router = useRouter();
   const {
     userId,
     isLoggedIn,
@@ -141,6 +147,36 @@ export default function TabSettingsScreen() {
   const hidePopup = useCallback(() => {
     setPopup((p) => ({ ...p, visible: false }));
   }, []);
+
+  const isKeyboardVisibleRef = useRef(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'android' ? 'keyboardDidShow' : 'keyboardWillShow',
+      () => { isKeyboardVisibleRef.current = true; }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'android' ? 'keyboardDidHide' : 'keyboardWillHide',
+      () => { isKeyboardVisibleRef.current = false; }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const handleModalClose = (closeFn: () => void) => {
+    Keyboard.dismiss();
+    closeFn();
+  };
+
+  const handleModalRequestClose = (closeFn: () => void) => {
+    if (isKeyboardVisibleRef.current) {
+      Keyboard.dismiss();
+      return;
+    }
+    handleModalClose(closeFn);
+  };
 
   useEffect(() => {
     setMusicEnabled(soundService.getMusicEnabled());
@@ -500,7 +536,7 @@ export default function TabSettingsScreen() {
         inventory: cloudData?.inventory ?? ['char_algebro'],
         equippedCharacter: cloudData?.equippedCharacter ?? 'char_algebro',
         equippedGear: cloudData?.equippedGear ?? null,
-        mmr: cloudData?.mmr ?? 1000,
+        mmr: cloudData?.mmr ?? STARTING_MMR,
         onlineWins: cloudData?.onlineWins ?? 0,
         onlineLosses: cloudData?.onlineLosses ?? 0,
       });
@@ -669,307 +705,362 @@ export default function TabSettingsScreen() {
 
   /* ── Modal: Register Step 1 ── */
   const renderRegisterModal = () => (
-    <Modal visible={showRegister} transparent animationType="fade" onRequestClose={() => { setShowRegister(false); resetForm(); }}>
-      <View style={ms.overlay}>
-        <View style={ms.card}>
-          <View style={ms.cardShadow} />
-          <View style={ms.cardInner}>
-            <Text style={ms.title}>CREATE GAME ACCOUNT</Text>
-            <Text style={{ fontFamily: GameFonts.hud, fontSize: 13, fontWeight: '700', color: '#7a6a55', textAlign: 'center', marginBottom: 16 }}>
-              Save all guest progress across devices with a username and password!
-            </Text>
+    <Modal visible={showRegister} transparent animationType="fade" onRequestClose={() => handleModalRequestClose(() => { setShowRegister(false); resetForm(); })}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+        style={ms.overlay}
+      >
+        <ScrollView
+          contentContainerStyle={ms.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <View style={[ms.card, ms.elevatedModalCard]}>
+            <View style={ms.cardShadow} />
+            <View style={ms.cardInner}>
+              <Text style={ms.title}>CREATE GAME ACCOUNT</Text>
+              <Text style={{ fontFamily: GameFonts.hud, fontSize: 13, fontWeight: '700', color: '#7a6a55', textAlign: 'center', marginBottom: 16 }}>
+                Save all guest progress across devices with a username and password!
+              </Text>
 
-            <Text style={ms.label}>USERNAME</Text>
-            <TextInput
-              style={ms.input}
-              value={formUser}
-              onChangeText={setFormUser}
-              placeholder="Enter username..."
-              placeholderTextColor="#b5a58d"
-              maxLength={20}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
-            />
-
-            <Text style={ms.label}>PASSWORD</Text>
-            <TextInput
-              style={ms.input}
-              value={formPass}
-              onChangeText={setFormPass}
-              placeholder="Enter password (min. 6 chars)..."
-              placeholderTextColor="#b5a58d"
-              secureTextEntry
-              maxLength={40}
-              autoCapitalize="none"
-              editable={!loading}
-            />
-
-            <View style={ms.btnRow}>
-              <TouchableOpacity
-                style={ms.cancelBtn}
-                onPress={() => { setShowRegister(false); resetForm(); }}
-                disabled={loading}
-              >
-                <Text style={ms.cancelBtnText}>CANCEL</Text>
-              </TouchableOpacity>
-              <View style={{ flex: 1, position: 'relative' }}>
-                <View style={ms.submitShadow} />
-                <TouchableOpacity
-                  style={[ms.submitBtn, loading && ms.submitBtnDisabled, { backgroundColor: '#22c55e' }]}
-                  onPress={handleRegisterNext}
-                  disabled={loading}
-                  activeOpacity={0.8}
-                >
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>NEXT</Text>}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-
-  /* ── Modal: Register Step 2 (Choose Ingame Name) ── */
-  const renderIngameModal = () => (
-    <Modal visible={showIngameModal} transparent animationType="fade" onRequestClose={() => { setShowIngameModal(false); resetForm(); }}>
-      <View style={ms.overlay}>
-        <View style={ms.card}>
-          <View style={ms.cardShadow} />
-          <View style={ms.cardInner}>
-            <Text style={ms.title}>CHOOSE INGAME NAME</Text>
-            <Text style={{ fontFamily: GameFonts.hud, fontSize: 13, fontWeight: '700', color: '#7a6a55', textAlign: 'center', marginBottom: 16 }}>
-              This is the name other players see in battle:
-            </Text>
-
-            <Text style={ms.label}>INGAME NAME</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: nameSuggestions.length > 0 ? 8 : 12 }}>
+              <Text style={ms.label}>USERNAME</Text>
               <TextInput
-                style={[ms.input, { flex: 1, marginBottom: 0 }]}
-                value={formIngameName}
-                onChangeText={setFormIngameName}
-                placeholder="Enter ingame name..."
+                style={ms.input}
+                value={formUser}
+                onChangeText={setFormUser}
+                placeholder="Enter username..."
                 placeholderTextColor="#b5a58d"
                 maxLength={20}
                 autoCapitalize="none"
                 autoCorrect={false}
                 editable={!loading}
               />
-              <TouchableOpacity style={ms.suggestBtn} onPress={generateSuggestions} disabled={loading}>
-                <Text style={ms.suggestBtnText}>SUGGEST</Text>
-              </TouchableOpacity>
-            </View>
-            {nameSuggestions.length > 0 && (
-              <View style={ms.chipsContainer}>
-                {nameSuggestions.map((sugg) => (
-                  <TouchableOpacity key={sugg} style={ms.chip} onPress={() => setFormIngameName(sugg)}>
-                    <Text style={ms.chipText}>{sugg}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
 
-            <View style={ms.btnRow}>
-              <TouchableOpacity
-                style={ms.cancelBtn}
-                onPress={() => { setShowIngameModal(false); resetForm(); }}
-                disabled={loading}
-              >
-                <Text style={ms.cancelBtnText}>CANCEL</Text>
-              </TouchableOpacity>
-              <View style={{ flex: 1, position: 'relative' }}>
-                <View style={ms.submitShadow} />
+              <Text style={ms.label}>PASSWORD</Text>
+              <TextInput
+                style={ms.input}
+                value={formPass}
+                onChangeText={setFormPass}
+                placeholder="Enter password (min. 6 chars)..."
+                placeholderTextColor="#b5a58d"
+                secureTextEntry
+                maxLength={40}
+                autoCapitalize="none"
+                editable={!loading}
+              />
+
+              <View style={ms.btnRow}>
                 <TouchableOpacity
-                  style={[ms.submitBtn, loading && ms.submitBtnDisabled, { backgroundColor: '#22c55e' }]}
-                  onPress={handleRegisterSubmit}
+                  style={ms.cancelBtn}
+                  onPress={() => handleModalClose(() => { setShowRegister(false); resetForm(); })}
                   disabled={loading}
-                  activeOpacity={0.8}
                 >
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>REGISTER</Text>}
+                  <Text style={ms.cancelBtnText}>CANCEL</Text>
                 </TouchableOpacity>
+                <View style={{ flex: 1, position: 'relative' }}>
+                  <View style={ms.submitShadow} />
+                  <TouchableOpacity
+                    style={[ms.submitBtn, loading && ms.submitBtnDisabled, { backgroundColor: '#22c55e' }]}
+                    onPress={handleRegisterNext}
+                    disabled={loading}
+                    activeOpacity={0.8}
+                  >
+                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>NEXT</Text>}
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+
+  /* ── Modal: Register Step 2 (Choose Ingame Name) ── */
+  const renderIngameModal = () => (
+    <Modal visible={showIngameModal} transparent animationType="fade" onRequestClose={() => handleModalRequestClose(() => { setShowIngameModal(false); resetForm(); })}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+        style={ms.overlay}
+      >
+        <ScrollView
+          contentContainerStyle={ms.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <View style={[ms.card, ms.elevatedModalCard]}>
+            <View style={ms.cardShadow} />
+            <View style={ms.cardInner}>
+              <Text style={ms.title}>CHOOSE INGAME NAME</Text>
+              <Text style={{ fontFamily: GameFonts.hud, fontSize: 13, fontWeight: '700', color: '#7a6a55', textAlign: 'center', marginBottom: 16 }}>
+                This is the name other players see in battle:
+              </Text>
+
+              <Text style={ms.label}>INGAME NAME</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: nameSuggestions.length > 0 ? 8 : 12 }}>
+                <TextInput
+                  style={[ms.input, { flex: 1, marginBottom: 0 }]}
+                  value={formIngameName}
+                  onChangeText={setFormIngameName}
+                  placeholder="Enter ingame name..."
+                  placeholderTextColor="#b5a58d"
+                  maxLength={20}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!loading}
+                />
+                <TouchableOpacity style={ms.suggestBtn} onPress={generateSuggestions} disabled={loading}>
+                  <Text style={ms.suggestBtnText}>SUGGEST</Text>
+                </TouchableOpacity>
+              </View>
+              {nameSuggestions.length > 0 && (
+                <View style={ms.chipsContainer}>
+                  {nameSuggestions.map((sugg) => (
+                    <TouchableOpacity key={sugg} style={ms.chip} onPress={() => setFormIngameName(sugg)}>
+                      <Text style={ms.chipText}>{sugg}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              <View style={ms.btnRow}>
+                <TouchableOpacity
+                  style={ms.cancelBtn}
+                  onPress={() => handleModalClose(() => { setShowIngameModal(false); resetForm(); })}
+                  disabled={loading}
+                >
+                  <Text style={ms.cancelBtnText}>CANCEL</Text>
+                </TouchableOpacity>
+                <View style={{ flex: 1, position: 'relative' }}>
+                  <View style={ms.submitShadow} />
+                  <TouchableOpacity
+                    style={[ms.submitBtn, loading && ms.submitBtnDisabled, { backgroundColor: '#22c55e' }]}
+                    onPress={handleRegisterSubmit}
+                    disabled={loading}
+                    activeOpacity={0.8}
+                  >
+                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>REGISTER</Text>}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 
   /* ── Modal: Log In ── */
   const renderLoginModal = () => (
-    <Modal visible={showLogin} transparent animationType="fade" onRequestClose={() => { setShowLogin(false); resetForm(); }}>
-      <View style={ms.overlay}>
-        <View style={ms.card}>
-          <View style={ms.cardShadow} />
-          <View style={ms.cardInner}>
-            <Text style={ms.title}>LOG IN</Text>
+    <Modal visible={showLogin} transparent animationType="fade" onRequestClose={() => handleModalRequestClose(() => { setShowLogin(false); resetForm(); })}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+        style={ms.overlay}
+      >
+        <ScrollView
+          contentContainerStyle={ms.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <View style={[ms.card, ms.elevatedModalCard]}>
+            <View style={ms.cardShadow} />
+            <View style={ms.cardInner}>
+              <Text style={ms.title}>LOG IN</Text>
 
-            <Text style={ms.label}>USERNAME OR EMAIL</Text>
-            <TextInput
-              style={ms.input}
-              value={formUser}
-              onChangeText={setFormUser}
-              placeholder="Username or Email..."
-              placeholderTextColor="#b5a58d"
-              maxLength={40}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
-            />
+              <Text style={ms.label}>USERNAME OR EMAIL</Text>
+              <TextInput
+                style={ms.input}
+                value={formUser}
+                onChangeText={setFormUser}
+                placeholder="Username or Email..."
+                placeholderTextColor="#b5a58d"
+                maxLength={40}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+              />
 
-            <Text style={ms.label}>PASSWORD</Text>
-            <TextInput
-              style={ms.input}
-              value={formPass}
-              onChangeText={setFormPass}
-              placeholder="Enter password..."
-              placeholderTextColor="#b5a58d"
-              secureTextEntry
-              maxLength={40}
-              autoCapitalize="none"
-              editable={!loading}
-            />
+              <Text style={ms.label}>PASSWORD</Text>
+              <TextInput
+                style={ms.input}
+                value={formPass}
+                onChangeText={setFormPass}
+                placeholder="Enter password..."
+                placeholderTextColor="#b5a58d"
+                secureTextEntry
+                maxLength={40}
+                autoCapitalize="none"
+                editable={!loading}
+              />
 
-            <View style={ms.btnRow}>
-              <TouchableOpacity
-                style={ms.cancelBtn}
-                onPress={() => { setShowLogin(false); resetForm(); }}
-                disabled={loading}
-              >
-                <Text style={ms.cancelBtnText}>CANCEL</Text>
-              </TouchableOpacity>
-              <View style={{ flex: 1, position: 'relative' }}>
-                <View style={ms.submitShadow} />
+              <View style={ms.btnRow}>
                 <TouchableOpacity
-                  style={[ms.submitBtn, loading && ms.submitBtnDisabled, { backgroundColor: '#1a6cf5' }]}
-                  onPress={handleLogin}
+                  style={ms.cancelBtn}
+                  onPress={() => handleModalClose(() => { setShowLogin(false); resetForm(); })}
                   disabled={loading}
-                  activeOpacity={0.8}
                 >
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>LOG IN</Text>}
+                  <Text style={ms.cancelBtnText}>CANCEL</Text>
                 </TouchableOpacity>
+                <View style={{ flex: 1, position: 'relative' }}>
+                  <View style={ms.submitShadow} />
+                  <TouchableOpacity
+                    style={[ms.submitBtn, loading && ms.submitBtnDisabled, { backgroundColor: '#1a6cf5' }]}
+                    onPress={handleLogin}
+                    disabled={loading}
+                    activeOpacity={0.8}
+                  >
+                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>LOG IN</Text>}
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 
   /* ── Modal: Link Email ── */
   const renderLinkEmailModal = () => (
-    <Modal visible={showLinkEmailModal} transparent animationType="fade" onRequestClose={() => { setShowLinkEmailModal(false); setLinkEmailInput(''); }}>
-      <View style={ms.overlay}>
-        <View style={ms.card}>
-          <View style={ms.cardShadow} />
-          <View style={ms.cardInner}>
-            <Text style={ms.title}>LINK EMAIL</Text>
-            <Text style={{ fontFamily: GameFonts.hud, fontSize: 13, fontWeight: '700', color: '#7a6a55', textAlign: 'center', marginBottom: 16, lineHeight: 18 }}>
-              Link your legit Gmail or personal email for password recovery and account security.
-            </Text>
+    <Modal visible={showLinkEmailModal} transparent animationType="fade" onRequestClose={() => handleModalRequestClose(() => { setShowLinkEmailModal(false); setLinkEmailInput(''); })}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+        style={ms.overlay}
+      >
+        <ScrollView
+          contentContainerStyle={ms.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <View style={[ms.card, ms.elevatedModalCard]}>
+            <View style={ms.cardShadow} />
+            <View style={ms.cardInner}>
+              <Text style={ms.title}>LINK EMAIL</Text>
+              <Text style={{ fontFamily: GameFonts.hud, fontSize: 13, fontWeight: '700', color: '#7a6a55', textAlign: 'center', marginBottom: 16, lineHeight: 18 }}>
+                Link your legit Gmail or personal email for password recovery and account security.
+              </Text>
 
-            <Text style={ms.label}>REAL EMAIL ADDRESS</Text>
-            <TextInput
-              style={ms.input}
-              value={linkEmailInput}
-              onChangeText={setLinkEmailInput}
-              placeholder="user@gmail.com..."
-              placeholderTextColor="#b5a58d"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
-            />
+              <Text style={ms.label}>REAL EMAIL ADDRESS</Text>
+              <TextInput
+                style={ms.input}
+                value={linkEmailInput}
+                onChangeText={setLinkEmailInput}
+                placeholder="user@gmail.com..."
+                placeholderTextColor="#b5a58d"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!loading}
+              />
 
-            <View style={ms.btnRow}>
-              <TouchableOpacity
-                style={ms.cancelBtn}
-                onPress={() => { setShowLinkEmailModal(false); setLinkEmailInput(''); }}
-                disabled={loading}
-              >
-                <Text style={ms.cancelBtnText}>CANCEL</Text>
-              </TouchableOpacity>
-              <View style={{ flex: 1, position: 'relative' }}>
-                <View style={ms.submitShadow} />
+              <View style={ms.btnRow}>
                 <TouchableOpacity
-                  style={[ms.submitBtn, loading && ms.submitBtnDisabled, { backgroundColor: '#1a6cf5' }]}
-                  onPress={handleLinkGmail}
+                  style={ms.cancelBtn}
+                  onPress={() => handleModalClose(() => { setShowLinkEmailModal(false); setLinkEmailInput(''); })}
                   disabled={loading}
-                  activeOpacity={0.8}
                 >
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>LINK EMAIL</Text>}
+                  <Text style={ms.cancelBtnText}>CANCEL</Text>
                 </TouchableOpacity>
+                <View style={{ flex: 1, position: 'relative' }}>
+                  <View style={ms.submitShadow} />
+                  <TouchableOpacity
+                    style={[ms.submitBtn, loading && ms.submitBtnDisabled, { backgroundColor: '#1a6cf5' }]}
+                    onPress={handleLinkGmail}
+                    disabled={loading}
+                    activeOpacity={0.8}
+                  >
+                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>LINK EMAIL</Text>}
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 
   /* ── Modal: OTP Verification ── */
   const renderOtpModal = () => (
-    <Modal visible={showOtpModal} transparent animationType="fade" onRequestClose={() => { setShowOtpModal(false); resetForm(); }}>
-      <View style={ms.overlay}>
-        <View style={ms.card}>
-          <View style={ms.cardShadow} />
-          <View style={ms.cardInner}>
-            <Text style={ms.title}>ENTER VERIFICATION CODE</Text>
-            <Text style={{ fontFamily: GameFonts.hud, fontSize: 13, fontWeight: '700', color: '#7a6a55', textAlign: 'center', marginBottom: 16 }}>
-              A 6-digit OTP code was sent to{'\n'}
-              <Text style={{ fontWeight: '900', color: '#1a1008' }}>{pendingLinkEmail}</Text>
-            </Text>
+    <Modal visible={showOtpModal} transparent animationType="fade" onRequestClose={() => handleModalRequestClose(() => { setShowOtpModal(false); resetForm(); })}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+        style={ms.overlay}
+      >
+        <ScrollView
+          contentContainerStyle={ms.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <View style={[ms.card, ms.elevatedModalCard]}>
+            <View style={ms.cardShadow} />
+            <View style={ms.cardInner}>
+              <Text style={ms.title}>ENTER VERIFICATION CODE</Text>
+              <Text style={{ fontFamily: GameFonts.hud, fontSize: 13, fontWeight: '700', color: '#7a6a55', textAlign: 'center', marginBottom: 16 }}>
+                A 6-digit OTP code was sent to{'\n'}
+                <Text style={{ fontWeight: '900', color: '#1a1008' }}>{pendingLinkEmail}</Text>
+              </Text>
 
-            <Text style={ms.label}>6-DIGIT OTP CODE</Text>
-            <TextInput
-              style={[ms.input, { textAlign: 'center', letterSpacing: 6, fontSize: 22 }]}
-              value={otpCode}
-              onChangeText={setOtpCode}
-              placeholder="123456"
-              placeholderTextColor="#b5a58d"
-              keyboardType="number-pad"
-              maxLength={6}
-              editable={!loading}
-            />
+              <Text style={ms.label}>6-DIGIT OTP CODE</Text>
+              <TextInput
+                style={[ms.input, { textAlign: 'center', letterSpacing: 6, fontSize: 22 }]}
+                value={otpCode}
+                onChangeText={setOtpCode}
+                placeholder="123456"
+                placeholderTextColor="#b5a58d"
+                keyboardType="number-pad"
+                maxLength={6}
+                editable={!loading}
+              />
 
-            <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 12 }}>
-              <TouchableOpacity onPress={handleResendOtp} disabled={loading}>
-                <Text style={{ fontFamily: GameFonts.hud, fontSize: 12, fontWeight: '900', color: '#f5a623', textDecorationLine: 'underline' }}>
-                  Didn&apos;t receive code? Resend OTP
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={ms.btnRow}>
-              <TouchableOpacity
-                style={ms.cancelBtn}
-                onPress={() => { setShowOtpModal(false); resetForm(); }}
-                disabled={loading}
-              >
-                <Text style={ms.cancelBtnText}>CANCEL</Text>
-              </TouchableOpacity>
-              <View style={{ flex: 1, position: 'relative' }}>
-                <View style={ms.submitShadow} />
-                <TouchableOpacity
-                  style={[ms.submitBtn, loading && ms.submitBtnDisabled, { backgroundColor: '#22c55e' }]}
-                  onPress={handleVerifyOtp}
-                  disabled={loading}
-                  activeOpacity={0.8}
-                >
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>VERIFY OTP</Text>}
+              <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 12 }}>
+                <TouchableOpacity onPress={handleResendOtp} disabled={loading}>
+                  <Text style={{ fontFamily: GameFonts.hud, fontSize: 12, fontWeight: '900', color: '#f5a623', textDecorationLine: 'underline' }}>
+                    Didn&apos;t receive code? Resend OTP
+                  </Text>
                 </TouchableOpacity>
+              </View>
+
+              <View style={ms.btnRow}>
+                <TouchableOpacity
+                  style={ms.cancelBtn}
+                  onPress={() => handleModalClose(() => { setShowOtpModal(false); resetForm(); })}
+                  disabled={loading}
+                >
+                  <Text style={ms.cancelBtnText}>CANCEL</Text>
+                </TouchableOpacity>
+                <View style={{ flex: 1, position: 'relative' }}>
+                  <View style={ms.submitShadow} />
+                  <TouchableOpacity
+                    style={[ms.submitBtn, loading && ms.submitBtnDisabled, { backgroundColor: '#22c55e' }]}
+                    onPress={handleVerifyOtp}
+                    disabled={loading}
+                    activeOpacity={0.8}
+                  >
+                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>VERIFY OTP</Text>}
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
-        </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 
   return (
     <View style={styles.container}>
-      <TopBar title="SETTINGS" />
+      <TopBar title="SETTINGS" onBack={() => router.replace('/(tabs)/dungeon' as any)} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Account Card */}
@@ -1266,8 +1357,10 @@ export default function TabSettingsScreen() {
 /* ── Modal styles transferred from Profile ── */
 const ms = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(26,16,8,0.6)', justifyContent: 'center', padding: 24 },
+  scrollContent: { flexGrow: 1, justifyContent: 'center' },
   card: { position: 'relative' },
-  cardShadow: { position: 'absolute', top: 6, left: 6, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 16 },
+  elevatedModalCard: { marginBottom: 110 },
+  cardShadow: { position: 'absolute', top: 3, left: 3, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 16 },
   cardInner: { backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#1a1008', borderRadius: 16, padding: 24 },
   title: { fontFamily: GameFonts.brawl, fontSize: 20, color: '#1a1008', textAlign: 'center', marginBottom: 20, letterSpacing: 1 },
   label: { fontFamily: GameFonts.brawl, fontSize: 11, color: '#7a6a55', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, marginTop: 4 },
@@ -1275,7 +1368,7 @@ const ms = StyleSheet.create({
   btnRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
   cancelBtn: { flex: 1, backgroundColor: '#e5d9c4', borderWidth: 3, borderColor: '#1a1008', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
   cancelBtnText: { fontFamily: GameFonts.brawl, fontSize: 13, color: '#1a1008' },
-  submitShadow: { position: 'absolute', top: 3, left: 3, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 10 },
+  submitShadow: { position: 'absolute', top: 2, left: 2, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 10 },
   submitBtn: { backgroundColor: '#e8302a', borderWidth: 3, borderColor: '#1a1008', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
   submitBtnDisabled: { backgroundColor: '#7a6a55' },
   submitBtnText: { fontFamily: GameFonts.brawl, fontSize: 13, color: '#fff', letterSpacing: 1 },

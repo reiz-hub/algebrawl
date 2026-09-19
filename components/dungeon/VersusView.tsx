@@ -9,6 +9,7 @@ import { soundService } from '../../services/soundService';
 
 const CHARACTERS = [
   { id: 'c0', name: 'Algebro', stat: 'Balanced', icon: '🧮', avatar: require('../../assets/images/avatar/algebroavatar.png') },
+  { id: 'c5', name: 'Algegal', stat: 'Balanced', icon: '🎀', avatar: require('../../assets/images/avatar/algegalavatar.png') },
   { id: 'c1', name: 'Ada Lovelace', stat: '+3s Timer', icon: '👩‍💻', avatar: require('../../assets/images/avatar/lovelaceavatar.png') },
   { id: 'c2', name: 'Isaac Newton', stat: '+1 Heart', icon: '🍎', avatar: require('../../assets/images/avatar/newtonavatar.png') },
   { id: 'c3', name: 'Nikola Tesla', stat: '+2 HP & +3s', icon: '⚡', avatar: require('../../assets/images/avatar/teslaavatar.png') },
@@ -63,7 +64,7 @@ export default function VersusView() {
     const p1SkillData = getSkillById(p1Skill);
     const p2SkillData = getSkillById(p2Skill);
 
-    router.push({
+    router.replace({
       pathname: '/versus-battle',
       params: {
         mode: 'versus',

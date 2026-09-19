@@ -9,30 +9,37 @@ import {
   Text,
   View,
 } from 'react-native';
-import { getCharacterDetails } from '../../constants/characterSkills';
 import { GameFonts } from '../../constants/theme';
 import { useGameStore } from '../../hooks/useGameStore';
-import { getRank, RANKS } from '../../services/mmrService';
 import {
   checkConnectivity,
-  getRankedMatchHistory,
-  RankedMatchHistoryItem,
 } from '../../services/multiplayerService';
 import { soundService } from '../../services/soundService';
 import NeoButton from '../NeoButton';
+import RankProgressModal from '../RankProgressModal';
+import Sprite from '../sprite';
 import TouchableOpacity from '../TouchableOpacity';
+import RankBannerCard from './RankBannerCard';
 
 export default function RankView() {
   const router = useRouter();
-  const { userId, ingameName, username, isLoggedIn, mmr } = useGameStore();
+  const { userId, ingameName, username, isLoggedIn, mmr, devModeEnabled, equippedCharacter } = useGameStore();
 
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [matchHistory, setMatchHistory] = useState<RankedMatchHistoryItem[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
   const [showNoConnectionModal, setShowNoConnectionModal] = useState(false);
-
-  const rank = getRank(mmr);
+  const [previewRankModal, setPreviewRankModal] = useState<{
+    visible: boolean;
+    fromRank: string;
+    toRank: string;
+    fromMmr: number;
+    toMmr: number;
+  }>({
+    visible: false,
+    fromRank: 'Bronze',
+    toRank: 'Silver',
+    fromMmr: 980,
+    toMmr: 1025,
+  });
 
   const requireLoginAndConnection = (action: () => void) => {
     if (!isLoggedIn) {
@@ -52,101 +59,18 @@ export default function RankView() {
 
   const handleFindMatch = () => {
     requireLoginAndConnection(() => {
-      router.push({
+      router.replace({
         pathname: '/waiting-room' as any,
-        params: { action: 'search' },
+        params: { action: 'search', character: equippedCharacter || 'c0' },
       });
     });
-  };
-
-  const handleOpenHistory = async () => {
-    requireLoginAndConnection(async () => {
-      soundService.playSound('click');
-      setShowHistoryModal(true);
-      setLoadingHistory(true);
-      if (userId) {
-        const history = await getRankedMatchHistory(userId, 5);
-        setMatchHistory(history);
-      }
-      setLoadingHistory(false);
-    });
-  };
-
-  const formatMatchDate = (dateString?: string) => {
-    if (!dateString) return 'Recent';
-    try {
-      const d = new Date(dateString);
-      const now = new Date();
-      const diffSec = Math.floor((now.getTime() - d.getTime()) / 1000);
-      if (diffSec < 60) return 'Just now';
-      if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
-      if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
-      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    } catch {
-      return 'Recent';
-    }
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       {/* Player MMR Card / Guest Banner */}
       {isLoggedIn ? (
-        <View style={styles.mmrCard}>
-          <View style={styles.mmrCardShadow} />
-          <View style={styles.mmrCardContent}>
-            <Text style={styles.mmrPlayerName}>
-              {ingameName || username || 'Player'}
-            </Text>
-            <View style={styles.mmrRow}>
-              <Image source={rank.icon} style={styles.mmrRankIcon} resizeMode="contain" />
-              <View>
-                <Text style={[styles.mmrRankName, { color: rank.color }]}>{rank.name}</Text>
-                <Text style={styles.mmrValue}>{mmr} MMR</Text>
-              </View>
-            </View>
-
-            {/* Rank Tiers Overview */}
-            <View style={styles.tierOverviewContainer}>
-              {RANKS.map((r) => {
-                const isAchieved = (mmr ?? 0) >= r.minMmr;
-                const isCurrent = rank.name === r.name;
-                return (
-                  <View
-                    key={r.name}
-                    style={[styles.tierItem, isCurrent && styles.tierItemCurrent]}
-                  >
-                    <View style={styles.tierIconWrapper}>
-                      <Image
-                        source={r.icon}
-                        style={[
-                          styles.tierIcon,
-                          !isAchieved && styles.tierIconLocked,
-                        ]}
-                        resizeMode="contain"
-                      />
-                      {!isAchieved && (
-                        <Image
-                          source={r.icon}
-                          style={styles.tierIconShadowOverlay}
-                          resizeMode="contain"
-                        />
-                      )}
-                    </View>
-                    <Text
-                      style={[
-                        styles.tierMmrText,
-                        { color: isAchieved ? r.color : '#8c7e6c' },
-                        !isAchieved && styles.tierTextLocked,
-                      ]}
-                    >
-                      {r.minMmr}+
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        </View>
+        <RankBannerCard mmr={mmr} playerName={ingameName || username || 'Player'} />
       ) : (
         <TouchableOpacity
           activeOpacity={0.85}
@@ -175,31 +99,126 @@ export default function RankView() {
         </TouchableOpacity>
       )}
 
-      {/* Ranked Queue Section */}
-      <View style={styles.rankedSectionHeaderRow}>
-        <View style={styles.sectionHeaderFlex}>
-          <Text style={styles.sectionEmoji}>⚔️</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.sectionTitle}>RANKED MATCH</Text>
-            <Text style={styles.sectionDesc}>Real Players • 3 Hearts • ±200 MMR</Text>
-          </View>
+      {/* Equipped Character Showcase (Idle Pose) */}
+      <View style={styles.characterStageContainer}>
+        {/* Character Idle Sprite */}
+        <View style={styles.spriteWrapper}>
+          <Sprite action="idle" characterId={equippedCharacter || 'c0'} />
         </View>
-
-        {/* Small History Button */}
-        <TouchableOpacity
-          style={styles.historySmallBtn}
-          onPress={handleOpenHistory}
-          activeOpacity={0.7}
-        >
-          <Feather name="clock" size={13} color="#1a1008" />
-          <Text style={styles.historySmallBtnText}>HISTORY (5)</Text>
-        </TouchableOpacity>
       </View>
 
       <NeoButton style={styles.rankedBtn} onPress={handleFindMatch}>
         <Feather name="search" size={24} color="#fff" />
         <Text style={styles.rankedBtnText}>Find Match</Text>
       </NeoButton>
+
+      {/* Dev Mode Rank Animation Previewer */}
+      {devModeEnabled && (
+        <View style={styles.devPreviewCard}>
+          <View style={styles.devPreviewCardShadow} />
+          <View style={styles.devPreviewCardContent}>
+            <View style={styles.devPreviewHeader}>
+              <Feather name="zap" size={16} color="#d97706" />
+              <Text style={styles.devPreviewTitle}>DEV PREVIEW: RANK UP ANIMATION</Text>
+            </View>
+            <Text style={styles.devPreviewDesc}>
+              Test rank promotion & progression animations directly without waiting for a match.
+            </Text>
+            <View style={styles.devPreviewBtnGrid}>
+              <TouchableOpacity
+                style={styles.devPreviewBtn}
+                onPress={() => {
+                  soundService.playSound('click');
+                  setPreviewRankModal({
+                    visible: true,
+                    fromRank: 'Bronze',
+                    toRank: 'Silver',
+                    fromMmr: 980,
+                    toMmr: 1025,
+                  });
+                }}
+              >
+                <Text style={styles.devPreviewBtnText}>🥉 ➔ 🥈 Bronze to Silver</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.devPreviewBtn}
+                onPress={() => {
+                  soundService.playSound('click');
+                  setPreviewRankModal({
+                    visible: true,
+                    fromRank: 'Silver',
+                    toRank: 'Gold',
+                    fromMmr: 1480,
+                    toMmr: 1520,
+                  });
+                }}
+              >
+                <Text style={styles.devPreviewBtnText}>🥈 ➔ 🥇 Silver to Gold</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.devPreviewBtn}
+                onPress={() => {
+                  soundService.playSound('click');
+                  setPreviewRankModal({
+                    visible: true,
+                    fromRank: 'Gold',
+                    toRank: 'Diamond',
+                    fromMmr: 1975,
+                    toMmr: 2015,
+                  });
+                }}
+              >
+                <Text style={styles.devPreviewBtnText}>🥇 ➔ 💎 Gold to Diamond</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.devPreviewBtn}
+                onPress={() => {
+                  soundService.playSound('click');
+                  setPreviewRankModal({
+                    visible: true,
+                    fromRank: 'Diamond',
+                    toRank: 'Conqueror',
+                    fromMmr: 2480,
+                    toMmr: 2510,
+                  });
+                }}
+              >
+                <Text style={styles.devPreviewBtnText}>💎 ➔ 👑 Diamond to Conqueror</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.devPreviewBtn, { borderColor: '#ef4444', backgroundColor: '#fee2e2' }]}
+                onPress={() => {
+                  soundService.playSound('click');
+                  setPreviewRankModal({
+                    visible: true,
+                    fromRank: 'Silver',
+                    toRank: 'Silver',
+                    fromMmr: 1050,
+                    toMmr: 1025,
+                  });
+                }}
+              >
+                <Text style={[styles.devPreviewBtnText, { color: '#b91c1c' }]}>💀 -25 MMR Defeat</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.devPreviewBtn, { borderColor: '#ef4444', backgroundColor: '#fee2e2' }]}
+                onPress={() => {
+                  soundService.playSound('click');
+                  setPreviewRankModal({
+                    visible: true,
+                    fromRank: 'Silver',
+                    toRank: 'Bronze',
+                    fromMmr: 1015,
+                    toMmr: 985,
+                  });
+                }}
+              >
+                <Text style={[styles.devPreviewBtnText, { color: '#b91c1c' }]}>💀 🥈 ➔ 🥉 Demotion</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* How It Works Card */}
       <View style={styles.infoCard}>
@@ -212,118 +231,6 @@ export default function RankView() {
         <Text style={styles.infoItem}>🏆  Winner gains MMR (Forfeit/Knockout loses MMR)</Text>
       </View>
 
-      {/* Ranked Match History Modal (Max 5 previous matches) */}
-      <Modal visible={showHistoryModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.historyModalWrapper}>
-            <View style={styles.historyModalShadow} />
-            <View style={styles.historyModalContent}>
-              <View style={styles.historyHeaderRow}>
-                <View style={styles.historyHeaderTitleCol}>
-                  <Text style={styles.historyTitle}>📜 RANKED HISTORY</Text>
-                  <Text style={styles.historySubtitle}>Last 5 ranked matches</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.historyCloseBtn}
-                  onPress={() => {
-                    soundService.playSound('click');
-                    setShowHistoryModal(false);
-                  }}
-                >
-                  <Feather name="x" size={18} color="#1a1008" />
-                </TouchableOpacity>
-              </View>
-
-              {loadingHistory ? (
-                <View style={styles.historyLoadingBox}>
-                  <Feather name="loader" size={24} color="#1a1008" />
-                  <Text style={styles.historyLoadingText}>Fetching match history...</Text>
-                </View>
-              ) : matchHistory.length === 0 ? (
-                <View style={styles.historyEmptyBox}>
-                  <Text style={{ fontSize: 32, marginBottom: 8 }}>⚔️</Text>
-                  <Text style={styles.historyEmptyTitle}>No Ranked History</Text>
-                  <Text style={styles.historyEmptyText}>
-                    Play a ranked match to start recording your 5 most recent battle results!
-                  </Text>
-                </View>
-              ) : (
-                <ScrollView style={styles.historyList} showsVerticalScrollIndicator={false}>
-                  {matchHistory.map((item) => {
-                    const isWin = item.result === 'VICTORY';
-                    const isLoss = item.result === 'DEFEAT';
-                    const oppChar = getCharacterDetails(item.opponentCharacter);
-                    const oppRank = getRank(item.opponentMmr);
-
-                    return (
-                      <View key={item.id} style={styles.historyItemCard}>
-                        <View
-                          style={[
-                            styles.historyBadge,
-                            isWin
-                              ? styles.historyBadgeWin
-                              : isLoss
-                                ? styles.historyBadgeLoss
-                                : styles.historyBadgeDraw,
-                          ]}
-                        >
-                          <Text style={styles.historyBadgeText}>
-                            {isWin ? 'WIN' : isLoss ? 'LOSS' : 'DRAW'}
-                          </Text>
-                        </View>
-
-                        <View style={styles.historyMiddleCol}>
-                          <View style={styles.historyOpponentRow}>
-                            <Text style={styles.historyCharIcon}>{oppChar.icon}</Text>
-                            <Text style={styles.historyOpponentName} numberOfLines={1}>
-                              {item.opponentName}
-                            </Text>
-                            <Image
-                              source={oppRank.icon}
-                              style={styles.historyOpponentRankIcon}
-                              resizeMode="contain"
-                            />
-                          </View>
-                          <Text style={styles.historyDate}>{formatMatchDate(item.date)}</Text>
-                        </View>
-
-                        <View style={styles.historyRightCol}>
-                          <Text style={styles.historyScore}>
-                            {item.myScore} - {item.opponentScore}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.historyMmrChange,
-                              item.mmrChange > 0
-                                ? styles.mmrGain
-                                : item.mmrChange < 0
-                                  ? styles.mmrLoss
-                                  : styles.mmrEven,
-                            ]}
-                          >
-                            {item.mmrChange > 0 ? `+${item.mmrChange}` : item.mmrChange} MMR
-                          </Text>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </ScrollView>
-              )}
-
-              <TouchableOpacity
-                style={styles.historyDismissBtn}
-                onPress={() => {
-                  soundService.playSound('click');
-                  setShowHistoryModal(false);
-                }}
-              >
-                <Text style={styles.historyDismissText}>CLOSE</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
       {/* Login Required Modal */}
       <Modal visible={showLoginModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
@@ -335,6 +242,7 @@ export default function RankView() {
               </View>
 
               <Text style={styles.loginModalTitle}>LOGIN REQUIRED</Text>
+              <View style={styles.loginModalDivider} />
               <Text style={styles.loginModalSubtitle}>
                 Sign in or register to battle online, gain MMR, and climb the leaderboard!
               </Text>
@@ -360,7 +268,7 @@ export default function RankView() {
                   onPress={() => {
                     soundService.playSound('click');
                     setShowLoginModal(false);
-                    router.push('/(tabs)/profile' as any);
+                    router.replace('/(tabs)/profile' as any);
                   }}
                 >
                   <Feather name="log-in" size={18} color="#fff" />
@@ -393,6 +301,7 @@ export default function RankView() {
               </View>
 
               <Text style={styles.noConnTitle}>NO CONNECTION</Text>
+              <View style={styles.noConnDivider} />
               <Text style={styles.noConnSubtitle}>
                 {"You're offline! Ranked matches require an active internet connection."}
               </Text>
@@ -421,6 +330,22 @@ export default function RankView() {
           </View>
         </View>
       </Modal>
+
+      {/* Rank Progress / Promotion Modal for Dev Preview */}
+      <RankProgressModal
+        visible={previewRankModal.visible}
+        prevMmr={previewRankModal.fromMmr}
+        mmrChange={previewRankModal.toMmr - previewRankModal.fromMmr}
+        forceRankUpPreview={{
+          fromRankName: previewRankModal.fromRank,
+          toRankName: previewRankModal.toRank,
+          fromMmr: previewRankModal.fromMmr,
+          toMmr: previewRankModal.toMmr,
+        }}
+        onComplete={() => {
+          setPreviewRankModal((prev) => ({ ...prev, visible: false }));
+        }}
+      />
     </ScrollView>
   );
 }
@@ -430,104 +355,6 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
     gap: 16,
-  },
-  mmrCard: {
-    position: 'relative',
-    width: '100%',
-  },
-  mmrCardShadow: {
-    position: 'absolute',
-    top: 5,
-    left: 5,
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#1a1008',
-    borderRadius: 16,
-  },
-  mmrCardContent: {
-    backgroundColor: '#fff',
-    borderWidth: 3,
-    borderColor: '#1a1008',
-    borderRadius: 16,
-    padding: 16,
-    gap: 8,
-  },
-  mmrPlayerName: {
-    fontFamily: GameFonts.brawl,
-    fontSize: 16,
-    color: '#1a1008',
-  },
-  mmrRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  mmrRankIcon: {
-    width: 44,
-    height: 44,
-  },
-  mmrRankName: {
-    fontFamily: GameFonts.brawl,
-    fontSize: 18,
-  },
-  mmrValue: {
-    fontFamily: GameFonts.hud,
-    fontSize: 13,
-    color: '#7a6a55',
-  },
-  tierOverviewContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#f8f5f0',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#e2d9cc',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    marginTop: 8,
-  },
-  tierItem: {
-    alignItems: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  tierItemCurrent: {
-    backgroundColor: '#fff',
-    borderWidth: 1.5,
-    borderColor: '#1a1008',
-  },
-  tierIconWrapper: {
-    width: 38,
-    height: 38,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    marginBottom: 4,
-  },
-  tierIcon: {
-    width: 38,
-    height: 38,
-  },
-  tierIconLocked: {
-    opacity: 0.35,
-  },
-  tierIconShadowOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 38,
-    height: 38,
-    tintColor: '#000000',
-    opacity: 0.6,
-  },
-  tierMmrText: {
-    fontFamily: GameFonts.arcade,
-    fontSize: 10,
-  },
-  tierTextLocked: {
-    opacity: 0.5,
   },
   guestCard: {
     position: 'relative',
@@ -586,46 +413,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#1a6cf5',
   },
-  rankedSectionHeaderRow: {
-    flexDirection: 'row',
+  characterStageContainer: {
+    position: 'relative',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
+    justifyContent: 'center',
+    marginTop: 6,
+    marginBottom: 10,
   },
-  sectionHeaderFlex: {
-    flexDirection: 'row',
+  spriteWrapper: {
     alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  sectionEmoji: {
-    fontSize: 22,
-  },
-  sectionTitle: {
-    fontFamily: GameFonts.brawl,
-    fontSize: 14,
-    color: '#1a1008',
-  },
-  sectionDesc: {
-    fontFamily: GameFonts.hud,
-    fontSize: 10,
-    color: '#7a6a55',
-  },
-  historySmallBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#1a1008',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  historySmallBtnText: {
-    fontFamily: GameFonts.brawl,
-    fontSize: 10,
-    color: '#1a1008',
+    justifyContent: 'center',
+    height: 235,
+    transform: [{ scale: 1.75 }],
   },
   rankedBtn: {
     backgroundColor: '#e8302a',
@@ -672,173 +471,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  historyModalWrapper: {
-    width: '100%',
-    maxWidth: 380,
-    maxHeight: '80%',
-    position: 'relative',
-  },
-  historyModalShadow: {
-    position: 'absolute',
-    top: 6,
-    left: 6,
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#1a1008',
-    borderRadius: 20,
-  },
-  historyModalContent: {
-    backgroundColor: '#fff9f0',
-    borderWidth: 3,
-    borderColor: '#1a1008',
-    borderRadius: 20,
-    padding: 20,
-    maxHeight: '100%',
-  },
-  historyHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  historyHeaderTitleCol: {
-    flex: 1,
-  },
-  historyTitle: {
-    fontFamily: GameFonts.brawl,
-    fontSize: 16,
-    color: '#1a1008',
-  },
-  historySubtitle: {
-    fontFamily: GameFonts.hud,
-    fontSize: 11,
-    color: '#7a6a55',
-  },
-  historyCloseBtn: {
-    padding: 4,
-  },
-  historyLoadingBox: {
-    paddingVertical: 30,
-    alignItems: 'center',
-    gap: 10,
-  },
-  historyLoadingText: {
-    fontFamily: GameFonts.hud,
-    fontSize: 12,
-    color: '#7a6a55',
-  },
-  historyEmptyBox: {
-    paddingVertical: 30,
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  historyEmptyTitle: {
-    fontFamily: GameFonts.brawl,
-    fontSize: 14,
-    color: '#1a1008',
-    marginBottom: 6,
-  },
-  historyEmptyText: {
-    fontFamily: GameFonts.hud,
-    fontSize: 11,
-    color: '#7a6a55',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  historyList: {
-    maxHeight: 260,
-    marginBottom: 16,
-  },
-  historyItemCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#1a1008',
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 8,
-    gap: 10,
-  },
-  historyBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: '#1a1008',
-  },
-  historyBadgeWin: {
-    backgroundColor: '#22c55e',
-  },
-  historyBadgeLoss: {
-    backgroundColor: '#e8302a',
-  },
-  historyBadgeDraw: {
-    backgroundColor: '#f5a623',
-  },
-  historyBadgeText: {
-    fontFamily: GameFonts.brawl,
-    fontSize: 9,
-    color: '#fff',
-  },
-  historyMiddleCol: {
-    flex: 1,
-  },
-  historyOpponentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  historyCharIcon: {
-    fontSize: 14,
-  },
-  historyOpponentName: {
-    fontFamily: GameFonts.brawl,
-    fontSize: 11,
-    color: '#1a1008',
-    maxWidth: 90,
-  },
-  historyOpponentRankIcon: {
-    width: 20,
-    height: 20,
-  },
-  historyDate: {
-    fontFamily: GameFonts.hud,
-    fontSize: 9,
-    color: '#7a6a55',
-  },
-  historyRightCol: {
-    alignItems: 'flex-end',
-  },
-  historyScore: {
-    fontFamily: GameFonts.impact,
-    fontSize: 13,
-    color: '#1a1008',
-  },
-  historyMmrChange: {
-    fontFamily: GameFonts.brawl,
-    fontSize: 10,
-  },
-  mmrGain: {
-    color: '#16a34a',
-  },
-  mmrLoss: {
-    color: '#dc2626',
-  },
-  mmrEven: {
-    color: '#7a6a55',
-  },
-  historyDismissBtn: {
-    backgroundColor: '#1a1008',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  historyDismissText: {
-    fontFamily: GameFonts.brawl,
-    fontSize: 12,
-    color: '#fff',
-  },
   loginModalWrapper: {
     width: '100%',
     maxWidth: 340,
@@ -846,8 +478,8 @@ const styles = StyleSheet.create({
   },
   loginModalShadow: {
     position: 'absolute',
-    top: 6,
-    left: 6,
+    top: 3,
+    left: 3,
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',
@@ -878,8 +510,17 @@ const styles = StyleSheet.create({
   loginModalTitle: {
     fontFamily: GameFonts.brawl,
     fontSize: 16,
-    color: '#1a1008',
+    color: '#b45309',
     textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  loginModalDivider: {
+    width: 48,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#f5a623',
+    marginBottom: 4,
   },
   loginModalSubtitle: {
     fontFamily: GameFonts.hud,
@@ -944,8 +585,8 @@ const styles = StyleSheet.create({
   },
   noConnModalShadow: {
     position: 'absolute',
-    top: 6,
-    left: 6,
+    top: 3,
+    left: 3,
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',
@@ -976,8 +617,17 @@ const styles = StyleSheet.create({
   noConnTitle: {
     fontFamily: GameFonts.brawl,
     fontSize: 16,
-    color: '#1a1008',
+    color: '#e8302a',
     textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  noConnDivider: {
+    width: 48,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#e8302a',
+    marginBottom: 4,
   },
   noConnSubtitle: {
     fontFamily: GameFonts.hud,
@@ -1015,5 +665,64 @@ const styles = StyleSheet.create({
     fontFamily: GameFonts.brawl,
     fontSize: 12,
     color: '#fff',
+  },
+  devPreviewCard: {
+    position: 'relative',
+    width: '100%',
+  },
+  devPreviewCardShadow: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    right: -4,
+    bottom: -4,
+    backgroundColor: '#000',
+    borderRadius: 14,
+  },
+  devPreviewCardContent: {
+    backgroundColor: '#fffbeb',
+    borderWidth: 2,
+    borderColor: '#f59e0b',
+    borderRadius: 14,
+    padding: 14,
+  },
+  devPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  devPreviewTitle: {
+    fontFamily: GameFonts.arcade,
+    fontSize: 12,
+    color: '#b45309',
+    letterSpacing: 0.5,
+  },
+  devPreviewDesc: {
+    fontFamily: GameFonts.hud,
+    fontSize: 10,
+    color: '#78350f',
+    marginBottom: 10,
+  },
+  devPreviewBtnGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  devPreviewBtn: {
+    backgroundColor: '#fef3c7',
+    borderWidth: 1.5,
+    borderColor: '#d97706',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexGrow: 1,
+    alignItems: 'center',
+  },
+  devPreviewBtnText: {
+    fontFamily: GameFonts.hud,
+    fontSize: 11,
+    color: '#92400e',
+    fontWeight: '700',
   },
 });

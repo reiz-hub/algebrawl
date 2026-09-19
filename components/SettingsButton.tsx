@@ -218,8 +218,8 @@ const styles = StyleSheet.create({
   },
   menuShadow: {
     position: 'absolute',
-    top: 6,
-    left: 6,
+    top: 3,
+    left: 3,
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',

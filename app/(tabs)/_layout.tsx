@@ -1,13 +1,27 @@
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs, usePathname, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { BackHandler } from 'react-native';
 import BottomNavBar from '../../components/BottomNavBar';
 
 export default function TabsLayout() {
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const onHardwareBack = () => {
+      // If on shop tab, shop.tsx handles it (e.g. returning to pre-battle if entered from there)
+      if (pathname && pathname.includes('shop')) {
+        return false;
+      }
+      // If on dungeon tab, dungeon.tsx handles its own subtabs and home navigation
+      if (pathname && pathname.includes('dungeon')) {
+        return false;
+      }
+      // For other secondary tabs (settings, ranking, profile), return to dungeon hub
+      if (pathname) {
+        router.replace('/(tabs)/dungeon' as any);
+        return true;
+      }
       if (router.canGoBack()) {
         router.back();
         return true;
@@ -17,7 +31,7 @@ export default function TabsLayout() {
 
     const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
     return () => sub.remove();
-  }, [router]);
+  }, [router, pathname]);
 
   return (
     <Tabs

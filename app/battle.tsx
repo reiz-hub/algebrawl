@@ -2,17 +2,17 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, ImageBackground, Modal, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Image, ImageBackground, Modal, StyleSheet, Text, View } from 'react-native';
 import AttackProjectile from '../components/AttackProjectile';
 import ReviewModal from '../components/ReviewModal';
 import Sprite from '../components/sprite';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { getLevelTheme, LEVEL_THEMES } from '../constants/levelThemes';
+import { getGearAsset, getSkillAsset } from '../constants/shopItems';
 import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
 import { generateQuestion, Question } from '../scripts/mathGenerator';
 import { soundService } from '../services/soundService';
-import { getGearAsset, getSkillAsset } from '../constants/shopItems';
 
 export default function BattleScreen() {
   const { level, questions, timePerQuestion: timeParam, skillId, skillName, skillIcon, gearId, gearName, gearIcon, gearStat, characterId: paramCharId, difficulty: paramDifficulty } = useLocalSearchParams();
@@ -106,6 +106,27 @@ export default function BattleScreen() {
   const [showReview, setShowReview] = useState(false);
   const reviewShown = useRef(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+
+  // Hardware back: pause if active, or clean exit if game over
+  useEffect(() => {
+    const onBackPress = () => {
+      if (showVictory || showDefeat || showReview) {
+        soundService.stopSound('victory');
+        soundService.stopSound('defeat');
+        router.replace('/(tabs)/dungeon?tab=adventure' as any);
+        return true;
+      }
+      if (isPaused) {
+        setIsPaused(false);
+        return true;
+      }
+      setIsPaused(true);
+      return true;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [isPaused, showVictory, showDefeat, showReview]);
 
   const [skillUsed, setSkillUsed] = useState(false);
   const [hasShield, setHasShield] = useState(charStartShield);
@@ -338,6 +359,8 @@ export default function BattleScreen() {
       c2: { win: require('../assets/images/sprites/newtonwin.png'), attack: require('../assets/images/sprites/newtonattack.png'), defeat: require('../assets/images/sprites/Newtondefeat.png'), hit: require('../assets/images/sprites/Newtonhit.png') },
       c3: { win: require('../assets/images/sprites/teslawin.png'), attack: require('../assets/images/sprites/teslaattack.png'), defeat: require('../assets/images/sprites/tesladefeat.png'), hit: require('../assets/images/sprites/teslahit.png') },
       c4: { win: require('../assets/images/sprites/curiewin.png'), attack: require('../assets/images/sprites/curieattack.png'), defeat: require('../assets/images/sprites/curiedefeat.png'), hit: require('../assets/images/sprites/curiehit.png') },
+      c5: { win: require('../assets/images/sprites/algegal_win.png'), attack: require('../assets/images/sprites/algegal_attack.png'), defeat: require('../assets/images/sprites/algegal_defeat.png'), hit: require('../assets/images/sprites/algegal_hit.png') },
+      char_algegal: { win: require('../assets/images/sprites/algegal_win.png'), attack: require('../assets/images/sprites/algegal_attack.png'), defeat: require('../assets/images/sprites/algegal_defeat.png'), hit: require('../assets/images/sprites/algegal_hit.png') },
     };
     const charSpriteSet = CHARACTER_SPRITES[selectedCharId] || CHARACTER_SPRITES.c0;
     if (showVictory) return charSpriteSet.win;
@@ -402,7 +425,8 @@ export default function BattleScreen() {
       <ImageBackground
         source={levelTheme.bgImage || undefined}
         style={[styles.mapArea, { backgroundColor: levelTheme.stageBgColor }]}
-        resizeMode="cover"
+        imageStyle={styles.mapBgImage}
+        resizeMode="stretch"
       >
         {/* 1b. TIMER + Q COUNTER BAR (Floating directly over background environment) */}
         <View style={styles.subBar}>
@@ -560,7 +584,7 @@ export default function BattleScreen() {
               </View>
               <View style={styles.btnWrapper}>
                 <View style={styles.btnShadow} />
-                <TouchableOpacity style={styles.btnSecondary} onPress={() => router.replace('/map')}>
+                <TouchableOpacity style={styles.btnSecondary} onPress={() => router.replace('/(tabs)/dungeon?tab=adventure' as any)}>
                   <Text style={styles.btnSecondaryText}>QUIT BATTLE</Text>
                 </TouchableOpacity>
               </View>
@@ -645,7 +669,7 @@ export default function BattleScreen() {
                       reviewShown.current = true;
                       setShowReview(true);
                     } else {
-                      router.replace('/map');
+                      router.replace('/(tabs)/dungeon?tab=adventure' as any);
                     }
                   }}>
                     <Text style={styles.btnPrimaryText}>NEXT LEVEL</Text>
@@ -657,10 +681,7 @@ export default function BattleScreen() {
                   <TouchableOpacity style={[styles.btnSecondary, { backgroundColor: '#3b82f6' }]} onPress={() => {
                     setShowVictory(false);
                     soundService.stopSound('victory');
-                    router.replace('/map');
-                    setTimeout(() => {
-                      router.push('/shop');
-                    }, 50);
+                    router.replace('/(tabs)/shop' as any);
                   }}>
                     <Text style={styles.btnSecondaryText}>VISIT ITEM SHOP 🛍️</Text>
                   </TouchableOpacity>
@@ -697,7 +718,7 @@ export default function BattleScreen() {
                   <TouchableOpacity style={styles.btnSecondary} onPress={() => {
                     setShowDefeat(false);
                     soundService.stopSound('defeat');
-                    router.replace('/map');
+                    router.replace('/(tabs)/dungeon?tab=adventure' as any);
                   }}>
                     <Text style={styles.btnSecondaryText}>Back to Menu</Text>
                   </TouchableOpacity>
@@ -715,7 +736,7 @@ export default function BattleScreen() {
         visible={showReview}
         onDismiss={() => {
           setShowReview(false);
-          router.replace('/map');
+          router.replace('/(tabs)/dungeon?tab=adventure' as any);
         }}
       />
 
@@ -728,7 +749,14 @@ const styles = StyleSheet.create({
 
   mapArea: {
     flex: 1,
+    width: '100%',
     position: 'relative',
+    overflow: 'hidden',
+  },
+  mapBgImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'stretch',
   },
   topBar: {
     flexDirection: 'row',
@@ -813,6 +841,7 @@ const styles = StyleSheet.create({
   },
 
   subBar: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -846,6 +875,7 @@ const styles = StyleSheet.create({
 
   arena: {
     flex: 1,
+    width: '100%',
     position: 'relative',
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -996,7 +1026,7 @@ const styles = StyleSheet.create({
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(26, 16, 8, 0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   menuWrapper: { width: '100%', maxWidth: 350, position: 'relative' },
-  menuShadow: { position: 'absolute', top: 8, left: 8, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 16 },
+  menuShadow: { position: 'absolute', top: 3, left: 3, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 16 },
   menuContent: { backgroundColor: '#fff', borderWidth: 4, borderColor: '#1a1008', borderRadius: 16, padding: 30, alignItems: 'center' },
   menuTitle: {
     fontFamily: GameFonts.brawl, fontSize: 30, color: '#e8302a', marginBottom: 30, letterSpacing: 2
@@ -1045,7 +1075,7 @@ const styles = StyleSheet.create({
   },
 
   btnWrapper: { width: '100%', position: 'relative', marginBottom: 15 },
-  btnShadow: { position: 'absolute', top: 4, left: 4, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
+  btnShadow: { position: 'absolute', top: 2, left: 2, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
   btnPrimary: { backgroundColor: '#22c55e', borderWidth: 3, borderColor: '#1a1008', borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
   btnPrimaryText: {
     fontFamily: GameFonts.brawl, color: '#fff', fontSize: 18, textTransform: 'uppercase'

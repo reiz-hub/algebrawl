@@ -15,6 +15,8 @@ const CHARACTER_AVATARS: Record<string, any> = {
   c2: require('../assets/images/avatar/newtonavatar.png'),
   c3: require('../assets/images/avatar/teslaavatar.png'),
   c4: require('../assets/images/avatar/curieavatar.png'),
+  c5: require('../assets/images/avatar/algegalavatar.png'),
+  char_algegal: require('../assets/images/avatar/algegalavatar.png'),
 };
 
 interface TopBarProps {
@@ -55,7 +57,7 @@ export default function TopBar({ title, onBack, showBackButton = true }: TopBarP
     } else if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/' as any);
+      router.replace('/(tabs)/dungeon' as any);
     }
   };
 

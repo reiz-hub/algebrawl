@@ -1,7 +1,7 @@
 // app/pre-battle.tsx
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { BackHandler, Image, ScrollView, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import NeoButton from '../components/NeoButton';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { GameFonts } from '../constants/theme';
@@ -26,6 +26,7 @@ const SKILLS = [
 
 const CHARACTERS = [
   { id: 'c0', name: 'Algebro', stat: 'Balanced', icon: '🧮', image: require('../assets/images/avatar/algebroavatar.png'), cost: 0 },
+  { id: 'c5', name: 'Algegal', stat: 'Balanced', icon: '🎀', image: require('../assets/images/avatar/algegalavatar.png'), cost: 0 },
   { id: 'c1', name: 'Ada Lovelace', stat: '+3s / Q', icon: '👩‍💻', image: require('../assets/images/avatar/lovelaceavatar.png'), cost: 150 },
   { id: 'c2', name: 'Isaac Newton', stat: '+1 Heart', icon: '🍎', image: require('../assets/images/avatar/newtonavatar.png'), cost: 300 },
   { id: 'c3', name: 'Nikola Tesla', stat: '+2 HP & +3s', icon: '⚡', image: require('../assets/images/avatar/teslaavatar.png'), cost: 500 },
@@ -50,16 +51,26 @@ export default function PreBattleScreen() {
   // Helper: check if item is unlocked (owned in inventory or free starter item)
   const isItemUnlocked = (id: string, cost: number) => {
     if (cost === 0) return true;
-    return inventory.includes(id) || (id === 'c0' && inventory.includes('char_algebro'));
+    return inventory.includes(id) || (id === 'c0' && inventory.includes('char_algebro')) || (id === 'c5' && inventory.includes('char_algegal'));
   };
 
-  const normalizedEquippedChar = equippedCharacter === 'char_algebro' ? 'c0' : equippedCharacter;
+  const normalizedEquippedChar = equippedCharacter === 'char_algebro' ? 'c0' : (equippedCharacter === 'char_algegal' ? 'c5' : equippedCharacter);
   const initialChar = normalizedEquippedChar && isItemUnlocked(normalizedEquippedChar, 0) ? normalizedEquippedChar : 'c0';
   const initialGear = equippedGear && isItemUnlocked(equippedGear, 0) ? equippedGear : 'g1';
 
   const [selectedGear, setSelectedGear] = useState(initialGear);
   const [selectedSkill, setSelectedSkill] = useState('s1');
   const [selectedCharacter, setSelectedCharacter] = useState(initialChar);
+
+  // Hardware back returns directly to dungeon adventure map
+  useEffect(() => {
+    const onBackPress = () => {
+      router.replace('/(tabs)/dungeon?tab=adventure' as any);
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, []);
 
   const BrutalistCard = ({ children, style }: { children: React.ReactNode; style?: any }) => (
     <View style={styles.cardWrapper}>
@@ -75,7 +86,7 @@ export default function PreBattleScreen() {
         <TouchableOpacity
           style={styles.backShortcutBtn}
           activeOpacity={0.8}
-          onPress={() => router.replace('/map')}
+          onPress={() => router.replace('/(tabs)/dungeon?tab=adventure' as any)}
         >
           <Text style={styles.backShortcutText}>‹ MAP</Text>
         </TouchableOpacity>
@@ -85,7 +96,10 @@ export default function PreBattleScreen() {
           <TouchableOpacity
             style={styles.fixedShopBtn}
             activeOpacity={0.8}
-            onPress={() => router.push('/shop')}
+            onPress={() => router.replace({
+              pathname: '/(tabs)/shop' as any,
+              params: { from: 'pre-battle', pbLevel: String(currentLevel), pbQuestions: String(questions || 10), pbTime: String(timePerQuestion), pbDifficulty: difficulty || '' },
+            })}
           >
             <Text style={styles.fixedShopCoins}>🪙 {coins}</Text>
             <View style={styles.fixedShopDivider} />
@@ -154,7 +168,7 @@ export default function PreBattleScreen() {
                     if (isUnlocked) {
                       setSelectedGear(gear.id);
                     } else {
-                      router.push('/shop');
+                      router.replace({ pathname: '/(tabs)/shop' as any, params: { from: 'pre-battle', pbLevel: String(currentLevel), pbQuestions: String(questions || 10), pbTime: String(timePerQuestion), pbDifficulty: difficulty || '' } });
                     }
                   }}
                   style={styles.itemWrapper}
@@ -208,7 +222,7 @@ export default function PreBattleScreen() {
                     if (isUnlocked) {
                       setSelectedCharacter(char.id);
                     } else {
-                      router.push('/shop');
+                      router.replace({ pathname: '/(tabs)/shop' as any, params: { from: 'pre-battle', pbLevel: String(currentLevel), pbQuestions: String(questions || 10), pbTime: String(timePerQuestion), pbDifficulty: difficulty || '' } });
                     }
                   }}
                   style={styles.itemWrapper}
@@ -258,7 +272,7 @@ export default function PreBattleScreen() {
                 activeOpacity={0.8}
                 onPress={() => {
                   if (!isUnlocked || hasZeroStock) {
-                    router.push('/shop');
+                    router.replace({ pathname: '/(tabs)/shop' as any, params: { from: 'pre-battle', pbLevel: String(currentLevel), pbQuestions: String(questions || 10), pbTime: String(timePerQuestion), pbDifficulty: difficulty || '' } });
                   } else {
                     setSelectedSkill(skill.id);
                   }
@@ -337,7 +351,7 @@ export default function PreBattleScreen() {
                 }
               }
 
-              router.push({
+              router.replace({
                 pathname: '/battle',
                 params: {
                   level,
@@ -365,7 +379,7 @@ export default function PreBattleScreen() {
             wrapperStyle={styles.btnWrapper}
             shadowStyle={styles.btnShadow}
             style={styles.btnSecondary as ViewStyle}
-            onPress={() => router.replace('/map')}
+            onPress={() => router.replace('/(tabs)/dungeon?tab=adventure' as any)}
           >
             <Text style={styles.btnSecondaryText}>Cancel</Text>
           </NeoButton>

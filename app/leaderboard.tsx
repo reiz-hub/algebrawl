@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
   FlatList,
   Image,
   RefreshControl,
@@ -21,9 +22,33 @@ import { getRank, RANKS } from '../services/mmrService';
 
 import TopBar from '../components/TopBar';
 
-export default function LeaderboardScreen({ showBackButton = true }: { showBackButton?: boolean } = {}) {
+export default function LeaderboardScreen({
+  showBackButton = true,
+  onBack,
+}: {
+  showBackButton?: boolean;
+  onBack?: () => void;
+} = {}) {
   const router = useRouter();
   const { userId, mmr, onlineWins, onlineLosses } = useGameStore();
+
+  // Hardware back mirrors the in-game TopBar back button
+  useEffect(() => {
+    const onBackPress = () => {
+      if (onBack) {
+        onBack();
+        return true;
+      }
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)/dungeon' as any);
+      }
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [onBack, router]);
 
   const [players, setPlayers] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,7 +129,7 @@ export default function LeaderboardScreen({ showBackButton = true }: { showBackB
   return (
     <View style={styles.container}>
       {/* Header with TopBar and Back button on the right */}
-      <TopBar title="RANKING" />
+      <TopBar title="RANKING" showBackButton={showBackButton} onBack={onBack} />
 
       {/* My Stats Card */}
       <View style={styles.myStatsCard}>

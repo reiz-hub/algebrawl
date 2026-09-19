@@ -1,30 +1,28 @@
 // hooks/useMultiplayerStore.ts
 // Zustand store for multiplayer session state
 
-import { create } from 'zustand';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { create } from 'zustand';
+import type { Question } from '../scripts/mathGenerator';
+import { generateSeededQuestions } from '../scripts/mathGenerator';
+import { applyMmrChange, calculateMmrChange, STARTING_MMR } from '../services/mmrService';
 import {
+  broadcastToRoom,
+  cancelRankedMatch,
   createRoom,
-  joinRoom,
+  finishMatch,
   joinQueue,
+  joinRoom,
   leaveQueue,
   setPlayerReady,
-  cancelRankedMatch,
   startMatch,
-  finishMatch,
-  writeMatchResult,
+  subscribeToRoom,
+  subscribeToRoomChanges,
   updatePlayerMmr,
   updateRoomTopics,
-  subscribeToRoom,
-  broadcastToRoom,
-  subscribeToRoomChanges,
-  getRoom,
-  type MatchRoom,
-  type PlayerAction,
+  writeMatchResult,
+  type MatchRoom
 } from '../services/multiplayerService';
-import { calculateMmrChange, applyMmrChange } from '../services/mmrService';
-import { generateSeededQuestions } from '../scripts/mathGenerator';
-import type { Question } from '../scripts/mathGenerator';
 
 /* ── Types ───────────────────────────────────────────────── */
 
@@ -127,11 +125,11 @@ const initialState = {
   readyCountdown: 10,
   myId: null,
   myName: null,
-  myMmr: 1000,
+  myMmr: STARTING_MMR,
   myCharacter: 'c0',
   opponentId: null,
   opponentName: null,
-  opponentMmr: 1000,
+  opponentMmr: STARTING_MMR,
   opponentCharacter: 'c0',
   questionSeed: 0,
   selectedTopics: [1, 2, 3, 4, 5, 6, 7],
@@ -191,7 +189,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     const topics = get().selectedTopics;
     set({ matchStatus: 'creating', myId: playerId, myName: playerName, myMmr: playerMmr, myCharacter: characterId, error: null, myHearts: 3, opponentHearts: 3 });
 
-    const room = await createRoom(playerId, playerName, playerMmr, topics);
+    const room = await createRoom(playerId, playerName, playerMmr, topics, characterId);
     if (!room) {
       set({ matchStatus: 'idle', error: 'Failed to create room. Please try again.' });
       return null;
@@ -260,7 +258,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         set({
           opponentId: updatedRoom.guest_id,
           opponentName: updatedRoom.guest_name ?? 'Opponent',
-          opponentMmr: updatedRoom.guest_mmr ?? 1000,
+          opponentMmr: updatedRoom.guest_mmr ?? STARTING_MMR,
           ...(updatedRoom.guest_character ? { opponentCharacter: updatedRoom.guest_character } : {}),
         });
       }
@@ -300,7 +298,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   initJoinRoom: async (code, playerId, playerName, playerMmr, characterId = 'c0') => {
     set({ matchStatus: 'joining', myId: playerId, myName: playerName, myMmr: playerMmr, myCharacter: characterId, error: null, myHearts: 3, opponentHearts: 3 });
 
-    const room = await joinRoom(code, playerId, playerName, playerMmr);
+    const room = await joinRoom(code, playerId, playerName, playerMmr, characterId);
     if (!room) {
       set({ matchStatus: 'idle', error: 'Room not found or already full.' });
       return false;
@@ -394,7 +392,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       matchStatus: 'waiting',
       opponentId: room.host_id,
       opponentName: room.host_name ?? 'Opponent',
-      opponentMmr: room.host_mmr ?? 1000,
+      opponentMmr: room.host_mmr ?? STARTING_MMR,
       opponentCharacter: room.host_character ?? 'c0',
       questionSeed: room.question_seed,
       selectedTopics: initialTopics,
@@ -428,7 +426,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       error: null,
     });
 
-    const joined = await joinQueue(playerId, playerName, playerMmr);
+    const joined = await joinQueue(playerId, playerName, playerMmr, characterId);
     if (!joined) {
       set({ matchStatus: 'idle', error: 'Failed to join queue. Please try again.' });
       return;
@@ -444,7 +442,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
     const opponentId = isHost ? room.guest_id : room.host_id;
     const opponentName = isHost ? (room.guest_name ?? 'Opponent') : (room.host_name ?? 'Opponent');
-    const opponentMmr = isHost ? (room.guest_mmr ?? 1000) : (room.host_mmr ?? 1000);
+    const opponentMmr = isHost ? (room.guest_mmr ?? STARTING_MMR) : (room.host_mmr ?? STARTING_MMR);
     const opponentCharacter = isHost ? (room.guest_character || 'c0') : (room.host_character || 'c0');
     const initialTopics = room.selected_topics || [1, 2, 3, 4, 5, 6, 7];
 

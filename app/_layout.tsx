@@ -83,18 +83,23 @@ export default function RootLayout() {
 
   return (
     <>
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack screenOptions={{ headerShown: false, gestureEnabled: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="map" />
+        <Stack.Screen name="map" options={{ animation: 'none' }} />
+        <Stack.Screen name="shop" options={{ animation: 'none' }} />
+        <Stack.Screen name="versus" options={{ animation: 'none' }} />
+        <Stack.Screen name="multiplayer" options={{ animation: 'none' }} />
         <Stack.Screen name="pre-battle" />
         <Stack.Screen name="battle" />
         <Stack.Screen name="stats" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="login" />
         <Stack.Screen name="register" />
-        <Stack.Screen name="versus" />
         <Stack.Screen name="versus-battle" />
+        <Stack.Screen name="leaderboard" />
+        <Stack.Screen name="online-battle" />
+        <Stack.Screen name="waiting-room" />
       </Stack>
 
       <DeactivatedModal

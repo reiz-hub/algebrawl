@@ -1,6 +1,6 @@
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { BackHandler, StyleSheet, Text, View } from 'react-native';
 import AdventureView from '../../components/dungeon/AdventureView';
 import OneVOneView from '../../components/dungeon/OneVOneView';
 import RankView from '../../components/dungeon/RankView';
@@ -25,6 +25,7 @@ const SUB_TABS: SubTabItem[] = [
 ];
 
 export default function DungeonScreen() {
+  const router = useRouter();
   const params = useLocalSearchParams<{ tab?: string }>();
   const [activeTab, setActiveTab] = useState<DungeonTab>('adventure');
 
@@ -34,10 +35,34 @@ export default function DungeonScreen() {
     }
   }, [params.tab]);
 
+  // Handle hardware back to mirror TopBar back:
+  // if in a subtab (versus, rank, 1v1), return to adventure; if in adventure, return to home
+  useEffect(() => {
+    const onHardwareBack = () => {
+      if (activeTab !== 'adventure') {
+        setActiveTab('adventure');
+      } else {
+        router.replace('/' as any);
+      }
+      return true;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
+    return () => sub.remove();
+  }, [activeTab]);
+
   const handleTabPress = (tabId: DungeonTab) => {
     soundService.playSound('click');
     if (tabId !== activeTab) {
       setActiveTab(tabId);
+    }
+  };
+
+  const handleTopBarBack = () => {
+    if (activeTab !== 'adventure') {
+      setActiveTab('adventure');
+    } else {
+      router.replace('/' as any);
     }
   };
 
@@ -58,7 +83,7 @@ export default function DungeonScreen() {
 
   return (
     <View style={styles.container}>
-      <TopBar title={getScreenTitle()} />
+      <TopBar title={getScreenTitle()} onBack={handleTopBarBack} />
 
       {/* Sub-view Content fills available space */}
       <View style={styles.contentContainer}>

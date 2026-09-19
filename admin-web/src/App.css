@@ -1,23 +1,56 @@
 @import "tailwindcss";
 
 @theme {
-  --color-game-cream: #fff9f0;
-  --color-game-cream-alt: #fffbf2;
-  --color-game-cream-dark: #f5eed8;
-  --color-game-brown: #0f0a04;
-  --color-game-brown-light: #1a1208;
-  --color-game-brown-lighter: #2d2415;
-  --color-game-text: #1a1008;
-  --color-game-muted: #7a6a55;
-  --color-game-border: #e5d9c4;
+  /* ── Surface & Background ── */
+  --color-admin-bg: #f8fafc;
+  --color-admin-surface: #ffffff;
+  --color-admin-surface-alt: #f1f5f9;
+  --color-admin-surface-hover: #f8fafc;
 
-  --color-game-red: #e8302a;
-  --color-game-green: #22c55e;
-  --color-game-blue: #1a6cf5;
-  --color-game-yellow: #f5a623;
+  /* ── Sidebar ── */
+  --color-admin-sidebar: #0f172a;
+  --color-admin-sidebar-hover: #1e293b;
+  --color-admin-sidebar-active: #1e293b;
+  --color-admin-sidebar-border: #1e293b;
+  --color-admin-sidebar-text: #94a3b8;
+  --color-admin-sidebar-text-active: #f1f5f9;
+
+  /* ── Text ── */
+  --color-admin-text: #0f172a;
+  --color-admin-text-secondary: #475569;
+  --color-admin-text-muted: #94a3b8;
+
+  /* ── Borders ── */
+  --color-admin-border: #e2e8f0;
+  --color-admin-border-light: #f1f5f9;
+
+  /* ── Accent Colors ── */
+  --color-admin-primary: #3b82f6;
+  --color-admin-primary-dark: #2563eb;
+  --color-admin-success: #10b981;
+  --color-admin-warning: #f59e0b;
+  --color-admin-danger: #ef4444;
+  --color-admin-info: #6366f1;
 }
 
-/* Custom base styles can go here if needed */
+/* ── Base ── */
 body {
-  @apply bg-game-cream text-game-text;
+  @apply bg-admin-bg text-admin-text;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Scrollbar styling ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }

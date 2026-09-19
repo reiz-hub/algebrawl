@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, BackHandler, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
@@ -15,6 +15,20 @@ export default function ProfileScreen() {
 
   const [usernameSaved, setUsernameSaved] = useState(false);
   const [ingameSaved, setIngameSaved] = useState(false);
+
+  // Hardware back mirrors the in-game back button
+  useEffect(() => {
+    const onBackPress = () => {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)/profile' as any);
+      }
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, []);
 
   const handleSaveUsername = async () => {
     if (username) return; // Locked
@@ -57,7 +71,16 @@ export default function ProfileScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/')}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(tabs)/profile' as any);
+            }
+          }}
+        >
           <Text style={styles.backBtnText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.title}>PROFILE</Text>

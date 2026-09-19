@@ -14,6 +14,7 @@ import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
 import { ItemCategory, ItemRarity, ShopItem } from '../types/shop';
 import NeoButton from './NeoButton';
+import SketchBorder from './SketchBorder';
 
 const LOCK_IMAGE = require('../assets/icons/UI_icons/lock.png');
 
@@ -107,8 +108,7 @@ export default function ShopView() {
 
     return (
       <View style={styles.cardWrapper}>
-        <View style={styles.cardShadow} />
-        <View style={[styles.cardContent, isLocked && styles.cardContentLocked]}>
+        <SketchBorder style={[styles.cardContent, isLocked && styles.cardContentLocked]}>
           {/* Header Row */}
           <View style={styles.cardHeader}>
             <View style={styles.imageContainer}>
@@ -152,7 +152,6 @@ export default function ShopView() {
                   </View>
                 ) : isLocked ? (
                   <View style={styles.levelReqBadgeLocked}>
-                    <Image source={LOCK_IMAGE} style={styles.badgeLockImage} resizeMode="contain" />
                     <Text style={styles.levelReqTextLocked}>LVL {reqLevel}</Text>
                   </View>
                 ) : (
@@ -234,7 +233,6 @@ export default function ShopView() {
                   onPress={() => handleLockedPress(item)}
                   activeOpacity={0.8}
                 >
-                  <Image source={LOCK_IMAGE} style={styles.btnLockImage} resizeMode="contain" />
                   <Text style={styles.lockedBtnText}>UNLOCKS AT LEVEL {reqLevel}</Text>
                 </TouchableOpacity>
               ) : canAfford ? (
@@ -277,7 +275,6 @@ export default function ShopView() {
                 onPress={() => handleLockedPress(item)}
                 activeOpacity={0.8}
               >
-                <Image source={LOCK_IMAGE} style={styles.btnLockImage} resizeMode="contain" />
                 <Text style={styles.lockedBtnText}>UNLOCKS AT LEVEL {reqLevel}</Text>
               </TouchableOpacity>
             ) : canAfford ? (
@@ -298,7 +295,7 @@ export default function ShopView() {
               </View>
             )}
           </View>
-        </View>
+        </SketchBorder>
       </View>
     );
   };
@@ -391,15 +388,40 @@ export default function ShopView() {
               {modalFeedback.isLocked && (
                 <Image source={LOCK_IMAGE} style={styles.modalLockImage} resizeMode="contain" />
               )}
-              <Text style={styles.modalTitle}>{modalFeedback.title}</Text>
-              <Text style={styles.modalMessage}>{modalFeedback.message}</Text>
-              <NeoButton
-                style={styles.modalBtn}
-                shadowStyle={styles.modalBtnShadow}
-                onPress={() => setModalFeedback({ ...modalFeedback, visible: false })}
+              <Text
+                style={[
+                  styles.modalTitle,
+                  modalFeedback.isLocked
+                    ? styles.modalTitleLocked
+                    : modalFeedback.success
+                    ? styles.modalTitleSuccess
+                    : styles.modalTitleError,
+                ]}
               >
-                <Text style={styles.modalBtnText}>GOT IT</Text>
-              </NeoButton>
+                {modalFeedback.title}
+              </Text>
+              {/* Type indicator divider */}
+              <View
+                style={[
+                  styles.modalDivider,
+                  modalFeedback.isLocked
+                    ? styles.modalDividerLocked
+                    : modalFeedback.success
+                    ? styles.modalDividerSuccess
+                    : styles.modalDividerError,
+                ]}
+              />
+              <Text style={styles.modalMessage}>{modalFeedback.message}</Text>
+              <View style={styles.modalBtnWrapper}>
+                <View style={styles.modalBtnShadow} />
+                <TouchableOpacity
+                  style={styles.modalBtn}
+                  activeOpacity={0.8}
+                  onPress={() => setModalFeedback({ ...modalFeedback, visible: false })}
+                >
+                  <Text style={styles.modalBtnText}>GOT IT</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -437,8 +459,8 @@ const styles = StyleSheet.create({
   },
   cardShadow: {
     position: 'absolute',
-    top: 5,
-    left: 5,
+    top: 3,
+    left: 3,
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',
@@ -446,9 +468,7 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    borderWidth: 3,
-    borderColor: '#1a1008',
+    borderRadius: 6,
     padding: 16,
   },
   cardContentLocked: {
@@ -837,9 +857,34 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontFamily: GameFonts.brawl,
     fontSize: 16,
-    color: '#1a1008',
-    marginBottom: 8,
     textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  modalTitleSuccess: {
+    color: '#16a34a',
+  },
+  modalTitleError: {
+    color: '#e8302a',
+  },
+  modalTitleLocked: {
+    color: '#b45309',
+  },
+  modalDivider: {
+    width: 48,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 14,
+  },
+  modalDividerSuccess: {
+    backgroundColor: '#22c55e',
+  },
+  modalDividerError: {
+    backgroundColor: '#e8302a',
+  },
+  modalDividerLocked: {
+    backgroundColor: '#f5a623',
   },
   modalMessage: {
     fontFamily: GameFonts.hud,
@@ -848,18 +893,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
+  modalBtnWrapper: {
+    position: 'relative',
+    alignSelf: 'stretch',
+  },
+  modalBtnShadow: {
+    position: 'absolute',
+    top: 2,
+    left: 2,
+    right: -2,
+    bottom: -2,
+    backgroundColor: '#1a1008',
+    borderRadius: 12,
+  },
   modalBtn: {
     backgroundColor: '#1a6cf5',
     borderWidth: 3,
     borderColor: '#1a1008',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
     borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
-  },
-  modalBtnShadow: {
-    backgroundColor: '#1a1008',
-    borderRadius: 12,
   },
   modalBtnText: {
     fontFamily: GameFonts.brawl,

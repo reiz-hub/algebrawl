@@ -3,7 +3,7 @@
 
 import { supabase } from './supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { calculateMmrChange } from './mmrService';
+import { calculateMmrChange, STARTING_MMR } from './mmrService';
 
 /* ── Connectivity Check ──────────────────────────────────── */
 
@@ -775,8 +775,8 @@ export async function getRankedMatchHistory(
       const myScore = isHost ? room.host_score : room.guest_score;
       const opponentScore = isHost ? room.guest_score : room.host_score;
       const opponentName = isHost ? (room.guest_name ?? 'Opponent') : (room.host_name ?? 'Opponent');
-      const opponentMmr = isHost ? (room.guest_mmr ?? 1000) : (room.host_mmr ?? 1000);
-      const myMmr = isHost ? (room.host_mmr ?? 1000) : (room.guest_mmr ?? 1000);
+      const opponentMmr = isHost ? (room.guest_mmr ?? STARTING_MMR) : (room.host_mmr ?? STARTING_MMR);
+      const myMmr = isHost ? (room.host_mmr ?? STARTING_MMR) : (room.guest_mmr ?? STARTING_MMR);
       const opponentCharacter = isHost ? room.guest_character : room.host_character;
       const myCharacter = isHost ? room.host_character : room.guest_character;
 

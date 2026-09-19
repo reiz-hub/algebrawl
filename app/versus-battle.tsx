@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, ImageBackground, Modal, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Image, ImageBackground, Modal, StyleSheet, Text, View } from 'react-native';
 import AttackProjectile from '../components/AttackProjectile';
 import ReviewModal from '../components/ReviewModal';
 import Sprite from '../components/sprite';
@@ -102,6 +102,27 @@ export default function VersusBattleScreen() {
   const [p2Double, setP2Double] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const reviewShown = useRef(false);
+
+  // Hardware back: pause if active, or clean exit if game over
+  useEffect(() => {
+    const onBackPress = () => {
+      if (showVictory || showReview) {
+        soundService.stopSound('victory');
+        soundService.stopSound('defeat');
+        router.replace('/(tabs)/dungeon?tab=versus' as any);
+        return true;
+      }
+      if (isPaused) {
+        setIsPaused(false);
+        return true;
+      }
+      setIsPaused(true);
+      return true;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [isPaused, showVictory, showReview]);
 
   const [musicEnabled, setMusicEnabled] = useState(soundService.getMusicEnabled());
   const [soundEnabled, setSoundEnabled] = useState(soundService.getSoundEnabled());
@@ -361,7 +382,8 @@ export default function VersusBattleScreen() {
       <ImageBackground
         source={levelTheme.bgImage || undefined}
         style={[styles.mapArea, { backgroundColor: levelTheme.stageBgColor }]}
-        resizeMode="cover"
+        imageStyle={styles.mapBgImage}
+        resizeMode="stretch"
       >
         <View style={styles.subBar}>
           <Text style={styles.hpHearts}>{renderHearts(p1HP, p1MaxHearts)}</Text>
@@ -516,7 +538,7 @@ export default function VersusBattleScreen() {
               )}
             </View>
           </View>
-          
+
           <AttackProjectile
             active={attackActive}
             attacker={attacker}
@@ -590,7 +612,7 @@ export default function VersusBattleScreen() {
 
               <View style={styles.btnWrapper}>
                 <View style={styles.btnShadow} />
-                <TouchableOpacity style={styles.btnSecondary} onPress={() => router.replace('/versus')}>
+                <TouchableOpacity style={styles.btnSecondary} onPress={() => router.replace('/(tabs)/dungeon?tab=versus' as any)}>
                   <Text style={styles.btnSecondaryText}>QUIT BATTLE</Text>
                 </TouchableOpacity>
               </View>
@@ -658,7 +680,7 @@ export default function VersusBattleScreen() {
                     reviewShown.current = true;
                     setShowReview(true);
                   } else {
-                    router.replace('/versus');
+                    router.replace('/(tabs)/dungeon?tab=versus' as any);
                   }
                 }}>
                   <Text style={styles.btnPrimaryText}>PLAY AGAIN</Text>
@@ -687,7 +709,7 @@ export default function VersusBattleScreen() {
         visible={showReview}
         onDismiss={() => {
           setShowReview(false);
-          router.replace('/versus');
+          router.replace('/(tabs)/dungeon?tab=versus' as any);
         }}
       />
     </View>
@@ -769,9 +791,17 @@ const styles = StyleSheet.create({
   },
   mapArea: {
     flex: 1,
+    width: '100%',
     position: 'relative',
+    overflow: 'hidden',
+  },
+  mapBgImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'stretch',
   },
   subBar: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -812,6 +842,7 @@ const styles = StyleSheet.create({
 
   arena: {
     flex: 1,
+    width: '100%',
     position: 'relative',
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -987,7 +1018,7 @@ const styles = StyleSheet.create({
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(26, 16, 8, 0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   menuWrapper: { width: '100%', maxWidth: 350, position: 'relative' },
-  menuShadow: { position: 'absolute', top: 8, left: 8, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 16 },
+  menuShadow: { position: 'absolute', top: 3, left: 3, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 16 },
   menuContent: { backgroundColor: '#fff', borderWidth: 4, borderColor: '#1a1008', borderRadius: 16, padding: 30, alignItems: 'center' },
   menuTitle: {
     fontFamily: GameFonts.brawl, fontSize: 30, color: '#e8302a', marginBottom: 30, letterSpacing: 2
@@ -1010,7 +1041,7 @@ const styles = StyleSheet.create({
   },
 
   btnWrapper: { width: '100%', position: 'relative', marginBottom: 15 },
-  btnShadow: { position: 'absolute', top: 4, left: 4, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
+  btnShadow: { position: 'absolute', top: 2, left: 2, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 12 },
   btnPrimary: { backgroundColor: '#22c55e', borderWidth: 3, borderColor: '#1a1008', borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
   btnPrimaryText: {
     fontFamily: GameFonts.brawl, color: '#fff', fontSize: 18, textTransform: 'uppercase'
@@ -1024,7 +1055,7 @@ const styles = StyleSheet.create({
   turnNotificationWrapper: { width: '100%', maxWidth: 350, position: 'relative' },
   turnNotificationShadow: {
     position: 'absolute',
-    top: 8, left: 8,
+    top: 3, left: 3,
     width: '100%', height: '100%',
     backgroundColor: '#1a1008',
     borderRadius: 20

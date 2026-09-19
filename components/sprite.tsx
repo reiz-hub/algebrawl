@@ -60,6 +60,22 @@ const characterSprites: Record<string, Record<ActionState, any>> = {
     stand: require('../assets/images/sprites/curiewin.png'),
     idle: require('../assets/images/sprites/curieidle.png'),
   },
+  c5: {
+    win: require('../assets/images/sprites/algegal_win.png'),
+    attack: require('../assets/images/sprites/algegal_attack.png'),
+    defeat: require('../assets/images/sprites/algegal_defeat.png'),
+    hit: require('../assets/images/sprites/algegal_hit.png'),
+    stand: require('../assets/images/sprites/algegal_win.png'),
+    idle: require('../assets/images/sprites/algegal_idle.png'),
+  },
+  char_algegal: {
+    win: require('../assets/images/sprites/algegal_win.png'),
+    attack: require('../assets/images/sprites/algegal_attack.png'),
+    defeat: require('../assets/images/sprites/algegal_defeat.png'),
+    hit: require('../assets/images/sprites/algegal_hit.png'),
+    stand: require('../assets/images/sprites/algegal_win.png'),
+    idle: require('../assets/images/sprites/algegal_idle.png'),
+  },
 };
 
 const villainSprites: Record<ActionState, any> = {
@@ -174,6 +190,8 @@ const customProfiles: Record<string, Partial<IdleProfile>> = {
   c2: { duration: 900, bounceHeight: 4, squashY: [0.97, 1.03], squashX: [1.02, 0.98], tiltDeg: [0, -0.8, 0.4] }, // Newton - calm, thoughtful
   c3: { duration: 800, bounceHeight: 5, squashY: [0.965, 1.035], squashX: [1.025, 0.975], tiltDeg: [0, 1.2, -0.6] }, // Tesla - energetic electric
   c4: { duration: 850, bounceHeight: 4, squashY: [0.97, 1.03], squashX: [1.02, 0.98], tiltDeg: [0, 0.8, -0.4] }, // Curie - radiant, steady
+  c5: { duration: 850, bounceHeight: 4, squashY: [0.97, 1.03], squashX: [1.02, 0.98] },
+  char_algegal: { duration: 850, bounceHeight: 4, squashY: [0.97, 1.03], squashX: [1.02, 0.98] },
 
   // Enemies
   slime: { duration: 950, bounceHeight: 7, squashY: [0.88, 1.10], squashX: [1.10, 0.90], shadowScaleRange: [1.1, 0.72], shadowOpacityRange: [0.42, 0.15] }, // Slime - extra squishy jelly
@@ -290,11 +308,15 @@ export default function Sprite({ action, isEnemy = false, characterId, enemyId }
   const isSlimeAttack = (enemyId === 'slime' || sprites === slimeSprites) && action === 'attack';
   const isKnightAttack = (enemyId === 'knight' || sprites === knightSprites) && action === 'attack';
   const isMediumDragonAttack = (enemyId === 'medium_dragon' || sprites === mediumDragonSprites) && action === 'attack';
+  const isVillainAttack = (enemyId === 'villain1' || enemyId === 'villain' || sprites === villainSprites) && action === 'attack';
+  const isVillain2Attack = (enemyId === 'villain2' || sprites === villain2Sprites) && action === 'attack';
   const spriteImageStyle = [
     styles.spriteImage,
     isSlimeAttack && styles.slimeAttackImage,
     isKnightAttack && styles.knightAttackImage,
     isMediumDragonAttack && styles.mediumDragonAttackImage,
+    isVillainAttack && styles.villainAttackImage,
+    isVillain2Attack && styles.villain2AttackImage,
   ];
 
   return (
@@ -343,6 +365,14 @@ const styles = StyleSheet.create({
   },
   mediumDragonAttackImage: {
     width: 154,
+    height: 140,
+  },
+  villainAttackImage: {
+    width: 155,
+    height: 140,
+  },
+  villain2AttackImage: {
+    width: 180,
     height: 140,
   },
   shadow: {

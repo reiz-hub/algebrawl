@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  BackHandler,
   Easing,
   Image,
   ScrollView,
@@ -15,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import NeoButton from '../components/NeoButton';
+import Sprite from '../components/sprite';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { getCharacterDetails } from '../constants/characterSkills';
 import { GameFonts } from '../constants/theme';
@@ -24,6 +26,17 @@ import { getRank } from '../services/mmrService';
 import { attemptMatch, checkConnectivity } from '../services/multiplayerService';
 import { soundService } from '../services/soundService';
 import { supabase } from '../services/supabase';
+
+const CHARACTER_AVATARS: Record<string, any> = {
+  c0: require('../assets/images/avatar/algebroavatar.png'),
+  char_algebro: require('../assets/images/avatar/algebroavatar.png'),
+  c1: require('../assets/images/avatar/lovelaceavatar.png'),
+  c2: require('../assets/images/avatar/newtonavatar.png'),
+  c3: require('../assets/images/avatar/teslaavatar.png'),
+  c4: require('../assets/images/avatar/curieavatar.png'),
+  c5: require('../assets/images/avatar/algegalavatar.png'),
+  char_algegal: require('../assets/images/avatar/algegalavatar.png'),
+};
 
 const FUNDAMENTAL_TOPICS = [
   { id: 1, name: 'Variables', icon: '🔤', desc: 'Basics & Substitution' },
@@ -41,7 +54,7 @@ export default function WaitingRoomScreen() {
   const action = String(params.action ?? 'create'); // 'create' | 'join' | 'search'
   const joinCode = String(params.code ?? '');
 
-  const { userId, ingameName, username, mmr, equippedCharacter, isLoggedIn } = useGameStore();
+  const { userId, ingameName, username, mmr, equippedCharacter, equippedTitle, isLoggedIn } = useGameStore();
   const mp = useMultiplayerStore();
 
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -49,6 +62,7 @@ export default function WaitingRoomScreen() {
   const spinAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const timerPulseAnim = useRef(new Animated.Value(1)).current;
+  const bufferPulseAnim = useRef(new Animated.Value(1)).current;
   const searchInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const connCheckInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const connectionLost = useRef(false);
@@ -58,8 +72,14 @@ export default function WaitingRoomScreen() {
   const isLobby = action !== 'search' && mp.mode === 'lobby';
   const isReadyCheck = mp.matchStatus === 'ready_check';
 
-  const myChar = getCharacterDetails(mp.myCharacter || equippedCharacter || 'c0');
-  const oppChar = getCharacterDetails(mp.opponentCharacter || 'c0');
+  const paramCharacter = params.character ? String(params.character) : undefined;
+  const activeCharId = paramCharacter || equippedCharacter || mp.myCharacter || 'c0';
+  const oppCharId = mp.opponentCharacter || 'c0';
+  const myChar = getCharacterDetails(activeCharId);
+  const oppChar = getCharacterDetails(oppCharId);
+
+  const myAvatar = CHARACTER_AVATARS[activeCharId] || myChar.avatar;
+  const oppAvatar = CHARACTER_AVATARS[oppCharId] || oppChar.avatar;
 
   // Spinning animation for search
   useEffect(() => {
@@ -72,6 +92,30 @@ export default function WaitingRoomScreen() {
           useNativeDriver: true,
         })
       ).start();
+    }
+  }, [mp.matchStatus]);
+
+  // Pulse animation for search/buffering placeholder
+  useEffect(() => {
+    if (mp.matchStatus === 'searching' || mp.matchStatus === 'waiting') {
+      const anim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(bufferPulseAnim, {
+            toValue: 1.08,
+            duration: 800,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(bufferPulseAnim, {
+            toValue: 0.94,
+            duration: 800,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      anim.start();
+      return () => anim.stop();
     }
   }, [mp.matchStatus]);
 
@@ -120,7 +164,7 @@ export default function WaitingRoomScreen() {
     if (initialized.current || !userId) return;
     initialized.current = true;
 
-    const charId = equippedCharacter || 'c0';
+    const charId = activeCharId;
     if (action === 'create') {
       mp.initCreateRoom(userId, playerName, mmr, charId);
     } else if (action === 'join' && joinCode) {
@@ -133,7 +177,7 @@ export default function WaitingRoomScreen() {
       }
       mp.initSearchMatch(userId, playerName, mmr, charId);
     }
-  }, [userId, equippedCharacter, isLoggedIn]);
+  }, [userId, activeCharId, isLoggedIn]);
 
   // ── Connectivity Monitor ──────────────────────────────────
   // While searching or waiting, ping the backend every 10s.
@@ -159,13 +203,15 @@ export default function WaitingRoomScreen() {
           connCheckInterval.current = null;
         }
         // Stop search / leave room
+        const isLobbyMode = action === 'create' || action === 'join' || mp.mode === 'lobby';
         if (mp.matchStatus === 'searching') {
           mp.cancelSearch(userId);
         } else {
           mp.reset();
         }
         mp.reset();
-        router.replace('/multiplayer' as any);
+        const returnTab = isLobbyMode ? '1v1' : 'rank';
+        router.replace(`/(tabs)/dungeon?tab=${returnTab}` as any);
         // Brief delay to ensure navigation completes before alert
         setTimeout(() => {
           const { Alert } = require('react-native');
@@ -201,7 +247,7 @@ export default function WaitingRoomScreen() {
     searchInterval.current = setInterval(async () => {
       mp.incrementSearchTime();
 
-      const charId = equippedCharacter || 'c0';
+      const charId = activeCharId;
 
       // Touch queue heartbeat so opponent matching knows this player is active
       supabase
@@ -284,6 +330,7 @@ export default function WaitingRoomScreen() {
   }, [mp.matchStatus]);
 
   const handleCancel = useCallback(() => {
+    const isLobbyMode = action === 'create' || action === 'join' || mp.mode === 'lobby';
     if (userId) {
       if (mp.matchStatus === 'searching') {
         mp.cancelSearch(userId);
@@ -293,8 +340,19 @@ export default function WaitingRoomScreen() {
         mp.reset();
       }
     }
-    router.replace('/multiplayer' as any);
-  }, [userId, mp.matchStatus]);
+    const targetTab = isLobbyMode ? '1v1' : 'rank';
+    router.replace(`/(tabs)/dungeon?tab=${targetTab}` as any);
+  }, [userId, mp.matchStatus, action, mp.mode]);
+
+  // Hardware back: cancel search / leave room and return to ranked tab
+  useEffect(() => {
+    const onBackPress = () => {
+      handleCancel();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [handleCancel]);
 
   const handleTapReady = useCallback(async () => {
     soundService.playClick();
@@ -353,14 +411,11 @@ export default function WaitingRoomScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>
           {isReadyCheck
-            ? '⚔️ READY CHECK'
+            ? 'READY CHECK'
             : action === 'search' || mp.mode === 'ranked'
-              ? '⚔️ RANKED MATCH'
-              : '🏠 LOBBY VERSUS'}
+              ? 'RANKED MATCH'
+              : 'LOBBY VERSUS'}
         </Text>
-        <TouchableOpacity style={styles.closeBtn} onPress={handleCancel}>
-          <Feather name="x" size={20} color="#1a1008" />
-        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -412,38 +467,40 @@ export default function WaitingRoomScreen() {
           </View>
         )}
 
-        {/* Player Cards (VS Layout) */}
-        <View style={styles.vsContainer}>
-          {/* My Card */}
-          <View style={styles.playerCard}>
-            <View style={styles.playerCardShadow} />
-            <View style={[styles.playerCardContent, { backgroundColor: '#1a6cf5' }]}>
-              <Text style={styles.playerLabel}>YOU</Text>
-              <Text style={styles.playerName} numberOfLines={1}>
+        {/* Search Timer (Above Characters) */}
+        {mp.matchStatus === 'searching' && (
+          <View style={styles.searchTimerContainer}>
+            <Text style={styles.searchTimeClean}>{formatTime(mp.searchTime)}</Text>
+          </View>
+        )}
+
+        {/* Center Stage: Duel face-off with Character Sprites */}
+        <View style={styles.centerStage}>
+          <View style={styles.vsContainer}>
+            {/* Player Card (YOU) */}
+            <View style={styles.playerCardClean}>
+              {/* Character Idle Sprite */}
+              <View style={styles.cardSpriteStage}>
+                <View style={styles.cardSpriteWrapper}>
+                  <Sprite action="idle" characterId={activeCharId} />
+                </View>
+              </View>
+
+              <Text style={styles.playerNameClean} numberOfLines={1}>
                 {playerName}
               </Text>
+
               {isLobby ? (
                 <>
-                  <Text style={styles.playerRank}>❤️ 3 Hearts</Text>
-                  <Text style={styles.playerMmr}>Casual Match</Text>
+                  <Text style={styles.playerRankClean}>❤️ 3 Hearts</Text>
+                  <Text style={styles.playerMmrClean}>Casual Match</Text>
                 </>
               ) : (
-                <>
-                  <View style={styles.playerRankBadgeRow}>
-                    <Image source={myRank.icon} style={styles.playerRankIcon} resizeMode="contain" />
-                    <Text style={styles.playerRank}>{myRank.name}</Text>
-                  </View>
-                  <Text style={styles.playerMmr}>{mmr} MMR</Text>
-                </>
+                <View style={styles.playerRankMmrRowClean}>
+                  <Image source={myRank.icon} style={styles.playerRankIconClean} resizeMode="contain" />
+                  <Text style={styles.playerMmrClean}>{mmr} MMR</Text>
+                </View>
               )}
-
-              {/* Character Section */}
-              <View style={styles.charBadge}>
-                <Text style={styles.charIconText}>{myChar.icon}</Text>
-                <Text style={styles.charNameText} numberOfLines={1}>
-                  {myChar.name}
-                </Text>
-              </View>
 
               {/* Ready Status Badge for You */}
               {isReadyCheck && (
@@ -459,52 +516,38 @@ export default function WaitingRoomScreen() {
                 </View>
               )}
             </View>
-          </View>
 
-          {/* VS Badge */}
-          <View style={styles.vsBadge}>
-            <Text style={styles.vsText}>VS</Text>
-          </View>
+            {/* Center VS Badge */}
+            <View style={styles.vsBadgeClean}>
+              <Text style={styles.vsTextClean}>VS</Text>
+            </View>
 
-          {/* Opponent Card */}
-          <View style={styles.playerCard}>
-            <View style={styles.playerCardShadow} />
-            <View
-              style={[
-                styles.playerCardContent,
-                {
-                  backgroundColor: mp.opponentId ? '#e8302a' : '#3d3222',
-                },
-              ]}
-            >
+            {/* Opponent Card (OPPONENT) */}
+            <View style={styles.playerCardClean}>
               {mp.opponentId ? (
                 <>
-                  <Text style={styles.playerLabel}>OPPONENT</Text>
-                  <Text style={styles.playerName} numberOfLines={1}>
+                  {/* Opponent Equipped Character in Idle Pose (facing player) */}
+                  <View style={styles.cardSpriteStage}>
+                    <View style={styles.cardSpriteWrapper}>
+                      <Sprite action="idle" isEnemy characterId={oppCharId} />
+                    </View>
+                  </View>
+
+                  <Text style={styles.playerNameClean} numberOfLines={1}>
                     {mp.opponentName}
                   </Text>
+
                   {isLobby ? (
                     <>
-                      <Text style={styles.playerRank}>❤️ 3 Hearts</Text>
-                      <Text style={styles.playerMmr}>Ready</Text>
+                      <Text style={styles.playerRankClean}>❤️ 3 Hearts</Text>
+                      <Text style={styles.playerMmrClean}>Ready</Text>
                     </>
                   ) : (
-                    <>
-                      <View style={styles.playerRankBadgeRow}>
-                        <Image source={opponentRank.icon} style={styles.playerRankIcon} resizeMode="contain" />
-                        <Text style={styles.playerRank}>{opponentRank.name}</Text>
-                      </View>
-                      <Text style={styles.playerMmr}>{mp.opponentMmr} MMR</Text>
-                    </>
+                    <View style={styles.playerRankMmrRowClean}>
+                      <Image source={opponentRank.icon} style={styles.playerRankIconClean} resizeMode="contain" />
+                      <Text style={styles.playerMmrClean}>{mp.opponentMmr} MMR</Text>
+                    </View>
                   )}
-
-                  {/* Character Section for Opponent */}
-                  <View style={styles.charBadge}>
-                    <Text style={styles.charIconText}>{oppChar.icon}</Text>
-                    <Text style={styles.charNameText} numberOfLines={1}>
-                      {oppChar.name}
-                    </Text>
-                  </View>
 
                   {/* Ready Status Badge for Opponent */}
                   {isReadyCheck && (
@@ -521,13 +564,60 @@ export default function WaitingRoomScreen() {
                   )}
                 </>
               ) : (
+                /* Enemy Placeholder Buffering */
                 <>
-                  <Animated.View style={{ transform: [{ rotate: spin }] }}>
-                    <Feather name="loader" size={32} color="#fff" />
-                  </Animated.View>
-                  <Text style={styles.waitingText}>
-                    {mp.matchStatus === 'searching' ? 'Searching...' : 'Waiting...'}
-                  </Text>
+                  {/* Buffering Radar & Mystery Rival Stage */}
+                  <View style={styles.cardBufferingStage}>
+                    {/* Animated Pulsing Outer Halo */}
+                    <Animated.View
+                      style={[
+                        styles.radarPulseRing,
+                        {
+                          transform: [{ scale: bufferPulseAnim }],
+                          opacity: bufferPulseAnim.interpolate({
+                            inputRange: [0.94, 1.08],
+                            outputRange: [0.25, 0.6],
+                          }),
+                        },
+                      ]}
+                    />
+
+                    {/* Rotating Dashed Radar Scanner Ring */}
+                    <Animated.View
+                      style={[
+                        styles.radarSpinnerRing,
+                        { transform: [{ rotate: spin }] },
+                      ]}
+                    >
+                      <View style={styles.radarDashedCircle} />
+                      <View style={styles.radarBlip} />
+                    </Animated.View>
+
+                    {/* Mystery Rival Center Silhouette */}
+                    <Animated.View
+                      style={[
+                        styles.radarMysteryCenter,
+                        { transform: [{ scale: bufferPulseAnim }] },
+                      ]}
+                    >
+                      <Feather name="user" size={30} color="#d97706" />
+                    </Animated.View>
+                  </View>
+
+                  {/* Buffering Indicator Text */}
+                  <Animated.Text
+                    style={[
+                      styles.bufferingTextClean,
+                      {
+                        opacity: bufferPulseAnim.interpolate({
+                          inputRange: [0.94, 1.08],
+                          outputRange: [0.65, 1],
+                        }),
+                      },
+                    ]}
+                  >
+                    Searching...
+                  </Animated.Text>
                 </>
               )}
             </View>
@@ -611,28 +701,7 @@ export default function WaitingRoomScreen() {
           </View>
         )}
 
-        {/* Searching Queue Info (Ranked Searching Mode) */}
-        {mp.matchStatus === 'searching' && (
-          <View style={styles.searchCard}>
-            <View style={styles.searchCardShadow} />
-            <View style={styles.searchCardContent}>
-              <Text style={styles.searchTime}>⏱️ {formatTime(mp.searchTime)}</Text>
-              <View style={styles.searchPillRow}>
-                <View style={styles.searchBadge}>
-                  <Text style={styles.searchBadgeText}>
-                    🎯 MMR Range: {Math.max(0, mmr - 200)}–{mmr + 200} (±200)
-                  </Text>
-                </View>
-                <View style={styles.searchBadgeHuman}>
-                  <Text style={styles.searchBadgeHumanText}>👥 Real Players (No Bots)</Text>
-                </View>
-              </View>
-              <Text style={styles.searchNote}>
-                The queue will wait indefinitely until a human opponent within 200 MMR difference enters ({Math.max(0, mmr - 200)}–{mmr + 200}).
-              </Text>
-            </View>
-          </View>
-        )}
+
 
         {/* Status Message for Lobby Mode */}
         {isLobby && mp.matchStatus === 'waiting' && !mp.opponentId && (
@@ -714,7 +783,7 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 56,
@@ -726,21 +795,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#fff',
     letterSpacing: 1,
-  },
-  closeBtn: {
-    backgroundColor: '#fff9f0',
-    borderWidth: 2,
-    borderColor: '#1a1008',
-    borderRadius: 10,
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
+    textAlign: 'center',
   },
 
   scrollContent: {
-    padding: 16,
+    flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingTop: 10,
     paddingBottom: 36,
+    justifyContent: 'space-between',
   },
 
   // Ready Check Banner
@@ -842,18 +905,27 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
+  // Center Stage (Vertically & Horizontally Centered)
+  centerStage: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    marginVertical: 10,
+  },
+
   // VS Layout
   vsContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
-    gap: 10,
-    marginBottom: 16,
+    gap: 12,
+    width: '100%',
   },
   playerCard: {
     flex: 1,
     position: 'relative',
-    maxWidth: 160,
+    maxWidth: 165,
   },
   playerCardShadow: {
     position: 'absolute',
@@ -862,16 +934,17 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',
-    borderRadius: 12,
+    borderRadius: 14,
   },
   playerCardContent: {
     borderWidth: 3,
     borderColor: '#1a1008',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
     alignItems: 'center',
-    minHeight: 130,
-    justifyContent: 'center',
+    minHeight: 228,
+    justifyContent: 'flex-start',
   },
   playerLabel: {
     fontFamily: GameFonts.hud,
@@ -887,6 +960,41 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     marginBottom: 4,
+  },
+  playerAvatarContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#fff',
+    borderWidth: 2.5,
+    borderColor: '#1a1008',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 6,
+    overflow: 'hidden',
+  },
+  playerAvatarImage: {
+    width: 56,
+    height: 56,
+  },
+  searchingAvatarContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.35)',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 6,
+  },
+  waitingSubText: {
+    fontFamily: GameFonts.hud,
+    fontSize: 10,
+    color: '#fff',
+    opacity: 0.7,
+    marginTop: 2,
   },
   playerRankBadgeRow: {
     flexDirection: 'row',
@@ -1308,5 +1416,150 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#1a1008',
     textTransform: 'uppercase',
+  },
+
+  /* Clean Transparent Cards (No Background, No Shadow, Minimalist) */
+  playerCardClean: {
+    flex: 1,
+    maxWidth: 165,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  playerNameClean: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 16,
+    color: '#1a1008',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  playerRankMmrRowClean: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 2,
+  },
+  playerRankIconClean: {
+    width: 34,
+    height: 34,
+  },
+  playerMmrClean: {
+    fontFamily: GameFonts.arcade,
+    fontSize: 15,
+    color: '#1a1008',
+    textAlign: 'center',
+  },
+  playerRankClean: {
+    fontFamily: GameFonts.hud,
+    fontSize: 12,
+    color: '#1a1008',
+  },
+  vsBadgeClean: {
+    alignSelf: 'flex-start',
+    marginTop: 54,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    zIndex: 10,
+  },
+  vsTextClean: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 22,
+    color: '#d97706',
+    letterSpacing: 1,
+  },
+
+  /* Card Sprite Stage (Idle Character Display) */
+  cardSpriteStage: {
+    height: 140,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  cardSpriteWrapper: {
+    width: 120,
+    height: 140,
+    justifyContent: 'center',
+    alignItems: 'center',
+    transform: [{ scale: 1.0 }],
+  },
+
+  /* Card Buffering Stage (Enemy Placeholder Radar/Loader) */
+  cardBufferingStage: {
+    height: 140,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    position: 'relative',
+  },
+  radarPulseRing: {
+    position: 'absolute',
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: 'rgba(217, 119, 6, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(217, 119, 6, 0.35)',
+  },
+  radarSpinnerRing: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: 'rgba(217, 119, 6, 0.65)',
+    borderStyle: 'dashed',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+  },
+  radarDashedCircle: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 40,
+  },
+  radarBlip: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#d97706',
+    marginTop: -4,
+  },
+  radarMysteryCenter: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(217, 119, 6, 0.1)',
+    borderWidth: 2,
+    borderColor: '#d97706',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bufferingTextClean: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 13,
+    color: '#d97706',
+    textAlign: 'center',
+    marginTop: 4,
+    letterSpacing: 0.5,
+  },
+
+  /* Search Timer */
+  searchTimerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 4,
+    paddingBottom: 6,
+  },
+  searchTimeClean: {
+    fontFamily: GameFonts.arcade,
+    fontSize: 26,
+    color: '#1a1008',
+    letterSpacing: 2,
   },
 });

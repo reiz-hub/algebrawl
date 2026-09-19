@@ -3,18 +3,39 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Animated, Image, Modal, ScrollView,
+  ActivityIndicator, Animated, BackHandler, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView,
   StyleSheet, Text, TextInput, View, ViewStyle
 } from 'react-native';
 import ErrorModal from '../components/ErrorModal';
 import NeoButton from '../components/NeoButton';
+import TitleBannerBadge from '../components/TitleBannerBadge';
 import TopBar from '../components/TopBar';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { GameFonts } from '../constants/theme';
+import { TITLE_BANNERS, getTitleBanner, isTitleBannerUnlocked } from '../constants/titleBanners';
 import { useGameStore } from '../hooks/useGameStore';
+import { soundService } from '../services/soundService';
 import { supabase } from '../services/supabase';
 import { fetchFromSupabase, lookupByEmail, lookupByIngameName, lookupByUsername, syncToSupabase } from '../services/supabaseSync';
 import { sendEmailLinkedNotification } from '../services/emailService';
+import { getCharacterDetails } from '../constants/characterSkills';
+import { getRank } from '../services/mmrService';
+import { getRankedMatchHistory, RankedMatchHistoryItem } from '../services/multiplayerService';
+
+function formatMatchDate(dateString?: string) {
+  if (!dateString) return 'Recent';
+  try {
+    const d = new Date(dateString);
+    const now = new Date();
+    const diffSec = Math.floor((now.getTime() - d.getTime()) / 1000);
+    if (diffSec < 60) return 'Just now';
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  } catch {
+    return 'Recent';
+  }
+}
 
 /* ── Neo-Brutalist Success Popup ── */
 interface SuccessPopupProps {
@@ -113,6 +134,7 @@ const SKILLS = [
 
 const CHARACTERS = [
   { id: 'c0', name: 'Algebro', icon: '🧮', image: require('../assets/images/avatar/algebroavatar.png'), unlockLevel: 1 },
+  { id: 'c5', name: 'Algegal', icon: '🎀', image: require('../assets/images/avatar/algegalavatar.png'), unlockLevel: 1 },
   { id: 'c1', name: 'Ada Lovelace', icon: '👩‍💻', image: require('../assets/images/avatar/lovelaceavatar.png'), unlockLevel: 2 },
   { id: 'c2', name: 'Isaac Newton', icon: '🍎', image: require('../assets/images/avatar/newtonavatar.png'), unlockLevel: 3 },
   { id: 'c3', name: 'Nikola Tesla', icon: '⚡', image: require('../assets/images/avatar/teslaavatar.png'), unlockLevel: 4 },
@@ -126,9 +148,17 @@ const CHARACTER_AVATARS: Record<string, any> = {
   c2: require('../assets/images/avatar/newtonavatar.png'),
   c3: require('../assets/images/avatar/teslaavatar.png'),
   c4: require('../assets/images/avatar/curieavatar.png'),
+  c5: require('../assets/images/avatar/algegalavatar.png'),
+  char_algegal: require('../assets/images/avatar/algegalavatar.png'),
 };
 
-export default function PlayerStatsScreen({ showBackButton = true }: { showBackButton?: boolean } = {}) {
+export default function PlayerStatsScreen({
+  showBackButton = true,
+  onBack,
+}: {
+  showBackButton?: boolean;
+  onBack?: () => void;
+} = {}) {
   const router = useRouter();
 
   const {
@@ -137,14 +167,109 @@ export default function PlayerStatsScreen({ showBackButton = true }: { showBackB
     email, setEmail,
     isLoggedIn, loginWithData, setUsername, setIngameName, logout,
     equippedCharacter, equipItem, inventory,
+    equippedTitle, equipTitle,
+    onlineWins, mmr,
   } = useGameStore();
 
   const [showEditIngameModal, setShowEditIngameModal] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [showTitleModal, setShowTitleModal] = useState(false);
   const [editIngameName, setEditIngameName] = useState('');
   const [nameSuggestions, setNameSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorConfig, setErrorConfig] = useState<{ visible: boolean; title: string; message: string; subMessage?: string } | null>(null);
+  const [matchHistory, setMatchHistory] = useState<RankedMatchHistoryItem[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  useEffect(() => {
+    if (!userId) {
+      setMatchHistory([]);
+      return;
+    }
+    let isMounted = true;
+    setLoadingHistory(true);
+    getRankedMatchHistory(userId, 10)
+      .then((history) => {
+        if (isMounted) {
+          setMatchHistory(history);
+          setLoadingHistory(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('[Profile] Failed to load ranked match history:', err);
+        if (isMounted) {
+          setLoadingHistory(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId, mmr, onlineWins]);
+
+  const isKeyboardVisibleRef = useRef(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'android' ? 'keyboardDidShow' : 'keyboardWillShow',
+      () => { isKeyboardVisibleRef.current = true; }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'android' ? 'keyboardDidHide' : 'keyboardWillHide',
+      () => { isKeyboardVisibleRef.current = false; }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const handleCloseEditIngameModal = () => {
+    Keyboard.dismiss();
+    setShowEditIngameModal(false);
+  };
+
+  const handleRequestCloseEditIngame = () => {
+    if (isKeyboardVisibleRef.current) {
+      Keyboard.dismiss();
+      return;
+    }
+    handleCloseEditIngameModal();
+  };
+
+  // Hardware back mirrors the in-game TopBar back button
+  useEffect(() => {
+    const onBackPress = () => {
+      if (showAvatarModal) {
+        setShowAvatarModal(false);
+        return true;
+      }
+      if (showTitleModal) {
+        setShowTitleModal(false);
+        return true;
+      }
+      if (showEditIngameModal) {
+        handleRequestCloseEditIngame();
+        return true;
+      }
+      if (errorConfig?.visible) {
+        setErrorConfig(null);
+        return true;
+      }
+      if (onBack) {
+        onBack();
+        return true;
+      }
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)/dungeon' as any);
+      }
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [showAvatarModal, showTitleModal, showEditIngameModal, errorConfig, onBack, router]);
 
   const generateSuggestions = () => {
     const prefixes = ['Math', 'Alge', 'Calc', 'Number', 'Prime', 'Sigma', 'Geo'];
@@ -171,6 +296,15 @@ export default function PlayerStatsScreen({ showBackButton = true }: { showBackB
   const winRate = safeTotalBattles > 0 ? Math.round((totalBattlesWon / safeTotalBattles) * 100) : 0;
   const safeMaxStreak = maxStreak || 0;
   const displayName = (isLoggedIn && ingameName) ? ingameName.toUpperCase() : (username ? username.toUpperCase() : 'GUEST USER');
+
+  const statsSnapshot = {
+    unlockedLevel,
+    levelStars,
+    totalBattlesWon,
+    onlineWins: onlineWins || 0,
+    mmr: mmr || 0,
+  };
+  const unlockedTitlesCount = TITLE_BANNERS.filter((b) => b.isUnlocked(statsSnapshot)).length;
 
   const achievements = [
     { id: 1, icon: '🎯', image: require('../assets/icons/achievements/first_blood.png'), title: 'First Blood', desc: 'Win your first battle', done: totalBattlesWon >= 1 },
@@ -207,63 +341,75 @@ export default function PlayerStatsScreen({ showBackButton = true }: { showBackB
   };
 
   const renderEditIngameModal = () => (
-    <Modal visible={showEditIngameModal} transparent animationType="fade" onRequestClose={() => setShowEditIngameModal(false)}>
-      <View style={ms.overlay}>
-        <View style={ms.card}>
-          <View style={ms.cardShadow} />
-          <View style={ms.cardInner}>
-            <Text style={ms.title}>EDIT INGAME NAME</Text>
+    <Modal visible={showEditIngameModal} transparent animationType="fade" onRequestClose={handleRequestCloseEditIngame}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
+        style={ms.overlay}
+      >
+        <ScrollView
+          contentContainerStyle={ms.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <View style={ms.card}>
+            <View style={ms.cardShadow} />
+            <View style={ms.cardInner}>
+              <Text style={ms.title}>EDIT INGAME NAME</Text>
 
-            <Text style={ms.label}>NEW INGAME NAME</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: nameSuggestions.length > 0 ? 8 : 12 }}>
-              <TextInput style={[ms.input, { flex: 1, marginBottom: 0 }]} value={editIngameName} onChangeText={setEditIngameName}
-                placeholder="Enter new ingame name..." placeholderTextColor="#b5a58d"
-                maxLength={20} autoCapitalize="none" autoCorrect={false} editable={!loading} />
-              <TouchableOpacity style={ms.suggestBtn} onPress={generateSuggestions} disabled={loading}>
-                <Text style={ms.suggestBtnText}>SUGGEST</Text>
-              </TouchableOpacity>
-            </View>
-            {nameSuggestions.length > 0 && (
-              <View style={ms.chipsContainer}>
-                {nameSuggestions.map(sugg => (
-                  <TouchableOpacity key={sugg} style={ms.chip} onPress={() => setEditIngameName(sugg)}>
-                    <Text style={ms.chipText}>{sugg}</Text>
-                  </TouchableOpacity>
-                ))}
+              <Text style={ms.label}>NEW INGAME NAME</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: nameSuggestions.length > 0 ? 8 : 12 }}>
+                <TextInput style={[ms.input, { flex: 1, marginBottom: 0 }]} value={editIngameName} onChangeText={setEditIngameName}
+                  placeholder="Enter new ingame name..." placeholderTextColor="#b5a58d"
+                  maxLength={20} autoCapitalize="none" autoCorrect={false} editable={!loading} />
+                <TouchableOpacity style={ms.suggestBtn} onPress={generateSuggestions} disabled={loading}>
+                  <Text style={ms.suggestBtnText}>SUGGEST</Text>
+                </TouchableOpacity>
               </View>
-            )}
+              {nameSuggestions.length > 0 && (
+                <View style={ms.chipsContainer}>
+                  {nameSuggestions.map(sugg => (
+                    <TouchableOpacity key={sugg} style={ms.chip} onPress={() => setEditIngameName(sugg)}>
+                      <Text style={ms.chipText}>{sugg}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
 
-            {!username && (
-              <TouchableOpacity
-                style={{ marginTop: 8, marginBottom: 12, alignItems: 'center' }}
-                onPress={() => {
-                  setShowEditIngameModal(false);
-                  router.push('/profile');
-                }}
-              >
-                <Text style={{ fontFamily: GameFonts.hud, fontSize: 12, color: '#1a6cf5', fontWeight: '800' }}>
-                  Want to claim a login username? Tap here →
-                </Text>
-              </TouchableOpacity>
-            )}
+              {!username && (
+                <TouchableOpacity
+                  style={{ marginTop: 8, marginBottom: 12, alignItems: 'center' }}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setShowEditIngameModal(false);
+                    router.replace('/profile');
+                  }}
+                >
+                  <Text style={{ fontFamily: GameFonts.hud, fontSize: 12, color: '#1a6cf5', fontWeight: '800' }}>
+                    Want to claim a login username? Tap here →
+                  </Text>
+                </TouchableOpacity>
+              )}
 
-            <View style={ms.btnRow}>
-              <TouchableOpacity style={ms.cancelBtn} onPress={() => setShowEditIngameModal(false)} disabled={loading}>
-                <Text style={ms.cancelBtnText}>CANCEL</Text>
-              </TouchableOpacity>
-              <NeoButton
-                wrapperStyle={{ flex: 1 }}
-                shadowStyle={ms.submitShadow}
-                style={[ms.submitBtn, loading && ms.submitBtnDisabled] as ViewStyle[]}
-                disabled={loading}
-                onPress={handleEditIngameSubmit}
-              >
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>SAVE</Text>}
-              </NeoButton>
+              <View style={ms.btnRow}>
+                <TouchableOpacity style={ms.cancelBtn} onPress={handleCloseEditIngameModal} disabled={loading}>
+                  <Text style={ms.cancelBtnText}>CANCEL</Text>
+                </TouchableOpacity>
+                <NeoButton
+                  wrapperStyle={{ flex: 1 }}
+                  shadowStyle={ms.submitShadow}
+                  style={[ms.submitBtn, loading && ms.submitBtnDisabled] as ViewStyle[]}
+                  disabled={loading}
+                  onPress={handleEditIngameSubmit}
+                >
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={ms.submitBtnText}>SAVE</Text>}
+                </NeoButton>
+              </View>
             </View>
           </View>
-        </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 
@@ -280,8 +426,8 @@ export default function PlayerStatsScreen({ showBackButton = true }: { showBackB
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 8 }}>
               {CHARACTERS.map((char) => {
-                const isOwned = inventory.includes(char.id) || char.id === 'c0' || char.id === 'char_algebro';
-                const isEquipped = equippedCharacter === char.id || (char.id === 'c0' && equippedCharacter === 'char_algebro');
+                const isOwned = inventory.includes(char.id) || char.id === 'c0' || char.id === 'char_algebro' || char.id === 'c5' || char.id === 'char_algegal';
+                const isEquipped = equippedCharacter === char.id || (char.id === 'c0' && equippedCharacter === 'char_algebro') || (char.id === 'c5' && equippedCharacter === 'char_algegal');
 
                 return (
                   <TouchableOpacity
@@ -294,7 +440,7 @@ export default function PlayerStatsScreen({ showBackButton = true }: { showBackB
                         showPopup('', 'Avatar Updated!', `Equipped ${char.name} as your profile avatar.`);
                       } else {
                         setShowAvatarModal(false);
-                        router.push('/shop');
+                        router.replace('/(tabs)/shop' as any);
                       }
                     }}
                     style={{
@@ -331,9 +477,124 @@ export default function PlayerStatsScreen({ showBackButton = true }: { showBackB
             </ScrollView>
 
             <View style={{ marginTop: 16 }}>
-              <TouchableOpacity style={ms.cancelBtn} onPress={() => setShowAvatarModal(false)}>
-                <Text style={ms.cancelBtnText}>CANCEL</Text>
-              </TouchableOpacity>
+              <NeoButton
+                wrapperStyle={{ width: '100%' }}
+                shadowStyle={ms.closeBtnShadow}
+                style={ms.closeBtn}
+                onPress={() => setShowAvatarModal(false)}
+              >
+                <Text style={ms.closeBtnText}>CANCEL</Text>
+              </NeoButton>
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const renderTitleModal = () => (
+    <Modal visible={showTitleModal} transparent animationType="fade" onRequestClose={() => setShowTitleModal(false)}>
+      <View style={ms.overlay}>
+        <View style={ms.titleModalCard}>
+          <View style={ms.cardShadow} />
+          <View style={ms.titleModalInner}>
+            <Text style={ms.title}>SELECT TITLE BANNER</Text>
+            <Text style={ms.titleModalCount}>
+              {unlockedTitlesCount} / {TITLE_BANNERS.length} UNLOCKED
+            </Text>
+            <Text style={ms.titleModalHint}>
+              Tap an unlocked badge to equip your title banner:
+            </Text>
+
+            <ScrollView
+              style={ms.titleModalScroll}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
+            >
+              {TITLE_BANNERS.map((banner) => {
+                const isUnlocked = banner.isUnlocked(statsSnapshot);
+                const isEquipped = (equippedTitle || 'novice') === banner.id;
+
+                return (
+                  <TouchableOpacity
+                    key={banner.id}
+                    activeOpacity={isUnlocked ? 0.8 : 1}
+                    onPress={() => {
+                      if (isUnlocked) {
+                        equipTitle(banner.id);
+                        soundService.playSound('click');
+                        setShowTitleModal(false);
+                        showPopup('', 'Title Equipped!', `Equipped "${banner.name}" title banner.`);
+                      }
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      padding: 10,
+                      borderRadius: 12,
+                      borderWidth: 2,
+                      borderColor: isEquipped ? '#22c55e' : isUnlocked ? '#1a1008' : '#c5b8a5',
+                      backgroundColor: isEquipped ? '#f0fdf4' : isUnlocked ? '#ffffff' : '#f5efe4',
+                      gap: 12,
+                    }}
+                  >
+                    <View style={{ width: 44, height: 48, justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+                      <Image
+                        source={banner.badgeImage}
+                        style={{ width: 42, height: 46, opacity: isUnlocked ? 1 : 0.35 }}
+                        resizeMode="contain"
+                      />
+                      {!isUnlocked && (
+                        <Image
+                          source={LOCK_ICON}
+                          style={{
+                            position: 'absolute',
+                            width: 22,
+                            height: 22,
+                          }}
+                          resizeMode="contain"
+                        />
+                      )}
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: GameFonts.brawl, fontSize: 13, color: isUnlocked ? '#1a1008' : '#7a6a55', marginBottom: 2 }}>
+                        {banner.name.toUpperCase()}
+                      </Text>
+                      <Text style={{ fontFamily: GameFonts.hud, fontSize: 11, color: isUnlocked ? '#7a6a55' : '#b45309' }}>
+                        {isUnlocked ? banner.description : banner.unlockRequirement}
+                      </Text>
+                    </View>
+
+                    <View>
+                      {isEquipped ? (
+                        <View style={{ backgroundColor: '#22c55e', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                          <Text style={{ fontFamily: GameFonts.brawl, fontSize: 9, color: '#ffffff' }}>✓ EQUIPPED</Text>
+                        </View>
+                      ) : isUnlocked ? (
+                        <View style={{ backgroundColor: '#1a6cf5', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, borderColor: '#1a1008' }}>
+                          <Text style={{ fontFamily: GameFonts.brawl, fontSize: 9, color: '#ffffff' }}>EQUIP</Text>
+                        </View>
+                      ) : (
+                        <View style={{ backgroundColor: '#e5d9c4', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                          <Text style={{ fontFamily: GameFonts.brawl, fontSize: 9, color: '#7a6a55' }}>LOCKED</Text>
+                        </View>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <View style={{ marginTop: 14 }}>
+              <NeoButton
+                wrapperStyle={{ width: '100%' }}
+                shadowStyle={ms.closeBtnShadow}
+                style={ms.closeBtn}
+                onPress={() => setShowTitleModal(false)}
+              >
+                <Text style={ms.closeBtnText}>CLOSE</Text>
+              </NeoButton>
             </View>
           </View>
         </View>
@@ -344,7 +605,7 @@ export default function PlayerStatsScreen({ showBackButton = true }: { showBackB
   return (
     <View style={styles.container}>
       {/* Header with standard TopBar and Back button on the right */}
-      <TopBar title="PLAYER PROFILE" />
+      <TopBar title="PLAYER PROFILE" showBackButton={showBackButton} onBack={onBack} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
@@ -379,13 +640,192 @@ export default function PlayerStatsScreen({ showBackButton = true }: { showBackB
                     <Feather name="edit" size={14} color="#1a1008" />
                   </TouchableOpacity>
                 </View>
-                <View style={styles.rankBadge}><Text style={styles.rankText}>{playerRank}</Text></View>
+                {/* Title Banner Badge */}
+                <View style={{ marginTop: 6, alignSelf: 'flex-start' }}>
+                  <TitleBannerBadge
+                    titleId={equippedTitle}
+                    size="sm"
+                    showEditIcon={true}
+                    onPress={() => setShowTitleModal(true)}
+                  />
+                </View>
               </View>
             </View>
             <Text style={styles.statLabel}>LEVEL {unlockedLevel}</Text>
             <View style={styles.xpBarOuter}><View style={[styles.xpBarInner, { width: `${xpProgress}%` }]} /></View>
           </View>
         </View>
+
+        {/* TITLE BANNERS SHOWCASE */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionHeaderInline}>TITLE BANNERS</Text>
+          <Text style={{ fontFamily: GameFonts.hud, fontSize: 12, color: '#7a6a55', fontWeight: '700', marginLeft: 'auto' }}>
+            {unlockedTitlesCount}/{TITLE_BANNERS.length} UNLOCKED
+          </Text>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
+          {TITLE_BANNERS.map((banner) => {
+            const isUnlocked = banner.isUnlocked(statsSnapshot);
+            const isEquipped = (equippedTitle || 'novice') === banner.id;
+
+            return (
+              <TouchableOpacity
+                key={banner.id}
+                activeOpacity={0.8}
+                onPress={() => {
+                  if (isUnlocked) {
+                    equipTitle(banner.id);
+                    soundService.playSound('click');
+                    showPopup('', 'Title Equipped!', `Equipped "${banner.name}" title banner.`);
+                  } else {
+                    setShowTitleModal(true);
+                  }
+                }}
+                style={{
+                  alignItems: 'center',
+                  padding: 8,
+                  borderRadius: 12,
+                  borderWidth: 2,
+                  borderColor: isEquipped ? '#22c55e' : '#1a1008',
+                  backgroundColor: isEquipped ? '#f0fdf4' : isUnlocked ? '#ffffff' : '#f1f5f9',
+                  width: 96,
+                }}
+              >
+                <View style={{ position: 'relative', width: 44, height: 48, marginBottom: 4, justifyContent: 'center', alignItems: 'center' }}>
+                  <Image
+                    source={banner.badgeImage}
+                    style={{ width: 44, height: 48, opacity: isUnlocked ? 1 : 0.35 }}
+                    resizeMode="contain"
+                  />
+                  {!isUnlocked && (
+                    <Image
+                      source={LOCK_ICON}
+                      style={{
+                        position: 'absolute',
+                        width: 20,
+                        height: 20,
+                      }}
+                      resizeMode="contain"
+                    />
+                  )}
+                </View>
+                <Text style={{ fontFamily: GameFonts.brawl, fontSize: 9, color: '#1a1008', textAlign: 'center' }} numberOfLines={1}>
+                  {banner.name}
+                </Text>
+                {isEquipped ? (
+                  <Text style={{ fontFamily: GameFonts.brawl, fontSize: 8, color: '#22c55e', marginTop: 3 }}>✓ EQUIPPED</Text>
+                ) : isUnlocked ? (
+                  <Text style={{ fontFamily: GameFonts.brawl, fontSize: 8, color: '#1a6cf5', marginTop: 3 }}>EQUIP</Text>
+                ) : (
+                  <Text style={{ fontFamily: GameFonts.brawl, fontSize: 8, color: '#7a6a55', marginTop: 3 }}>LOCKED</Text>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* RANKED MATCH HISTORY */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionHeaderInline}>RANKED HISTORY</Text>
+          {matchHistory.length > 0 && (
+            <Text style={{ fontFamily: GameFonts.hud, fontSize: 12, color: '#7a6a55', fontWeight: '700', marginLeft: 'auto' }}>
+              LAST {matchHistory.length} MATCHES
+            </Text>
+          )}
+        </View>
+
+        {loadingHistory ? (
+          <View style={styles.matchHistoryPlaceholder}>
+            <ActivityIndicator size="small" color="#1a1008" />
+            <Text style={styles.matchEmptyText}>Loading matches...</Text>
+          </View>
+        ) : matchHistory.length === 0 ? (
+          <View style={styles.matchHistoryPlaceholder}>
+            <Text style={{ fontSize: 20, marginBottom: 4 }}>⚔️</Text>
+            <Text style={styles.matchEmptyTitle}>NO RANKED MATCHES YET</Text>
+            <Text style={styles.matchEmptyText}>
+              {!isLoggedIn ? 'Log in to track your ranked battle history!' : 'Jump into Ranked Mode to brawl and climb the ladder!'}
+            </Text>
+          </View>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
+            {matchHistory.map((item) => {
+              const isWin = item.result === 'VICTORY';
+              const isLoss = item.result === 'DEFEAT';
+              const oppChar = getCharacterDetails(item.opponentCharacter);
+              const oppRank = getRank(item.opponentMmr);
+              const oppAvatar = item.opponentCharacter ? (CHARACTER_AVATARS[item.opponentCharacter] || oppChar.avatar) : oppChar.avatar;
+
+              return (
+                <View key={item.id} style={styles.matchCard}>
+                  {/* Top Bar: Result badge + relative time */}
+                  <View style={styles.matchCardHeader}>
+                    <View
+                      style={[
+                        styles.matchBadge,
+                        isWin
+                          ? styles.matchBadgeWin
+                          : isLoss
+                          ? styles.matchBadgeLoss
+                          : styles.matchBadgeDraw,
+                      ]}
+                    >
+                      <Text style={styles.matchBadgeText}>
+                        {isWin ? 'WIN' : isLoss ? 'LOSS' : 'DRAW'}
+                      </Text>
+                    </View>
+                    <Text style={styles.matchDateText}>{formatMatchDate(item.date)}</Text>
+                  </View>
+
+                  {/* Middle: Opponent Avatar with Rank Badge & Name */}
+                  <View style={styles.matchOpponentSection}>
+                    <View style={styles.matchAvatarWrap}>
+                      {oppAvatar ? (
+                        <Image source={oppAvatar} style={styles.matchAvatarImg} resizeMode="contain" />
+                      ) : (
+                        <Text style={styles.matchAvatarEmoji}>{oppChar.icon || '⚔️'}</Text>
+                      )}
+                      {oppRank?.icon && (
+                        <Image
+                          source={oppRank.icon}
+                          style={styles.matchRankBadgeImg}
+                          resizeMode="contain"
+                        />
+                      )}
+                    </View>
+                    <Text style={styles.matchOpponentName} numberOfLines={1}>
+                      {item.opponentName}
+                    </Text>
+                    <Text style={styles.matchOpponentRank} numberOfLines={1}>
+                      {oppRank.name} ({item.opponentMmr})
+                    </Text>
+                  </View>
+
+                  {/* Bottom: Score & MMR Change */}
+                  <View style={styles.matchFooter}>
+                    <View style={styles.matchScoreBox}>
+                      <Text style={styles.matchScoreText}>
+                        {item.myScore} - {item.opponentScore}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.matchMmrText,
+                        item.mmrChange > 0
+                          ? styles.mmrGain
+                          : item.mmrChange < 0
+                          ? styles.mmrLoss
+                          : styles.mmrEven,
+                      ]}
+                    >
+                      {item.mmrChange > 0 ? `+${item.mmrChange}` : `${item.mmrChange}`} MMR
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+          </ScrollView>
+        )}
 
         {/* EQUIPMENT */}
         <Text style={styles.sectionHeader}>EQUIPMENT</Text>
@@ -418,7 +858,7 @@ export default function PlayerStatsScreen({ showBackButton = true }: { showBackB
         {/* CHARACTERS */}
         <Text style={styles.sectionHeader}>CHARACTERS</Text>
         <View style={styles.gearRow}>
-          {CHARACTERS.filter((char) => inventory.includes(char.id) || char.id === 'c0' || char.id === 'char_algebro').map((char) => (
+          {CHARACTERS.filter((char) => inventory.includes(char.id) || char.id === 'c0' || char.id === 'char_algebro' || char.id === 'c5' || char.id === 'char_algegal').map((char) => (
             <View key={char.id} style={styles.iconBox}>
               {char.image ? (
                 <Image source={char.image} style={{ width: 44, height: 44 }} resizeMode="contain" />
@@ -522,6 +962,7 @@ export default function PlayerStatsScreen({ showBackButton = true }: { showBackB
       {/* Profile Modals */}
       {renderEditIngameModal()}
       {renderAvatarModal()}
+      {renderTitleModal()}
 
       {/* Success Popup */}
       <SuccessPopup
@@ -547,8 +988,9 @@ export default function PlayerStatsScreen({ showBackButton = true }: { showBackB
 /* ── Modal styles ── */
 const ms = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(26,16,8,0.6)', justifyContent: 'center', padding: 24 },
+  scrollContent: { flexGrow: 1, justifyContent: 'center' },
   card: { position: 'relative' },
-  cardShadow: { position: 'absolute', top: 6, left: 6, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 16 },
+  cardShadow: { position: 'absolute', top: 3, left: 3, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 16 },
   cardInner: { backgroundColor: '#fff9f0', borderWidth: 3, borderColor: '#1a1008', borderRadius: 16, padding: 24 },
   title: { fontFamily: GameFonts.brawl, fontSize: 20, color: '#1a1008', textAlign: 'center', marginBottom: 20, letterSpacing: 1 },
   label: { fontFamily: GameFonts.brawl, fontSize: 11, color: '#7a6a55', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, marginTop: 4 },
@@ -556,7 +998,7 @@ const ms = StyleSheet.create({
   btnRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
   cancelBtn: { flex: 1, backgroundColor: '#e5d9c4', borderWidth: 3, borderColor: '#1a1008', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
   cancelBtnText: { fontFamily: GameFonts.brawl, fontSize: 13, color: '#1a1008' },
-  submitShadow: { position: 'absolute', top: 3, left: 3, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 10 },
+  submitShadow: { position: 'absolute', top: 2, left: 2, width: '100%', height: '100%', backgroundColor: '#1a1008', borderRadius: 10 },
   submitBtn: { backgroundColor: '#e8302a', borderWidth: 3, borderColor: '#1a1008', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
   submitBtnDisabled: { backgroundColor: '#7a6a55' },
   submitBtnText: { fontFamily: GameFonts.brawl, fontSize: 13, color: '#fff', letterSpacing: 1 },
@@ -565,6 +1007,69 @@ const ms = StyleSheet.create({
   chipsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
   chip: { backgroundColor: '#e5d9c4', borderWidth: 2, borderColor: '#1a1008', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4 },
   chipText: { fontFamily: GameFonts.brawl, fontSize: 10, color: '#1a1008' },
+
+  /* Title Modal Specifics */
+  titleModalCard: {
+    position: 'relative',
+    width: '100%',
+    height: '80%',
+    maxHeight: 620,
+  },
+  titleModalInner: {
+    flex: 1,
+    backgroundColor: '#fff9f0',
+    borderWidth: 3,
+    borderColor: '#1a1008',
+    borderRadius: 16,
+    padding: 18,
+    justifyContent: 'space-between',
+  },
+  titleModalCount: {
+    fontFamily: GameFonts.hud,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#7a6a55',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  titleModalHint: {
+    fontFamily: GameFonts.hud,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#8c7e6c',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  titleModalScroll: {
+    flex: 1,
+    marginVertical: 4,
+  },
+
+  /* Neo-Brutalist Modal Action Buttons */
+  closeBtnShadow: {
+    position: 'absolute',
+    top: 2,
+    left: 2,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#1a1008',
+    borderRadius: 10,
+  },
+  closeBtn: {
+    backgroundColor: '#e5d9c4',
+    borderWidth: 2.5,
+    borderColor: '#1a1008',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeBtnText: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 13,
+    color: '#1a1008',
+    letterSpacing: 1,
+  },
 });
 
 /* ── Page styles ── */
@@ -648,4 +1153,148 @@ const styles = StyleSheet.create({
   achDesc: { fontFamily: GameFonts.hud, fontSize: 11, color: '#7a6a55' },
   achStatusBox: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
   achLockIcon: { width: 20, height: 20 },
+
+  /* Ranked History Carousel */
+  matchHistoryPlaceholder: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#1a1008',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  matchEmptyTitle: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 12,
+    color: '#1a1008',
+    marginBottom: 4,
+  },
+  matchEmptyText: {
+    fontFamily: GameFonts.hud,
+    fontSize: 11,
+    color: '#7a6a55',
+    textAlign: 'center',
+  },
+  matchCard: {
+    width: 144,
+    backgroundColor: '#ffffff',
+    borderWidth: 2,
+    borderColor: '#1a1008',
+    borderRadius: 12,
+    padding: 10,
+    justifyContent: 'space-between',
+  },
+  matchCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  matchBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#1a1008',
+  },
+  matchBadgeWin: {
+    backgroundColor: '#22c55e',
+  },
+  matchBadgeLoss: {
+    backgroundColor: '#e8302a',
+  },
+  matchBadgeDraw: {
+    backgroundColor: '#f5a623',
+  },
+  matchBadgeText: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 8,
+    color: '#ffffff',
+  },
+  matchDateText: {
+    fontFamily: GameFonts.hud,
+    fontSize: 9,
+    color: '#7a6a55',
+    fontWeight: '700',
+  },
+  matchOpponentSection: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  matchAvatarWrap: {
+    position: 'relative',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#f5efe6',
+    borderWidth: 2,
+    borderColor: '#1a1008',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  matchAvatarImg: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+  },
+  matchAvatarEmoji: {
+    fontSize: 22,
+  },
+  matchRankBadgeImg: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    width: 20,
+    height: 20,
+  },
+  matchOpponentName: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 11,
+    color: '#1a1008',
+    textAlign: 'center',
+    maxWidth: 124,
+  },
+  matchOpponentRank: {
+    fontFamily: GameFonts.hud,
+    fontSize: 9,
+    color: '#7a6a55',
+    textAlign: 'center',
+    marginTop: 1,
+  },
+  matchFooter: {
+    borderTopWidth: 1,
+    borderTopColor: '#e5d9c4',
+    paddingTop: 6,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  matchScoreBox: {
+    backgroundColor: '#f5efe6',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#1a1008',
+  },
+  matchScoreText: {
+    fontFamily: GameFonts.impact,
+    fontSize: 11,
+    color: '#1a1008',
+  },
+  matchMmrText: {
+    fontFamily: GameFonts.brawl,
+    fontSize: 9,
+  },
+  mmrGain: {
+    color: '#16a34a',
+  },
+  mmrLoss: {
+    color: '#dc2626',
+  },
+  mmrEven: {
+    color: '#7a6a55',
+  },
 });

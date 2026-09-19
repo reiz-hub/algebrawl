@@ -53,7 +53,7 @@ export default function HomeScreen() {
           {/* Single Action Button: PLAY */}
           <NeoButton
             style={styles.btnPlay as ViewStyle}
-            onPress={() => router.push('/(tabs)/dungeon' as any)}
+            onPress={() => router.replace('/(tabs)/dungeon' as any)}
           >
             <Feather name="play" size={32} color="#fff" />
             <Text style={styles.btnPlayText}>PLAY</Text>

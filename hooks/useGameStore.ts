@@ -4,6 +4,7 @@ import * as Crypto from 'expo-crypto';
 import { create } from 'zustand';
 import { IS_DEV_BUILD } from '../constants/devMode';
 import { SHOP_ITEMS } from '../constants/shopItems';
+import { STARTING_MMR } from '../services/mmrService';
 import { supabase } from '../services/supabase';
 import {
   fetchFromFirestore,
@@ -11,6 +12,7 @@ import {
   UserData,
 } from '../services/supabaseSync';
 import { PurchaseResult } from '../types/shop';
+import { isTitleBannerUnlocked } from '../constants/titleBanners';
 
 const STORAGE_KEY_USER_ID = '@algebrawl_userId';
 const STORAGE_KEY_USERNAME = '@algebrawl_username';
@@ -18,7 +20,7 @@ const STORAGE_KEY_INGAMENAME = '@algebrawl_ingamename';
 const STORAGE_KEY_EMAIL = '@algebrawl_email';
 const STORAGE_KEY_GAME_STATE = '@algebrawl_gameState';
 
-export const BASE_INVENTORY = ['g1', 's1', 'c0', 'char_algebro'];
+export const BASE_INVENTORY = ['g1', 's1', 'c0', 'char_algebro', 'c5', 'char_algegal'];
 
 interface GameState {
   // Auth
@@ -43,6 +45,7 @@ interface GameState {
   inventory: string[];
   equippedCharacter: string;
   equippedGear: string | null;
+  equippedTitle: string;
   skillStocks: Record<string, number>;
 
   // Multiplayer MMR
@@ -67,6 +70,7 @@ interface GameState {
   // Shop & Inventory Actions
   buyItem: (itemId: string) => PurchaseResult;
   equipItem: (itemId: string) => void;
+  equipTitle: (titleId: string) => void;
   addCoins: (amount: number) => void;
   unlockAllDev: () => void;
 
@@ -106,6 +110,7 @@ const persistLocally = async (state: Partial<GameState>) => {
       inventory: state.inventory,
       equippedCharacter: state.equippedCharacter,
       equippedGear: state.equippedGear,
+      equippedTitle: state.equippedTitle,
       skillStocks: state.skillStocks,
       mmr: state.mmr,
       onlineWins: state.onlineWins,
@@ -142,8 +147,9 @@ const syncToCloud = async (userId: string | null, state: Partial<GameState>) => 
     inventory: state.inventory ?? ['char_algebro'],
     equippedCharacter: state.equippedCharacter ?? 'char_algebro',
     equippedGear: state.equippedGear ?? null,
+    equippedTitle: state.equippedTitle ?? 'novice',
     skillStocks: state.skillStocks ?? {},
-    mmr: state.mmr ?? 1000,
+    mmr: state.mmr ?? STARTING_MMR,
     onlineWins: state.onlineWins ?? 0,
     onlineLosses: state.onlineLosses ?? 0,
   });
@@ -169,13 +175,14 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   // Economy & Inventory defaults
   coins: 100,
-  inventory: ['g1', 's1', 'c0', 'char_algebro'],
+  inventory: ['g1', 's1', 'c0', 'char_algebro', 'c5', 'char_algegal'],
   equippedCharacter: 'c0',
   equippedGear: 'g1',
+  equippedTitle: 'novice',
   skillStocks: {},
 
   // Multiplayer MMR defaults
-  mmr: 1000,
+  mmr: STARTING_MMR,
   onlineWins: 0,
   onlineLosses: 0,
 
@@ -285,8 +292,12 @@ export const useGameStore = create<GameState>((set, get) => ({
             cloudData.equippedGear !== undefined
               ? cloudData.equippedGear
               : localState?.equippedGear ?? null,
+          equippedTitle:
+            cloudData.equippedTitle ||
+            localState?.equippedTitle ||
+            'novice',
           skillStocks: {} as Record<string, number>,
-          mmr: cloudData.mmr ?? localState?.mmr ?? 1000,
+          mmr: cloudData.mmr ?? localState?.mmr ?? STARTING_MMR,
           onlineWins: Math.max(
             localState?.onlineWins ?? 0,
             cloudData.onlineWins ?? 0
@@ -345,11 +356,12 @@ export const useGameStore = create<GameState>((set, get) => ({
         maxStreak: localState?.maxStreak ?? 0,
         levelStars: localState?.levelStars ?? {},
         coins: localState?.coins ?? 100,
-        inventory: localState?.inventory ?? BASE_INVENTORY,
+        inventory: Array.from(new Set([...(localState?.inventory ?? BASE_INVENTORY), ...BASE_INVENTORY])),
         equippedCharacter: localState?.equippedCharacter ?? 'char_algebro',
         equippedGear: localState?.equippedGear ?? null,
+        equippedTitle: localState?.equippedTitle ?? 'novice',
         skillStocks: localState?.skillStocks ?? {},
-        mmr: localState?.mmr ?? 1000,
+        mmr: localState?.mmr ?? STARTING_MMR,
         onlineWins: localState?.onlineWins ?? 0,
         onlineLosses: localState?.onlineLosses ?? 0,
       });
@@ -499,7 +511,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
         return merged;
       })(),
-      mmr: data.mmr ?? state.mmr ?? 1000,
+      mmr: data.mmr ?? state.mmr ?? STARTING_MMR,
       onlineWins: data.onlineWins ?? 0,
       onlineLosses: data.onlineLosses ?? 0,
     };
@@ -536,8 +548,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       inventory: data.inventory ?? ['char_algebro'],
       equippedCharacter: data.equippedCharacter ?? 'char_algebro',
       equippedGear: data.equippedGear ?? null,
+      equippedTitle: data.equippedTitle ?? 'novice',
       skillStocks: data.skillStocks ?? {},
-      mmr: data.mmr ?? 1000,
+      mmr: data.mmr ?? STARTING_MMR,
       onlineWins: data.onlineWins ?? 0,
       onlineLosses: data.onlineLosses ?? 0,
     }).catch(() => { });
@@ -575,8 +588,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         inventory: BASE_INVENTORY,
         equippedCharacter: 'char_algebro',
         equippedGear: null,
+        equippedTitle: 'novice',
         skillStocks: {} as Record<string, number>,
-        mmr: 1000,
+        mmr: STARTING_MMR,
         onlineWins: 0,
         onlineLosses: 0,
       };
@@ -776,6 +790,25 @@ export const useGameStore = create<GameState>((set, get) => ({
     syncToCloud(state.userId, newState);
   },
 
+  equipTitle: (titleId: string) => {
+    const state = get();
+    const isUnlocked = isTitleBannerUnlocked(titleId, {
+      unlockedLevel: state.unlockedLevel,
+      levelStars: state.levelStars,
+      totalBattlesWon: state.totalBattlesWon,
+      onlineWins: state.onlineWins,
+      mmr: state.mmr,
+    });
+    if (!isUnlocked) return;
+
+    const updates: Partial<GameState> = { equippedTitle: titleId };
+    const newState = { ...state, ...updates };
+    set(updates);
+
+    persistLocally(newState);
+    syncToCloud(state.userId, newState);
+  },
+
   addCoins: (amount: number) => {
     const state = get();
     const newCoins = Math.max(0, state.coins + amount);
@@ -788,7 +821,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   unlockAllDev: () => {
     const state = get();
-    const allItems = ['g1', 'g2', 'g3', 'g4', 'g5', 's1', 's2', 's3', 's4', 'c0', 'c1', 'c2', 'c3', 'c4', 'char_algebro'];
+    const allItems = ['g1', 'g2', 'g3', 'g4', 'g5', 's1', 's2', 's3', 's4', 'c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'char_algebro', 'char_algegal'];
     const newInventory = Array.from(new Set([...state.inventory, ...allItems]));
     const newState = {
       ...state,
@@ -835,13 +868,14 @@ export const useGameStore = create<GameState>((set, get) => ({
         inventory: [...state.inventory],
         equippedCharacter: state.equippedCharacter,
         equippedGear: state.equippedGear,
+        equippedTitle: state.equippedTitle,
         skillStocks: { ...state.skillStocks },
         mmr: state.mmr,
         onlineWins: state.onlineWins,
         onlineLosses: state.onlineLosses,
       };
 
-      const allItems = ['g1', 'g2', 'g3', 'g4', 'g5', 's1', 's2', 's3', 's4', 'c0', 'c1', 'c2', 'c3', 'c4', 'char_algebro'];
+      const allItems = ['g1', 'g2', 'g3', 'g4', 'g5', 's1', 's2', 's3', 's4', 'c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'char_algebro', 'char_algegal'];
       const newInventory = Array.from(new Set([...state.inventory, ...allItems]));
       set({
         devModeEnabled: true,
@@ -869,6 +903,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           inventory: devModeSnapshot.inventory,
           equippedCharacter: devModeSnapshot.equippedCharacter,
           equippedGear: devModeSnapshot.equippedGear,
+          equippedTitle: devModeSnapshot.equippedTitle,
           skillStocks: devModeSnapshot.skillStocks,
           mmr: devModeSnapshot.mmr,
           onlineWins: devModeSnapshot.onlineWins,
@@ -895,8 +930,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                 inventory: saved.inventory ?? BASE_INVENTORY,
                 equippedCharacter: saved.equippedCharacter ?? 'char_algebro',
                 equippedGear: saved.equippedGear ?? null,
+                equippedTitle: saved.equippedTitle ?? 'novice',
                 skillStocks: saved.skillStocks ?? {},
-                mmr: saved.mmr ?? 1000,
+                mmr: saved.mmr ?? STARTING_MMR,
                 onlineWins: saved.onlineWins ?? 0,
                 onlineLosses: saved.onlineLosses ?? 0,
               });

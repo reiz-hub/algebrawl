@@ -2,9 +2,13 @@
 // Post-game review modal — appears once per session after victory or defeat.
 // Matches the existing neo-brutalist design language.
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -27,8 +31,24 @@ export default function ReviewModal({ visible, onDismiss }: ReviewModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [showLoginRequired, setShowLoginRequired] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const isKeyboardVisibleRef = useRef(false);
 
   const { userId, username, isLoggedIn } = useGameStore();
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'android' ? 'keyboardDidShow' : 'keyboardWillShow',
+      () => { isKeyboardVisibleRef.current = true; }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'android' ? 'keyboardDidHide' : 'keyboardWillHide',
+      () => { isKeyboardVisibleRef.current = false; }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const handleSubmit = async () => {
     if (rating === 0) return;
@@ -40,6 +60,7 @@ export default function ReviewModal({ visible, onDismiss }: ReviewModalProps) {
     
     if (!userId) return;
 
+    Keyboard.dismiss();
     setSubmitting(true);
 
     await submitReview({
@@ -54,6 +75,7 @@ export default function ReviewModal({ visible, onDismiss }: ReviewModalProps) {
   };
 
   const handleSkip = () => {
+    Keyboard.dismiss();
     setRating(0);
     setComment('');
     setShowLoginRequired(false);
@@ -62,117 +84,138 @@ export default function ReviewModal({ visible, onDismiss }: ReviewModalProps) {
   };
 
   const handleLoginRequiredOk = () => {
+    Keyboard.dismiss();
     setShowLoginRequired(false);
     onDismiss();
   };
 
   const handleSuccessOk = () => {
+    Keyboard.dismiss();
     setShowSuccess(false);
     setRating(0);
     setComment('');
     onDismiss();
   };
 
+  const handleRequestClose = () => {
+    if (isKeyboardVisibleRef.current) {
+      Keyboard.dismiss();
+      return;
+    }
+    handleSkip();
+  };
+
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.overlay}>
-        <View style={styles.wrapper}>
-          <View style={styles.shadow} />
-          <View style={styles.card}>
-            {showSuccess ? (
-              <>
-                <Text style={styles.title}>THANK YOU!</Text>
-                <Text style={[styles.subtitle, { textAlign: 'center' }]}>Your review has been successfully submitted.</Text>
-                <View style={styles.btnWrapper}>
-                  <View style={styles.btnShadow} />
-                  <TouchableOpacity
-                    style={styles.btnPrimary}
-                    onPress={handleSuccessOk}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.btnPrimaryText}>AWESOME</Text>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleRequestClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
+        style={styles.overlay}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <View style={styles.wrapper}>
+            <View style={styles.shadow} />
+            <View style={styles.card}>
+              {showSuccess ? (
+                <>
+                  <Text style={styles.title}>THANK YOU!</Text>
+                  <Text style={[styles.subtitle, { textAlign: 'center' }]}>Your review has been successfully submitted.</Text>
+                  <View style={styles.btnWrapper}>
+                    <View style={styles.btnShadow} />
+                    <TouchableOpacity
+                      style={styles.btnPrimary}
+                      onPress={handleSuccessOk}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.btnPrimaryText}>AWESOME</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : showLoginRequired ? (
+                <>
+                  <Text style={styles.title}>LOG IN REQUIRED</Text>
+                  <Text style={[styles.subtitle, { textAlign: 'center' }]}>You must be logged in to submit a review.</Text>
+                  <View style={styles.btnWrapper}>
+                    <View style={styles.btnShadow} />
+                    <TouchableOpacity
+                      style={styles.btnPrimary}
+                      onPress={handleLoginRequiredOk}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.btnPrimaryText}>OK</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  {/* Title */}
+                  <Text style={styles.title}>HOW WAS THAT?</Text>
+                  <Text style={styles.subtitle}>Rate your experience!</Text>
+
+                  {/* Star row */}
+                  <View style={styles.starRow}>
+                    {Array.from({ length: STAR_COUNT }, (_, i) => {
+                      const starIndex = i + 1;
+                      const filled = starIndex <= rating;
+                      return (
+                        <TouchableOpacity
+                          key={starIndex}
+                          activeOpacity={0.7}
+                          onPress={() => setRating(starIndex)}
+                          style={styles.starTouchable}
+                        >
+                          <Text style={[styles.star, filled && styles.starFilled]}>
+                            {filled ? '★' : '☆'}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* Optional comment */}
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Any thoughts? (optional)"
+                      placeholderTextColor="#b5a68e"
+                      value={comment}
+                      onChangeText={setComment}
+                      maxLength={200}
+                      multiline
+                      numberOfLines={3}
+                    />
+                  </View>
+
+                  {/* Submit */}
+                  <View style={styles.btnWrapper}>
+                    <View style={styles.btnShadow} />
+                    <TouchableOpacity
+                      style={[styles.btnPrimary, rating === 0 && styles.btnDisabled]}
+                      onPress={handleSubmit}
+                      disabled={rating === 0 || submitting}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.btnPrimaryText}>
+                        {submitting ? 'SENDING...' : 'SUBMIT'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Skip */}
+                  <TouchableOpacity onPress={handleSkip} activeOpacity={0.7}>
+                    <Text style={styles.skipText}>SKIP</Text>
                   </TouchableOpacity>
-                </View>
-              </>
-            ) : showLoginRequired ? (
-              <>
-                <Text style={styles.title}>LOG IN REQUIRED</Text>
-                <Text style={[styles.subtitle, { textAlign: 'center' }]}>You must be logged in to submit a review.</Text>
-                <View style={styles.btnWrapper}>
-                  <View style={styles.btnShadow} />
-                  <TouchableOpacity
-                    style={styles.btnPrimary}
-                    onPress={handleLoginRequiredOk}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.btnPrimaryText}>OK</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              <>
-                {/* Title */}
-                <Text style={styles.title}>HOW WAS THAT?</Text>
-                <Text style={styles.subtitle}>Rate your experience!</Text>
-
-                {/* Star row */}
-                <View style={styles.starRow}>
-                  {Array.from({ length: STAR_COUNT }, (_, i) => {
-                    const starIndex = i + 1;
-                    const filled = starIndex <= rating;
-                    return (
-                      <TouchableOpacity
-                        key={starIndex}
-                        activeOpacity={0.7}
-                        onPress={() => setRating(starIndex)}
-                        style={styles.starTouchable}
-                      >
-                        <Text style={[styles.star, filled && styles.starFilled]}>
-                          {filled ? '★' : '☆'}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                {/* Optional comment */}
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Any thoughts? (optional)"
-                    placeholderTextColor="#b5a68e"
-                    value={comment}
-                    onChangeText={setComment}
-                    maxLength={200}
-                    multiline
-                    numberOfLines={3}
-                  />
-                </View>
-
-                {/* Submit */}
-                <View style={styles.btnWrapper}>
-                  <View style={styles.btnShadow} />
-                  <TouchableOpacity
-                    style={[styles.btnPrimary, rating === 0 && styles.btnDisabled]}
-                    onPress={handleSubmit}
-                    disabled={rating === 0 || submitting}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.btnPrimaryText}>
-                      {submitting ? 'SENDING...' : 'SUBMIT'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Skip */}
-                <TouchableOpacity onPress={handleSkip} activeOpacity={0.7}>
-                  <Text style={styles.skipText}>SKIP</Text>
-                </TouchableOpacity>
-              </>
-            )}
+                </>
+              )}
+            </View>
           </View>
-        </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -181,6 +224,9 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(26, 16, 8, 0.85)',
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -192,8 +238,8 @@ const styles = StyleSheet.create({
   },
   shadow: {
     position: 'absolute',
-    top: 8,
-    left: 8,
+    top: 3,
+    left: 3,
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',
@@ -264,8 +310,8 @@ const styles = StyleSheet.create({
   },
   btnShadow: {
     position: 'absolute',
-    top: 4,
-    left: 4,
+    top: 2,
+    left: 2,
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',

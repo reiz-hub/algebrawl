@@ -1,9 +1,12 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,12 +22,30 @@ import TouchableOpacity from '../TouchableOpacity';
 
 export default function OneVOneView() {
   const router = useRouter();
-  const { isLoggedIn } = useGameStore();
+  const { isLoggedIn, equippedCharacter } = useGameStore();
 
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showNoConnectionModal, setShowNoConnectionModal] = useState(false);
+  const inputRef = useRef<TextInput>(null);
+  const clearCodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isKeyboardVisibleRef = useRef(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'android' ? 'keyboardDidShow' : 'keyboardWillShow',
+      () => { isKeyboardVisibleRef.current = true; }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'android' ? 'keyboardDidHide' : 'keyboardWillHide',
+      () => { isKeyboardVisibleRef.current = false; }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const requireLoginAndConnection = (action: () => void) => {
     if (!isLoggedIn) {
@@ -32,7 +53,7 @@ export default function OneVOneView() {
       setShowLoginModal(true);
       return;
     }
-    checkConnectivity().then((isOnline) => {
+    checkConnectivity().then((isOnline: boolean) => {
       if (!isOnline) {
         soundService.playSound('click');
         setShowNoConnectionModal(true);
@@ -44,15 +65,42 @@ export default function OneVOneView() {
 
   const handleCreateRoom = () => {
     requireLoginAndConnection(() => {
-      router.push({
+      router.replace({
         pathname: '/waiting-room' as any,
-        params: { action: 'create' },
+        params: { action: 'create', character: equippedCharacter || 'c0' },
       });
     });
   };
 
   const handleJoinRoom = () => {
-    requireLoginAndConnection(() => setShowJoinModal(true));
+    requireLoginAndConnection(() => {
+      if (clearCodeTimerRef.current) {
+        clearTimeout(clearCodeTimerRef.current);
+      }
+      setJoinCode('');
+      setShowJoinModal(true);
+    });
+  };
+
+  const handleCloseJoinModal = () => {
+    Keyboard.dismiss();
+    inputRef.current?.blur();
+    setShowJoinModal(false);
+    if (clearCodeTimerRef.current) {
+      clearTimeout(clearCodeTimerRef.current);
+    }
+    clearCodeTimerRef.current = setTimeout(() => {
+      setJoinCode('');
+    }, 300);
+  };
+
+  const handleRequestCloseJoinModal = () => {
+    if (isKeyboardVisibleRef.current) {
+      Keyboard.dismiss();
+      inputRef.current?.blur();
+      return;
+    }
+    handleCloseJoinModal();
   };
 
   const handleSubmitJoin = () => {
@@ -61,11 +109,13 @@ export default function OneVOneView() {
       Alert.alert('Invalid Code', 'Room codes are 6 characters long.');
       return;
     }
+    Keyboard.dismiss();
+    inputRef.current?.blur();
     setShowJoinModal(false);
     setJoinCode('');
-    router.push({
+    router.replace({
       pathname: '/waiting-room' as any,
-      params: { action: 'join', code },
+      params: { action: 'join', code, character: equippedCharacter || 'c0' },
     });
   };
 
@@ -114,15 +164,26 @@ export default function OneVOneView() {
       </View>
 
       {/* Join Room Modal */}
-      <Modal visible={showJoinModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalWrapper}>
+      <Modal
+        visible={showJoinModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleRequestCloseJoinModal}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+          enabled={showJoinModal}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+        >
+          <View style={[styles.modalWrapper, styles.joinModalWrapper]}>
             <View style={styles.modalShadow} />
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>JOIN ROOM</Text>
               <Text style={styles.modalSubtitle}>Enter the 6-character room code</Text>
 
               <TextInput
+                ref={inputRef}
                 value={joinCode}
                 onChangeText={(text) => setJoinCode(text.toUpperCase().slice(0, 6))}
                 style={styles.codeInput}
@@ -130,16 +191,13 @@ export default function OneVOneView() {
                 placeholderTextColor="#b0a18e"
                 autoCapitalize="characters"
                 maxLength={6}
-                autoFocus
+                autoFocus={showJoinModal}
               />
 
               <View style={styles.modalBtnRow}>
                 <TouchableOpacity
                   style={styles.modalCancelBtn}
-                  onPress={() => {
-                    setShowJoinModal(false);
-                    setJoinCode('');
-                  }}
+                  onPress={handleCloseJoinModal}
                 >
                   <Text style={styles.modalCancelText}>Cancel</Text>
                 </TouchableOpacity>
@@ -154,7 +212,7 @@ export default function OneVOneView() {
               </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Login Required Modal */}
@@ -178,7 +236,7 @@ export default function OneVOneView() {
                   onPress={() => {
                     soundService.playSound('click');
                     setShowLoginModal(false);
-                    router.push('/(tabs)/profile' as any);
+                    router.replace('/(tabs)/profile' as any);
                   }}
                 >
                   <Feather name="log-in" size={18} color="#fff" />
@@ -346,10 +404,13 @@ const styles = StyleSheet.create({
     maxWidth: 320,
     position: 'relative',
   },
+  joinModalWrapper: {
+    marginBottom: 100,
+  },
   modalShadow: {
     position: 'absolute',
-    top: 6,
-    left: 6,
+    top: 3,
+    left: 3,
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',
@@ -431,8 +492,8 @@ const styles = StyleSheet.create({
   },
   loginModalShadow: {
     position: 'absolute',
-    top: 6,
-    left: 6,
+    top: 3,
+    left: 3,
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',
@@ -511,8 +572,8 @@ const styles = StyleSheet.create({
   },
   noConnModalShadow: {
     position: 'absolute',
-    top: 6,
-    left: 6,
+    top: 3,
+    left: 3,
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',

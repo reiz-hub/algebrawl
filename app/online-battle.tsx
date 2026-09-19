@@ -5,18 +5,21 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  BackHandler,
   Modal,
   StyleSheet,
   Text,
   View
 } from 'react-native';
 import AttackProjectile from '../components/AttackProjectile';
+import RankProgressModal from '../components/RankProgressModal';
 import Sprite from '../components/sprite';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { getCharacterDetails } from '../constants/characterSkills';
 import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
 import { useMultiplayerStore } from '../hooks/useMultiplayerStore';
+import { STARTING_MMR } from '../services/mmrService';
 import { soundService } from '../services/soundService';
 
 export default function OnlineBattleScreen() {
@@ -30,6 +33,8 @@ export default function OnlineBattleScreen() {
 
   const [isPaused, setIsPaused] = useState(false);
   const [showResult, setShowResult] = useState(false);
+  const [showRankProgress, setShowRankProgress] = useState(false);
+  const [prevMmrForAnimation, setPrevMmrForAnimation] = useState(mp.myMmr || STARTING_MMR);
   const [showForfeitModal, setShowForfeitModal] = useState(false);
   const [isAnswering, setIsAnswering] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -90,17 +95,23 @@ export default function OnlineBattleScreen() {
         clearInterval(timerRef.current);
       }
       // Update local MMR in useGameStore
+      const isRanked = !isLobby && (mp.result === 'win' || mp.result === 'loss');
       if (!isLobby && mp.result && mp.result !== 'draw' && mp.mmrChange !== 0) {
         updateMmr(mp.mmrChange, mp.result === 'win');
       }
-      setShowResult(true);
-      if (mp.result === 'win') {
-        soundService.playSound('victory');
+      if (isRanked) {
+        setPrevMmrForAnimation(mp.myMmr);
+        setShowRankProgress(true);
       } else {
-        soundService.playSound('defeat');
+        setShowResult(true);
+        if (mp.result === 'win') {
+          soundService.playSound('victory');
+        } else {
+          soundService.playSound('defeat');
+        }
       }
     }
-  }, [mp.matchStatus, mp.result, mp.mmrChange, isLobby]);
+  }, [mp.matchStatus, mp.result, mp.mmrChange, mp.myMmr, isLobby]);
 
   // Clear opponent action highlight after a short time
   useEffect(() => {
@@ -134,15 +145,21 @@ export default function OnlineBattleScreen() {
 
     // Update local MMR in ranked mode
     const finalMp = useMultiplayerStore.getState();
+    const isRanked = !isLobby && (finalMp.result === 'win' || finalMp.result === 'loss');
     if (!isLobby && finalMp.result && finalMp.result !== 'draw' && finalMp.mmrChange !== 0) {
       updateMmr(finalMp.mmrChange, finalMp.result === 'win');
     }
 
-    setShowResult(true);
-    if (winnerId === userId) {
-      soundService.playSound('victory');
+    if (isRanked) {
+      setPrevMmrForAnimation(finalMp.myMmr);
+      setShowRankProgress(true);
     } else {
-      soundService.playSound('defeat');
+      setShowResult(true);
+      if (winnerId === userId) {
+        soundService.playSound('victory');
+      } else {
+        soundService.playSound('defeat');
+      }
     }
   };
 
@@ -158,15 +175,21 @@ export default function OnlineBattleScreen() {
 
     // Update local MMR in ranked mode
     const finalMp = useMultiplayerStore.getState();
+    const isRanked = !isLobby && (finalMp.result === 'win' || finalMp.result === 'loss');
     if (!isLobby && finalMp.result && finalMp.result !== 'draw' && finalMp.mmrChange !== 0) {
       updateMmr(finalMp.mmrChange, finalMp.result === 'win');
     }
 
-    setShowResult(true);
-    if (finalMp.result === 'win') {
-      soundService.playSound('victory');
-    } else if (finalMp.result === 'loss') {
-      soundService.playSound('defeat');
+    if (isRanked) {
+      setPrevMmrForAnimation(finalMp.myMmr);
+      setShowRankProgress(true);
+    } else {
+      setShowResult(true);
+      if (finalMp.result === 'win') {
+        soundService.playSound('victory');
+      } else if (finalMp.result === 'loss') {
+        soundService.playSound('defeat');
+      }
     }
   };
 
@@ -285,11 +308,17 @@ export default function OnlineBattleScreen() {
       if (!isLobby && finalMp.mmrChange !== 0) {
         updateMmr(finalMp.mmrChange, false);
       }
-      setShowResult(true);
-      soundService.playSound('defeat');
+      if (!isLobby) {
+        setPrevMmrForAnimation(finalMp.myMmr);
+        setShowRankProgress(true);
+      } else {
+        setShowResult(true);
+        soundService.playSound('defeat');
+      }
     } else {
+      const returnTab = isLobby ? '1v1' : 'rank';
       mp.reset();
-      router.replace('/multiplayer' as any);
+      router.replace(`/(tabs)/dungeon?tab=${returnTab}` as any);
     }
   };
 
@@ -300,9 +329,34 @@ export default function OnlineBattleScreen() {
     }
     soundService.stopSound('victory');
     soundService.stopSound('defeat');
+    const returnTab = isLobby ? '1v1' : 'rank';
     mp.reset();
-    router.replace('/multiplayer' as any);
+    router.replace(`/(tabs)/dungeon?tab=${returnTab}` as any);
   };
+
+  // Hardware back: handle result if ended, close forfeit modal if open, or prompt forfeit confirmation
+  useEffect(() => {
+    const onBackPress = () => {
+      if (showRankProgress) {
+        setShowRankProgress(false);
+        setShowResult(true);
+        return true;
+      }
+      if (showResult) {
+        handleResultDone();
+        return true;
+      }
+      if (showForfeitModal) {
+        setShowForfeitModal(false);
+        return true;
+      }
+      setShowForfeitModal(true);
+      return true;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [showRankProgress, showResult, showForfeitModal]);
 
   // Format timer
   const formatTimer = (seconds: number) => {
@@ -538,6 +592,17 @@ export default function OnlineBattleScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Rank Progression / Promotion Animation Modal */}
+      <RankProgressModal
+        visible={showRankProgress}
+        prevMmr={prevMmrForAnimation}
+        mmrChange={mp.mmrChange}
+        onComplete={() => {
+          setShowRankProgress(false);
+          setShowResult(true);
+        }}
+      />
 
       {/* Result Modal */}
       <Modal visible={showResult} transparent animationType="slide">
@@ -789,8 +854,8 @@ const styles = StyleSheet.create({
   },
   menuShadow: {
     position: 'absolute',
-    top: 8,
-    left: 8,
+    top: 3,
+    left: 3,
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',
@@ -925,8 +990,8 @@ const styles = StyleSheet.create({
   },
   btnShadow: {
     position: 'absolute',
-    top: 4,
-    left: 4,
+    top: 2,
+    left: 2,
     width: '100%',
     height: '100%',
     backgroundColor: '#1a1008',
