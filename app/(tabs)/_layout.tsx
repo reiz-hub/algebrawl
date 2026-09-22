@@ -40,6 +40,7 @@ export default function TabsLayout() {
       tabBar={(props) => <BottomNavBar {...props} />}
       screenOptions={{
         headerShown: false,
+        sceneStyle: { backgroundColor: '#fff9f0' },
       }}
     >
       <Tabs.Screen

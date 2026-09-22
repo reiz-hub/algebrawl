@@ -21,6 +21,7 @@ import { fetchLeaderboard, type LeaderboardEntry } from '../services/multiplayer
 import { getRank, RANKS } from '../services/mmrService';
 
 import TopBar from '../components/TopBar';
+import RankRoadProgress from '../components/dungeon/RankRoadProgress';
 
 export default function LeaderboardScreen({
   showBackButton = true,
@@ -70,9 +71,10 @@ export default function LeaderboardScreen({
     loadLeaderboard();
   }, []);
 
-  // Find current player's rank position
+  // Find current player's rank position and progression
   const myPosition = players.findIndex((p) => p.id === userId) + 1;
-  const myRank = getRank(mmr);
+  const currentMmr = mmr ?? 0;
+  const myRank = getRank(currentMmr);
 
   const renderItem = ({ item, index }: { item: LeaderboardEntry; index: number }) => {
     const rank = getRank(item.mmr);
@@ -141,7 +143,7 @@ export default function LeaderboardScreen({
               <Text style={[styles.myStatsRankName, { color: myRank.color }]}>
                 {myRank.name}
               </Text>
-              <Text style={styles.myStatsMmr}>{mmr} MMR</Text>
+              <Text style={styles.myStatsMmr}>{currentMmr} MMR</Text>
             </View>
           </View>
           <View style={styles.myStatsRight}>
@@ -155,42 +157,8 @@ export default function LeaderboardScreen({
         </View>
       </View>
 
-      {/* Rank Overview */}
-      <View style={styles.rankLegend}>
-        {RANKS.map((r) => {
-          const isAchieved = (mmr ?? 0) >= r.minMmr;
-          return (
-            <View key={r.name} style={styles.rankLegendItem}>
-              <View style={styles.rankIconWrapper}>
-                <Image
-                  source={r.icon}
-                  style={[
-                    styles.rankLegendIcon,
-                    !isAchieved && styles.rankLegendIconLocked,
-                  ]}
-                  resizeMode="contain"
-                />
-                {!isAchieved && (
-                  <Image
-                    source={r.icon}
-                    style={styles.rankIconShadowOverlay}
-                    resizeMode="contain"
-                  />
-                )}
-              </View>
-              <Text
-                style={[
-                  styles.rankLegendName,
-                  { color: isAchieved ? r.color : '#8c7e6c' },
-                  !isAchieved && styles.rankLegendNameLocked,
-                ]}
-              >
-                {r.minMmr}+
-              </Text>
-            </View>
-          );
-        })}
-      </View>
+      {/* Rank Progress Bar (Highlighted only for reached ranks) */}
+      <RankRoadProgress mmr={currentMmr} paddingHorizontal={20} />
 
       {/* List */}
       {loading ? (
@@ -298,49 +266,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // Rank Legend
-  rankLegend: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginBottom: 6,
-  },
-  rankLegendItem: {
-    alignItems: 'center',
-  },
-  rankIconWrapper: {
-    width: 38,
-    height: 38,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    marginBottom: 4,
-  },
-  rankLegendIcon: {
-    width: 38,
-    height: 38,
-  },
-  rankLegendIconLocked: {
-    opacity: 0.35,
-  },
-  rankIconShadowOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 38,
-    height: 38,
-    tintColor: '#000000',
-    opacity: 0.6,
-  },
-  rankLegendName: {
-    fontFamily: GameFonts.arcade,
-    fontSize: 10,
-  },
-  rankLegendNameLocked: {
-    opacity: 0.5,
-  },
+  // Rank Progress / Legend
 
   // List
   listContent: {

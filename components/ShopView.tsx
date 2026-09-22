@@ -1,3 +1,4 @@
+import { Feather } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
   FlatList,
@@ -8,7 +9,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
 import { SHOP_ITEMS } from '../constants/shopItems';
 import { GameFonts } from '../constants/theme';
 import { useGameStore } from '../hooks/useGameStore';
@@ -325,31 +325,14 @@ export default function ShopView() {
       <View style={styles.subnavDock}>
         {SHOP_TABS.map((tab) => {
           const isSelected = activeTab === tab.id;
-          const isGear = tab.id === 'gear';
-          const isSkill = tab.id === 'skill';
 
           return (
-            <View
-              key={tab.id}
-              style={[
-                styles.subTabWrapper,
-                isGear && styles.subTabWrapperMiddle1,
-                isSkill && styles.subTabWrapperMiddle2,
-              ]}
-            >
-              <View
-                style={[
-                  styles.subTabShadow,
-                  isGear && styles.curveBottomRight,
-                  isSkill && styles.curveBottomLeft,
-                ]}
-              />
+            <View key={tab.id} style={styles.subTabWrapper}>
+              <View style={styles.subTabShadow} />
               <TouchableOpacity
                 style={[
                   styles.subTabBtn,
                   isSelected ? styles.subTabBtnActive : styles.subTabBtnInactive,
-                  isGear && styles.curveBottomRight,
-                  isSkill && styles.curveBottomLeft,
                 ]}
                 onPress={() => setActiveTab(tab.id)}
                 activeOpacity={0.8}
@@ -394,8 +377,8 @@ export default function ShopView() {
                   modalFeedback.isLocked
                     ? styles.modalTitleLocked
                     : modalFeedback.success
-                    ? styles.modalTitleSuccess
-                    : styles.modalTitleError,
+                      ? styles.modalTitleSuccess
+                      : styles.modalTitleError,
                 ]}
               >
                 {modalFeedback.title}
@@ -407,8 +390,8 @@ export default function ShopView() {
                   modalFeedback.isLocked
                     ? styles.modalDividerLocked
                     : modalFeedback.success
-                    ? styles.modalDividerSuccess
-                    : styles.modalDividerError,
+                      ? styles.modalDividerSuccess
+                      : styles.modalDividerError,
                 ]}
               />
               <Text style={styles.modalMessage}>{modalFeedback.message}</Text>
@@ -779,18 +762,6 @@ const styles = StyleSheet.create({
   subTabWrapper: {
     flex: 1,
     position: 'relative',
-  },
-  subTabWrapperMiddle1: {
-    marginRight: 8,
-  },
-  subTabWrapperMiddle2: {
-    marginLeft: 8,
-  },
-  curveBottomRight: {
-    borderBottomRightRadius: 20,
-  },
-  curveBottomLeft: {
-    borderBottomLeftRadius: 20,
   },
   subTabShadow: {
     position: 'absolute',

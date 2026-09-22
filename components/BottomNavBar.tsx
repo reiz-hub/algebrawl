@@ -1,6 +1,18 @@
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import React from 'react';
-import { Image, ImageSourcePropType, StyleSheet, Text, View } from 'react-native';
+import {
+  BottomTabBarHeightCallbackContext,
+  BottomTabBarProps,
+} from '@react-navigation/bottom-tabs';
+import React, { useContext } from 'react';
+import {
+  Image,
+  ImageSourcePropType,
+  LayoutChangeEvent,
+  StyleSheet,
+  Text,
+  TextStyle,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GameFonts } from '../constants/theme';
 import { soundService } from '../services/soundService';
@@ -16,28 +28,30 @@ const ALLOWED_TABS = ['profile', 'shop', 'dungeon', 'ranking', 'settings'];
 const TAB_CONFIGS: Record<string, TabConfig> = {
   profile: {
     label: 'PROFILE',
-    icon: require('../assets/icons/UI_icons/profile.png'),
+    icon: require('../assets/icons/navbuttons/profile.png'),
   },
   shop: {
     label: 'SHOP',
-    icon: require('../assets/icons/UI_icons/shop.png'),
+    icon: require('../assets/icons/navbuttons/shop.png'),
   },
   dungeon: {
     label: 'DUNGEON',
-    icon: require('../assets/icons/UI_icons/maps2.png'),
+    icon: require('../assets/icons/navbuttons/maps2.png'),
   },
   ranking: {
     label: 'RANKING',
-    icon: require('../assets/icons/UI_icons/leaderboards.png'),
+    icon: require('../assets/icons/navbuttons/leaderboards.png'),
   },
   settings: {
     label: 'SETTINGS',
-    icon: require('../assets/icons/UI_icons/settings.png'),
+    icon: require('../assets/icons/navbuttons/settings.png'),
   },
 };
 
 export default function BottomNavBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
+  const onHeightChange = useContext(BottomTabBarHeightCallbackContext);
 
   const visibleRoutes = state.routes.filter((route) => {
     if (!ALLOWED_TABS.includes(route.name)) return false;
@@ -46,14 +60,28 @@ export default function BottomNavBar({ state, descriptors, navigation }: BottomT
     return true;
   });
 
+  const numTabs = visibleRoutes.length || 5;
+  const itemWidth = Math.ceil(screenWidth / numTabs);
+  const itemHeight = Math.round(itemWidth * 1.13);
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    onHeightChange?.(e.nativeEvent.layout.height);
+  };
+
   return (
-    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+    <View
+      onLayout={handleLayout}
+      style={[
+        styles.container,
+        { paddingBottom: 0 },
+      ]}
+    >
       {visibleRoutes.map((route) => {
         const index = state.routes.findIndex((r) => r.key === route.key);
         const isFocused = state.index === index;
         const config = TAB_CONFIGS[route.name] || {
           label: route.name.toUpperCase(),
-          icon: require('../assets/icons/UI_icons/profile.png'),
+          icon: require('../assets/icons/navbuttons/profile.png'),
         };
 
         const onPress = () => {
@@ -69,74 +97,37 @@ export default function BottomNavBar({ state, descriptors, navigation }: BottomT
           }
         };
 
-        const isDungeon = route.name === 'dungeon';
-
-        if (isDungeon) {
-          return (
-            <TouchableOpacity
-              key={route.key}
-              activeOpacity={0.85}
-              onPress={onPress}
-              style={styles.dungeonTab}
-            >
-              <View style={styles.centerButtonOuter}>
-                <View
-                  style={[
-                    styles.centerButtonCircle,
-                    isFocused ? styles.centerButtonActive : styles.centerButtonInactive,
-                  ]}
-                >
-                  {isFocused && <View style={styles.centerRingHighlight} />}
-                  <Image
-                    source={config.icon}
-                    style={[
-                      styles.dungeonTabIcon,
-                      { transform: [{ scale: isFocused ? 1.06 : 1 }] },
-                    ]}
-                    resizeMode="contain"
-                  />
-                </View>
-              </View>
-              <Text
-                style={[
-                  styles.tabLabel,
-                  isFocused ? styles.tabLabelActive : styles.tabLabelInactive,
-                ]}
-              >
-                {config.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        }
+        const currentHeight = isFocused ? itemHeight + 12 : itemHeight;
 
         return (
           <TouchableOpacity
             key={route.key}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
             onPress={onPress}
-            style={styles.regularTab}
+            style={[
+              styles.tabButton,
+              { width: itemWidth, height: currentHeight, zIndex: isFocused ? 10 : 1 },
+            ]}
+            hitSlop={{ top: 12, bottom: 8, left: 4, right: 4 }}
           >
-            <View style={styles.regularIconContainer}>
-              <Image
-                source={config.icon}
-                style={[
-                  styles.regularTabIcon,
-                  {
-                    opacity: isFocused ? 1 : 0.65,
-                    transform: [{ scale: isFocused ? 1.08 : 1 }],
-                  },
-                ]}
-                resizeMode="contain"
-              />
-            </View>
-            <Text
+            <View
               style={[
-                styles.tabLabel,
-                isFocused ? styles.tabLabelActive : styles.tabLabelInactive,
+                styles.iconWrapper,
+                { width: itemWidth + 2, height: currentHeight },
+                isFocused ? styles.iconWrapperActive : styles.iconWrapperInactive,
               ]}
             >
-              {config.label}
-            </Text>
+              <Image
+                source={config.icon}
+                style={{ width: itemWidth + 2, height: currentHeight }}
+                resizeMode="stretch"
+              />
+              <OutlinedText
+                text={config.label}
+                color={isFocused ? '#ffea79' : '#ffffff'}
+                fontSize={8.5}
+              />
+            </View>
           </TouchableOpacity>
         );
       })}
@@ -144,95 +135,84 @@ export default function BottomNavBar({ state, descriptors, navigation }: BottomT
   );
 }
 
+interface OutlinedTextProps {
+  text: string;
+  color: string;
+  outlineColor?: string;
+  outlineWidth?: number;
+  fontSize?: number;
+}
+
+function OutlinedText({
+  text,
+  color,
+  outlineColor = '#1a1008',
+  outlineWidth = 1,
+  fontSize = 8.5,
+}: OutlinedTextProps) {
+  const baseStyle: TextStyle = {
+    fontFamily: GameFonts.brawl,
+    fontSize,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    position: 'absolute',
+  };
+
+  const d = outlineWidth;
+
+  return (
+    <View style={styles.outlinedTextContainer}>
+      <Text style={[baseStyle, { color: outlineColor, transform: [{ translateX: -d }, { translateY: -d }] }]}>{text}</Text>
+      <Text style={[baseStyle, { color: outlineColor, transform: [{ translateX: 0 }, { translateY: -d }] }]}>{text}</Text>
+      <Text style={[baseStyle, { color: outlineColor, transform: [{ translateX: d }, { translateY: -d }] }]}>{text}</Text>
+      <Text style={[baseStyle, { color: outlineColor, transform: [{ translateX: -d }, { translateY: 0 }] }]}>{text}</Text>
+      <Text style={[baseStyle, { color: outlineColor, transform: [{ translateX: d }, { translateY: 0 }] }]}>{text}</Text>
+      <Text style={[baseStyle, { color: outlineColor, transform: [{ translateX: -d }, { translateY: d }] }]}>{text}</Text>
+      <Text style={[baseStyle, { color: outlineColor, transform: [{ translateX: 0 }, { translateY: d }] }]}>{text}</Text>
+      <Text style={[baseStyle, { color: outlineColor, transform: [{ translateX: d }, { translateY: d }] }]}>{text}</Text>
+      <Text style={[baseStyle, { color, position: 'relative' }]}>{text}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    width: '100%',
     backgroundColor: '#fff9f0',
-    borderTopWidth: 3,
-    borderTopColor: '#1a1008',
-    paddingTop: 8,
-    paddingHorizontal: 8,
+    paddingTop: 18,
+    paddingHorizontal: 0,
     overflow: 'visible',
     zIndex: 50,
   },
-  regularTab: {
-    flex: 1,
-    maxWidth: 72,
+  tabButton: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 2,
-  },
-  regularIconContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 28,
-    width: 28,
-  },
-  regularTabIcon: {
-    width: 26,
-    height: 26,
-  },
-  dungeonTab: {
-    flex: 1,
-    maxWidth: 82,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 2,
+    justifyContent: 'flex-end',
+    marginHorizontal: -1,
     overflow: 'visible',
-    zIndex: 100,
   },
-  centerButtonOuter: {
-    position: 'relative',
-    marginTop: -28,
-    width: 64,
-    height: 64,
+  iconWrapper: {
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  centerButtonCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 3.5,
-    borderColor: '#1a1008',
-    alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     position: 'relative',
   },
-  centerButtonActive: {
-    backgroundColor: '#e8302a',
+  iconWrapperActive: {
+    opacity: 1,
+    zIndex: 10,
   },
-  centerButtonInactive: {
-    backgroundColor: '#ffffff',
+  iconWrapperInactive: {
+    opacity: 1,
+    zIndex: 1,
   },
-  centerRingHighlight: {
+  outlinedTextContainer: {
     position: 'absolute',
-    top: 2.5,
-    left: 2.5,
-    right: 2.5,
-    bottom: 2.5,
-    borderRadius: 29,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.45)',
-  },
-  dungeonTabIcon: {
-    width: 44,
-    height: 44,
-  },
-  tabLabel: {
-    fontFamily: GameFonts.brawl,
-    fontSize: 9.5,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-    marginTop: 3,
-  },
-  tabLabelActive: {
-    color: '#e8302a',
-  },
-  tabLabelInactive: {
-    color: '#7a6a55',
+    bottom: 5,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

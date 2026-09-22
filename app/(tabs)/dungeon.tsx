@@ -97,31 +97,14 @@ export default function DungeonScreen() {
       <View style={styles.subnavDock}>
         {SUB_TABS.map((tab) => {
           const isSelected = activeTab === tab.id;
-          const isVersus = tab.id === 'versus';
-          const isRank = tab.id === 'rank';
 
           return (
-            <View
-              key={tab.id}
-              style={[
-                styles.subTabWrapper,
-                isVersus && styles.subTabWrapperVersus,
-                isRank && styles.subTabWrapperRank,
-              ]}
-            >
-              <View
-                style={[
-                  styles.subTabShadow,
-                  isVersus && styles.curveBottomRight,
-                  isRank && styles.curveBottomLeft,
-                ]}
-              />
+            <View key={tab.id} style={styles.subTabWrapper}>
+              <View style={styles.subTabShadow} />
               <TouchableOpacity
                 style={[
                   styles.subTabBtn,
                   isSelected ? styles.subTabBtnActive : styles.subTabBtnInactive,
-                  isVersus && styles.curveBottomRight,
-                  isRank && styles.curveBottomLeft,
                 ]}
                 onPress={() => handleTabPress(tab.id)}
                 activeOpacity={0.8}
@@ -166,18 +149,6 @@ const styles = StyleSheet.create({
   subTabWrapper: {
     flex: 1,
     position: 'relative',
-  },
-  subTabWrapperVersus: {
-    marginRight: 8,
-  },
-  subTabWrapperRank: {
-    marginLeft: 8,
-  },
-  curveBottomRight: {
-    borderBottomRightRadius: 20,
-  },
-  curveBottomLeft: {
-    borderBottomLeftRadius: 20,
   },
   subTabShadow: {
     position: 'absolute',

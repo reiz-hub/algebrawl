@@ -21,9 +21,10 @@ const LINE_OFFSET = PADDING_H + ITEM_WIDTH / 2; // Center of first and last node
 
 interface RankRoadProgressProps {
   mmr?: number | null;
+  paddingHorizontal?: number;
 }
 
-export default function RankRoadProgress({ mmr }: RankRoadProgressProps) {
+export default function RankRoadProgress({ mmr, paddingHorizontal = 16 }: RankRoadProgressProps) {
   const currentMmr = mmr ?? 0;
   const currentRank = useMemo(() => getRank(currentMmr), [currentMmr]);
 
@@ -34,30 +35,32 @@ export default function RankRoadProgress({ mmr }: RankRoadProgressProps) {
     return idx >= 0 ? idx : 0;
   }, [currentRank]);
 
-  const nextRank = currentIndex < RANKS.length - 1 ? RANKS[currentIndex + 1] : null;
-
-  // Calculate overall connector progress across the 4 segments (0% to 100%)
+  // The bar will only be highlighted if it reaches the rank (e.g. Bronze->Silver only highlights when reaching Silver)
   const progressPercent = useMemo(() => {
-    if (currentIndex >= RANKS.length - 1) {
-      return 100; // Conqueror (max rank)
-    }
-    const currentMin = currentRank.minMmr;
-    const nextMin = nextRank ? nextRank.minMmr : currentMin + 500;
-    const tierSpan = Math.max(1, nextMin - currentMin);
-    const tierFraction = Math.min(1, Math.max(0, (currentMmr - currentMin) / tierSpan));
-    const totalFraction = (currentIndex + tierFraction) / (RANKS.length - 1);
-    return Math.min(100, Math.max(0, totalFraction * 100));
-  }, [currentMmr, currentIndex, currentRank, nextRank]);
+    if (currentIndex <= 0) return 0;
+    return Math.min(100, Math.max(0, (currentIndex / (RANKS.length - 1)) * 100));
+  }, [currentIndex]);
 
   const handlePressNode = (rankItem: RankInfo) => {
     soundService.playSound('click');
     setSelectedRank(rankItem);
   };
 
+  const lineOffset = (paddingHorizontal ?? 16) + ITEM_WIDTH / 2;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingHorizontal }]}>
       {/* Connector Line Tracks (Positioned behind the badge nodes) */}
-      <View style={styles.lineContainer} pointerEvents="none">
+      <View
+        style={[
+          styles.lineContainer,
+          {
+            left: lineOffset,
+            right: lineOffset,
+          },
+        ]}
+        pointerEvents="none"
+      >
         {/* Base Inactive Groove */}
         <View style={styles.baseTrack} />
 
@@ -221,7 +224,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: LINE_OFFSET,
     right: LINE_OFFSET,
-    top: 25, // Exactly center-aligned with 38px rank icons
+    top: 21, // Exactly center-aligned with 38px rank icons
     height: 12,
     justifyContent: 'center',
     zIndex: 1,
